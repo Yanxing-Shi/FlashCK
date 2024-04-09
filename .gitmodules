@@ -1,0 +1,4 @@
+[submodule "3rdparty/composable_kernel"]
+	path = 3rdparty/composable_kernel
+	url = https://github.com/Yanxing-Shi/composable_kernel.git
+	branch = modify
