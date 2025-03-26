@@ -1,0 +1,13 @@
+add_library(embedding_common_kernel STATIC embedding_common_kernel.cc)
+set_property(TARGET embedding_common_kernel PROPERTY POSITION_INDEPENDENT_CODE  ON)
+target_link_libraries(embedding_common_kernel PUBLIC lightinfer_profiler kernel_factory jinja2cpp log flags)
+
+add_library(embedding_kernel STATIC embedding_kernel.cc)
+set_property(TARGET embedding_kernel PROPERTY POSITION_INDEPENDENT_CODE  ON)
+target_link_libraries(embedding_kernel PUBLIC embedding_common_kernel)
+
+add_library(embedding_add_add_layer_norm_kernel STATIC embedding_add_add_layer_norm_kernel.cc)
+set_property(TARGET embedding_add_add_layer_norm_kernel PROPERTY POSITION_INDEPENDENT_CODE  ON)
+target_link_libraries(embedding_add_add_layer_norm_kernel PUBLIC embedding_common_kernel)
+
+

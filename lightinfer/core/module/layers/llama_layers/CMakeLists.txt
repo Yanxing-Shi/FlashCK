@@ -1,0 +1,15 @@
+add_library(llama_decoder_layer_weight STATIC llama_decoder_layer_weight.cc)
+set_property(TARGET llama_decoder_layer_weight PROPERTY POSITION_INDEPENDENT_CODE  ON)
+target_link_libraries(llama_decoder_layer_weight PUBLIC memory_utils log)
+
+add_library(llama_attention_layer STATIC llama_attention_layer.cc)
+set_property(TARGET llama_attention_layer PROPERTY POSITION_INDEPENDENT_CODE  ON)
+target_link_libraries(llama_attention_layer PUBLIC lightinfer_graph linear_layer layer_norm_layer split_op concat_op reshape_op bmm_softmax_bmm_permute_op)
+
+add_library(llama_mlp_layer STATIC llama_mlp_layer.cc)
+set_property(TARGET llama_mlp_layer PROPERTY POSITION_INDEPENDENT_CODE  ON)
+target_link_libraries(llama_mlp_layer PUBLIC lightinfer_graph linear_layer layer_norm_layer)
+
+add_library(llama_decoder_layer STATIC llama_decoder_layer.cc)
+set_property(TARGET llama_decoder_layer PROPERTY POSITION_INDEPENDENT_CODE  ON)
+target_link_libraries(llama_decoder_layer PUBLIC llama_mlp_layer llama_attention_layer llama_decoder_layer_weight)

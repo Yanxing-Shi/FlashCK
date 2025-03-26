@@ -1,0 +1,8 @@
+add_library(bmm_common_kernel STATIC bmm_common_kernel.cc)
+set_property(TARGET bmm_common_kernel PROPERTY POSITION_INDEPENDENT_CODE  ON)
+target_link_libraries(bmm_common_kernel PUBLIC gemm_common_kernel)
+
+add_library(bmm_rcr_kernel STATIC bmm_rcr_kernel.cc)
+set_property(TARGET bmm_rcr_kernel PROPERTY POSITION_INDEPENDENT_CODE  ON)
+target_link_libraries(bmm_rcr_kernel PUBLIC bmm_common_kernel kernel_factory)
+

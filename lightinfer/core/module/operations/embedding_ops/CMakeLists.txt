@@ -1,0 +1,9 @@
+cmake_minimum_required(VERSION 3.8)
+
+add_library(embedding_op STATIC embedding_op.cc)
+set_property(TARGET embedding_op PROPERTY POSITION_INDEPENDENT_CODE ON)
+target_link_libraries(embedding_op PUBLIC embedding_kernel lightinfer_graph OpenSSL::Crypto log flags enforce)
+
+add_library(embedding_add_add_layer_norm_op STATIC embedding_add_add_layer_norm_op.cc)
+set_property(TARGET embedding_add_add_layer_norm_op PROPERTY POSITION_INDEPENDENT_CODE ON)
+target_link_libraries(embedding_add_add_layer_norm_op PUBLIC embedding_add_add_layer_norm_kernel lightinfer_graph OpenSSL::Crypto log flags enforce)

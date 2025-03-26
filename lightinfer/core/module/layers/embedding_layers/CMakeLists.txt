@@ -1,0 +1,3 @@
+add_library(embedding_layer STATIC embedding_layer.cc)
+set_property(TARGET embedding_layer PROPERTY POSITION_INDEPENDENT_CODE  ON)
+target_link_libraries(embedding_layer PUBLIC embedding_op embedding_add_add_layer_norm_op)

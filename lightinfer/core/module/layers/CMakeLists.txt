@@ -1,0 +1,8 @@
+add_subdirectory(embedding_layers)
+add_subdirectory(gemm_layers)
+add_subdirectory(norm_layers)
+add_subdirectory(attention_layers)
+# add_subdirectory(llama_layers)
+# add_subdirectory(transformer_layers)
+# add_subdirectory(decoding_layers)
+# add_subdirectory(elementwise_layers)
