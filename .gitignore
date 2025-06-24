@@ -145,6 +145,6 @@ tags
 # vim temp files
 *.swp
 
-.lightinfer/
+.flashck/
 kernel_profile/
 *.bin

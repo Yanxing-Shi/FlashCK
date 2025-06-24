@@ -1,7 +1,0 @@
-add_library(linear_layer STATIC linear_layer.cc)
-set_property(TARGET linear_layer PROPERTY POSITION_INDEPENDENT_CODE  ON)
-target_link_libraries(linear_layer PUBLIC gemm_rcr_op gemm_rcr_bias_op gemm_rcr_bias_silu_op gemm_rcr_bias_gelu_op gemm_rcr_bias_tanh_op gemm_rcr_bias_add_op gemm_rcr_bias_permute_op gemm_rcr_bias_multiply_op split_k_gemm_rcr_op)
-
-# add_library(bmm_layer STATIC bmm_layer.cc)
-# set_property(TARGET bmm_layer PROPERTY POSITION_INDEPENDENT_CODE  ON)
-# target_link_libraries(bmm_layer PUBLIC lightinfer_graph bmm_rcr_op)
