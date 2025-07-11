@@ -56,7 +56,7 @@ LinearLayer<T>::LinearLayer(int64_t     in_channels,
         split_k_gemm_rcr_op_ = std::make_unique<SplitKGemmRCROp<T>>();
     }
     else {
-        LI_THROW(Unavailable("unsupported gemm op {}", gemm_op_name_));
+        FC_THROW(Unavailable("unsupported gemm op {}", gemm_op_name_));
     }
 
     // param node
@@ -114,7 +114,7 @@ Variable* LinearLayer<T>::operator()(Variable* a, Variable* d0)
         c = (*split_k_gemm_rcr_op_)(a, weight_var_.get());
     }
     else {
-        LI_THROW(Unavailable("unsupported gemm op {}", gemm_op_name_));
+        FC_THROW(Unavailable("unsupported gemm op {}", gemm_op_name_));
     }
 
     SetOutputs({c});

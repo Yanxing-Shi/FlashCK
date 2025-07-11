@@ -20,7 +20,7 @@ void GemmRCRBiasOp<T>::IsVaildInputs(Variable* a, Variable* b, Variable* bias)
 {
     Shape bias_shapes = bias->GetShape();
     if (bias_shapes.GetNumDim() != 1)
-        LI_THROW(Unavailable("Bias should be 1D vector! Current bias shape: {}", bias_shapes.ToString()));
+        FC_THROW(Unavailable("Bias should be 1D vector! Current bias shape: {}", bias_shapes.ToString()));
 
     // check a and b shape
     Shape a_shape = a->GetShape();
@@ -31,13 +31,13 @@ void GemmRCRBiasOp<T>::IsVaildInputs(Variable* a, Variable* b, Variable* bias)
     DDim bias_shape = bias_shapes.GetDim(0);
     VLOG(1) << "bias_shape" << bias_shape.ToString();
     if (!bias_shape.IsStatic()) {
-        LI_THROW(Unavailable("Bias should be fixed 1D vector! Current bias shape: {}", bias_shape.ToString()));
+        FC_THROW(Unavailable("Bias should be fixed 1D vector! Current bias shape: {}", bias_shape.ToString()));
     }
 
     Shape output_shape = this->InferShape(a, b);
     VLOG(1) << "c_shape" << output_shape.ToString();
     if (output_shape.GetLastDim() != bias_shape) {
-        LI_THROW(Unavailable("GEMM/Bias shape doesn't match! Gemm shape: {}, bias shape: {}",
+        FC_THROW(Unavailable("GEMM/Bias shape doesn't match! Gemm shape: {}, bias shape: {}",
                              output_shape.ToString(),
                              bias_shape.ToString()));
     }

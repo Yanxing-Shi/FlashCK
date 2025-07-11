@@ -1,6 +1,6 @@
 #include "flashck/core/module/kernels/gemm_kernels/gemm_epilogue_kernels/gemm_rcr_kernel.h"
 
-#include "flashck/core/profiler/library.h"
+#include "flashck/core/profiling/library.h"
 
 #include "flashck/core/module/kernels/gemm_kernels/layout.h"
 

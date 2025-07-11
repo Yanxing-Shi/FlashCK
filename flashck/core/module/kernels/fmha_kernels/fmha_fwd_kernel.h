@@ -553,4 +553,4 @@ public:
 
 }  // namespace flashck
 
-flashck_REGISTER_KERNEL(CK_TILE, fmha_fwd, flashck::FmhaFwdKernel, ALL_LAYOUT, _Float16, ushort);
+FC_REGISTER_KERNEL(CK_TILE, fmha_fwd, flashck::FmhaFwdKernel, ALL_LAYOUT, _Float16, ushort);

@@ -44,14 +44,14 @@ Variable::Variable(std::string name, Variable* parent_var, bool is_first):
 void Variable::SetFixedMemory()
 {
     if (type_ == VarType::OffsetVar) {
-        LI_THROW(Unavailable("{} variable is offset var, can not set fixed memory", name_));
+        FC_THROW(Unavailable("{} variable is offset var, can not set fixed memory", name_));
     }
 
     if (children_var_.size() && GetParentsNode().size() > 0) {
         return;
     }
     if (GetParentsNode().size() > 0 && GetChildrenNode().size() > 0) {
-        LI_THROW(Unavailable("{} node is not a IONode, can not set fixed memory", name_));
+        FC_THROW(Unavailable("{} node is not a IONode, can not set fixed memory", name_));
     }
 
     value_->ResetFixed();
@@ -162,7 +162,7 @@ void Variable::PrintVar()
             value_->PrintTensor();
         }
         catch (...) {
-            LI_THROW(Unavailable("{} variable print tensor value failed", name_));
+            FC_THROW(Unavailable("{} variable print tensor value failed", name_));
         }
     }
 }

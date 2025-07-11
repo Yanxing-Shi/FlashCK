@@ -1,5 +1,14 @@
 #pragma once
 
+#include <exception>
+#include <iostream>
+#include <sstream>
+#include <string>
+#include <type_traits>
+#include <unistd.h>
+
+#include "flashck/core/utils/errors.h"
+
 namespace flashck {
 
 template<typename T>
@@ -206,12 +215,12 @@ private:
     std::string simple_err_str_;
 };
 
-#define LI_THROW(...)                                                                                                  \
+#define FC_THROW(...)                                                                                                  \
     do {                                                                                                               \
         throw EnforceNotMet(ErrorSummary(__VA_ARGS__), __FILE__, __LINE__);                                            \
     } while (0)
 
-#define LI_ENFORCE(_IS_NOT_ERROR, __FORMAT, ...)                                                                       \
+#define FC_ENFORCE(_IS_NOT_ERROR, __FORMAT, ...)                                                                       \
     do {                                                                                                               \
         if (!(_IS_NOT_ERROR)) {                                                                                        \
             printf("Error: %s:%d Assertion `%s` failed. " __FORMAT "\n",                                               \
@@ -223,7 +232,7 @@ private:
         }                                                                                                              \
     } while (0)
 
-#define LI_ENFORCE_NOT_NULL(__VAL, ...)                                                                                \
+#define FC_ENFORCE_NOT_NULL(__VAL, ...)                                                                                \
     do {                                                                                                               \
         if (nullptr == (__VAL)) {                                                                                      \
             auto __summary__ = ErrorSummary(__VA_ARGS__);                                                              \
@@ -232,7 +241,7 @@ private:
         }                                                                                                              \
     } while (0)
 
-#define LI_WARN_NOT_NULL(__VAL, ...)                                                                                   \
+#define FC_WARN_NOT_NULL(__VAL, ...)                                                                                   \
     do {                                                                                                               \
         if (nullptr == (__VAL)) {                                                                                      \
             auto __summary__ = ErrorSummary(__VA_ARGS__);                                                              \
@@ -241,7 +250,7 @@ private:
         }                                                                                                              \
     } while (0)
 
-#define __LI_BINARY_COMPARE(__VAL1, __VAL2, __CMP, __INV_CMP, ...)                                                     \
+#define __FC_BINARY_COMPARE(__VAL1, __VAL2, __CMP, __INV_CMP, ...)                                                     \
     do {                                                                                                               \
         auto __val1            = (__VAL1);                                                                             \
         auto __val2            = (__VAL2);                                                                             \
@@ -263,11 +272,11 @@ private:
         }                                                                                                              \
     } while (0)
 
-#define LI_ENFORCE_EQ(__VAL0, __VAL1, ...) __LI_BINARY_COMPARE(__VAL0, __VAL1, ==, !=, __VA_ARGS__)
-#define LI_ENFORCE_NE(__VAL0, __VAL1, ...) __LI_BINARY_COMPARE(__VAL0, __VAL1, !=, ==, __VA_ARGS__)
-#define LI_ENFORCE_GT(__VAL0, __VAL1, ...) __LI_BINARY_COMPARE(__VAL0, __VAL1, >, <=, __VA_ARGS__)
-#define LI_ENFORCE_GE(__VAL0, __VAL1, ...) __LI_BINARY_COMPARE(__VAL0, __VAL1, >=, <, __VA_ARGS__)
-#define LI_ENFORCE_LT(__VAL0, __VAL1, ...) __LI_BINARY_COMPARE(__VAL0, __VAL1, <, >=, __VA_ARGS__)
-#define LI_ENFORCE_LE(__VAL0, __VAL1, ...) __LI_BINARY_COMPARE(__VAL0, __VAL1, <=, >, __VA_ARGS__)
+#define FC_ENFORCE_EQ(__VAL0, __VAL1, ...) __FC_BINARY_COMPARE(__VAL0, __VAL1, ==, !=, __VA_ARGS__)
+#define FC_ENFORCE_NE(__VAL0, __VAL1, ...) __FC_BINARY_COMPARE(__VAL0, __VAL1, !=, ==, __VA_ARGS__)
+#define FC_ENFORCE_GT(__VAL0, __VAL1, ...) __FC_BINARY_COMPARE(__VAL0, __VAL1, >, <=, __VA_ARGS__)
+#define FC_ENFORCE_GE(__VAL0, __VAL1, ...) __FC_BINARY_COMPARE(__VAL0, __VAL1, >=, <, __VA_ARGS__)
+#define FC_ENFORCE_LT(__VAL0, __VAL1, ...) __FC_BINARY_COMPARE(__VAL0, __VAL1, <, >=, __VA_ARGS__)
+#define FC_ENFORCE_LE(__VAL0, __VAL1, ...) __FC_BINARY_COMPARE(__VAL0, __VAL1, <=, >, __VA_ARGS__)
 
 }  // namespace flashck

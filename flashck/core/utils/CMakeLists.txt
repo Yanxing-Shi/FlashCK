@@ -9,22 +9,12 @@ set(UtilsFile
     init.cc
     flags.cc
     dylib_utils.cc
-    dtype.cc
-    errors.cc
     file_utils.cc
     memory_utils.cc
     hip_utils.cc)
 
 add_library(utils STATIC ${UtilsFile})
 set_property(TARGET utils PROPERTY POSITION_INDEPENDENT_CODE ON)
-# target_link_libraries(utils PUBLIC)
-
-
-
-
-
-
-
-
-
-
+target_include_directories(utils INTERFACE common.h)
+target_link_libraries(utils PUBLIC
+    glog::glog gflags jinja2cpp fmt::fmt hip::device)

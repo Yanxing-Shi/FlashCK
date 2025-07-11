@@ -11,7 +11,7 @@ FmhaFwdSplitKVCombineOp<T>::FmhaFwdSplitKVCombineOp(
     std::string op_name, FmhaOperationMode op_mode, int64_t q_num_heads, int64_t v_head_dim, int64_t num_splits):
     FmhaCommonOp<T, FmhaFwdSplitKVCombineOp<T>>::FmhaCommonOp(op_name)
 {
-    LI_ENFORCE_LE(num_splits, 128, Unavailable("num_splits greater than 128 is not supported"));
+    FC_ENFORCE_LE(num_splits, 128, Unavailable("num_splits greater than 128 is not supported"));
 
     this->op_kind_     = FmhaOperationKind::FwdSplitKVCombine;
     this->op_name_     = op_name;
@@ -105,40 +105,40 @@ void FmhaFwdSplitKVCombineOp<T>::SanityCheck(Variable* out_acc, Variable* lse_ac
     // op mode
     if (this->op_mode_ == FmhaOperationMode::Group && lse_acc->GetShape().GetDim(1) != DDim(1)
         && out_acc->GetShape().GetDim(1) != DDim(1)) {
-        LI_THROW(Unimplemented("group mode batch size must 1"));
+        FC_THROW(Unimplemented("group mode batch size must 1"));
     }
 
     // num of dimensions
     if (lse_acc->GetShape().GetNumDim() != 4 && out_acc->GetShape().GetNumDim() != 5) {
-        LI_THROW(Unimplemented("lse_acc and out acc must be 4D, but got {} and {}",
+        FC_THROW(Unimplemented("lse_acc and out acc must be 4D, but got {} and {}",
                                lse_acc->GetShape().GetNumDim(),
                                out_acc->GetShape().GetNumDim()));
     }
 
     // num splits
     if (lse_acc->GetShape().GetDim(0) != out_acc->GetShape().GetDim(0)) {
-        LI_THROW(Unimplemented("lse_acc and out_acc num_splits must be the same, but got {} and {}",
+        FC_THROW(Unimplemented("lse_acc and out_acc num_splits must be the same, but got {} and {}",
                                lse_acc->GetShape().GetDim(0).ToString(),
                                out_acc->GetShape().GetDim(0).ToString()));
     }
 
     // batch_size
     if (lse_acc->GetShape().GetDim(1) != out_acc->GetShape().GetDim(1)) {
-        LI_THROW(Unimplemented("lse_acc and out_acc batch size must be the same, but got {} and {}",
+        FC_THROW(Unimplemented("lse_acc and out_acc batch size must be the same, but got {} and {}",
                                lse_acc->GetShape().GetDim(1).ToString(),
                                out_acc->GetShape().GetDim(1).ToString()));
     }
 
     // q_num_heads
     if (lse_acc->GetShape().GetDim(3) != out_acc->GetShape().GetDim(3)) {
-        LI_THROW(Unimplemented("lse_acc and out_acc q_num_heads must be the same, but got {} and {}",
+        FC_THROW(Unimplemented("lse_acc and out_acc q_num_heads must be the same, but got {} and {}",
                                lse_acc->GetShape().GetDim(3).ToString(),
                                out_acc->GetShape().GetDim(3).ToString()));
     }
 
     // q_seq_len
     if (lse_acc->GetShape().GetDim(2) != out_acc->GetShape().GetDim(2)) {
-        LI_THROW(Unimplemented("lse_acc and out_acc q_seq_len must be the same, but got {} and {}",
+        FC_THROW(Unimplemented("lse_acc and out_acc q_seq_len must be the same, but got {} and {}",
                                lse_acc->GetShape().GetDim(2).ToString(),
                                out_acc->GetShape().GetDim(2).ToString()));
     }
@@ -146,20 +146,20 @@ void FmhaFwdSplitKVCombineOp<T>::SanityCheck(Variable* out_acc, Variable* lse_ac
     // seqstart_q
     if (seqstart_q != nullptr) {
         if (seqstart_q->GetShape().GetNumDim() != 1) {
-            LI_THROW(Unimplemented("seqstart_q must be 1D, but got {}", seqstart_q->GetShape().GetNumDim()));
+            FC_THROW(Unimplemented("seqstart_q must be 1D, but got {}", seqstart_q->GetShape().GetNumDim()));
         }
 
         if (seqstart_q->GetShape().GetDim(0) != lse_acc->GetShape().GetDim(1) + DDim(1)) {
-            LI_THROW(Unimplemented("seqstart_q must be batch_size + 1"));
+            FC_THROW(Unimplemented("seqstart_q must be batch_size + 1"));
         }
 
         // if (seqstart_q->GetDtype() != DataType::INT32) {
-        //     LI_THROW(Unimplemented("seqstart_q must be int32 tensor, but got seqstart_q: {}",
+        //     FC_THROW(Unimplemented("seqstart_q must be int32 tensor, but got seqstart_q: {}",
         //                              DataTypeToString(seqstart_q->GetDtype())));
         // }
 
         if (this->op_mode_ != FmhaOperationMode::Group) {
-            LI_THROW(Unimplemented("seqstart_q and seqstart_k are only used in group mode"));
+            FC_THROW(Unimplemented("seqstart_q and seqstart_k are only used in group mode"));
         }
     }
 }

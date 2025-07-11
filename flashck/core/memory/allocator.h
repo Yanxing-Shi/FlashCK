@@ -49,7 +49,7 @@ public:
     {
         if (!size)
             return nullptr;
-        LI_ENFORCE(size <= kMaxAllocation, "Exceeds max allocation size");
+        FC_ENFORCE(size <= kMaxAllocation, "Exceeds max allocation size");
 
         ScopedContext guard(device_id_);
         char*         ptr = AllocMemory(size, is_device);

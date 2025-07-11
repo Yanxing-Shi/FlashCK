@@ -1,6 +1,6 @@
 #include "flashck/core/module/kernels/gemm_kernels/gemm_epilogue_kernels/gemm_rcr_bias_permute_m2n3_kernel.h"
 
-#include "flashck/core/profiler/library.h"
+#include "flashck/core/profiling/library.h"
 
 static const std::string g_args_parser_source_m2n3 = R"(
   ck::index_t K = std::stoi(argv[1]);

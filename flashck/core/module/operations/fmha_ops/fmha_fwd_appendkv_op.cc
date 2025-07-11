@@ -20,26 +20,26 @@ FmhaFwdAppendKVOp<T>::FmhaFwdAppendKVOp(std::string       op_name,
     FmhaCommonOp<T, FmhaFwdAppendKVOp<T>>::FmhaCommonOp(op_name)
 {
     if (CppTypeToDataType<T>::Type() != DataType::FLOAT16 || CppTypeToDataType<T>::Type() != DataType::BFLOAT16) {
-        LI_ENFORCE_GT(rotary_dim, 0, Unavailable("rotary embedding is only available for data type=fp16|bf16"));
+        FC_ENFORCE_GT(rotary_dim, 0, Unavailable("rotary embedding is only available for data type=fp16|bf16"));
     }
 
-    LI_ENFORCE_LE(rotary_dim, qk_head_dim, Unavailable("rotary_dim should be less than or equal to head dim for q"));
-    LI_ENFORCE_EQ(rotary_dim % 16, 0, Unavailable("only rotary dimensions divisible by 16 are currently supported"));
-    LI_ENFORCE_EQ(paged_block_size % 128,
+    FC_ENFORCE_LE(rotary_dim, qk_head_dim, Unavailable("rotary_dim should be less than or equal to head dim for q"));
+    FC_ENFORCE_EQ(rotary_dim % 16, 0, Unavailable("only rotary dimensions divisible by 16 are currently supported"));
+    FC_ENFORCE_EQ(paged_block_size % 128,
                   0,
                   Unavailable("only paged-kvcache block size divisible by 128 are currently supported"));
     if (paged_block_size > 0 && use_cache_batch_idx) {
-        LI_THROW(Unavailable("paged-kvcache does not support cache_batch_idx"));
+        FC_THROW(Unavailable("paged-kvcache does not support cache_batch_idx"));
     }
     if (use_cache_batch_idx && op_mode == FmhaOperationMode::Group) {
         Unavailable("fmha append kv op only supports batch mode");
     }
-    LI_ENFORCE_EQ(
+    FC_ENFORCE_EQ(
         q_num_heads % kv_num_heads,
         0,
         Unavailable("q_num_heads should be divisible by kv_num_heads, but got {} and {}", q_num_heads, kv_num_heads));
 
-    LI_ENFORCE_LE(qk_head_dim, 256, Unavailable("FlashAttention forward only supports head dimension at most 256"));
+    FC_ENFORCE_LE(qk_head_dim, 256, Unavailable("FlashAttention forward only supports head dimension at most 256"));
 
     this->op_kind_      = FmhaOperationKind::FwdAppendKV;
     this->op_name_      = op_name;
@@ -142,7 +142,7 @@ void FmhaFwdAppendKVOp<T>::SanityCheck(Variable* q,
     // num of dimensions
     if (q->GetShape().GetNumDim() != k->GetShape().GetNumDim()
         || q->GetShape().GetNumDim() != v->GetShape().GetNumDim()) {
-        LI_THROW(Unimplemented("q, k, v must have the same number of dimensions, but got q: {}, k: {}, v: {}",
+        FC_THROW(Unimplemented("q, k, v must have the same number of dimensions, but got q: {}, k: {}, v: {}",
                                q->GetShape().GetNumDim(),
                                k->GetShape().GetNumDim(),
                                v->GetShape().GetNumDim()));
@@ -150,7 +150,7 @@ void FmhaFwdAppendKVOp<T>::SanityCheck(Variable* q,
 
     // batch size
     if (q->GetShape().GetDim(0) != k->GetShape().GetDim(0) || q->GetShape().GetDim(0) != v->GetShape().GetDim(0)) {
-        LI_THROW(Unimplemented("q, k, v must have the same batch size, but got q: {}, k: {}, v: {}",
+        FC_THROW(Unimplemented("q, k, v must have the same batch size, but got q: {}, k: {}, v: {}",
                                q->GetShape().GetDim(0).ToString(),
                                k->GetShape().GetDim(0).ToString(),
                                v->GetShape().GetDim(0).ToString()));
@@ -158,7 +158,7 @@ void FmhaFwdAppendKVOp<T>::SanityCheck(Variable* q,
 
     // new kv seq_len
     if (k->GetShape().GetDim(1) != v->GetShape().GetDim(1)) {
-        LI_THROW(Unimplemented("k, v must have the same seq_len, but got k: {}, v: {}",
+        FC_THROW(Unimplemented("k, v must have the same seq_len, but got k: {}, v: {}",
                                k->GetShape().GetDim(1).ToString(),
                                v->GetShape().GetDim(1).ToString()));
     }
@@ -166,28 +166,28 @@ void FmhaFwdAppendKVOp<T>::SanityCheck(Variable* q,
     // num heads
     if (q->GetShape().GetDim(2) != DDim(this->q_num_heads_) || k->GetShape().GetDim(2) != DDim(this->kv_num_heads_)
         || v->GetShape().GetDim(2) != DDim(this->kv_num_heads_)) {
-        LI_THROW(Unimplemented("num heads not right"));
+        FC_THROW(Unimplemented("num heads not right"));
     }
 
     // embed_dim
     if (q->GetShape().GetDim(3) != DDim(this->qk_head_dim_) || k->GetShape().GetDim(3) != DDim(this->qk_head_dim_)
         || v->GetShape().GetDim(3) != DDim(this->v_head_dim_)) {
-        LI_THROW(Unimplemented("embedding dim not right"));
+        FC_THROW(Unimplemented("embedding dim not right"));
     }
 
     // block tables
     if (block_table != nullptr) {
         if (this->paged_block_size_ <= 0) {
-            LI_THROW(Unimplemented("block_table is not supported for paged_block_size == 0"));
+            FC_THROW(Unimplemented("block_table is not supported for paged_block_size == 0"));
         }
 
         if (block_table->GetShape().GetNumDim() != 2) {
-            LI_THROW(Unimplemented("block_table must have 2 dimensions, but got block_table: {}",
+            FC_THROW(Unimplemented("block_table must have 2 dimensions, but got block_table: {}",
                                    block_table->GetShape().GetNumDim()));
         }
 
         if (block_table->GetShape().GetDim(0) != q->GetShape().GetDim(0)) {
-            LI_THROW(Unimplemented("block_table must have the same batch size as query, but got block_table: {}",
+            FC_THROW(Unimplemented("block_table must have the same batch size as query, but got block_table: {}",
                                    block_table->GetShape().GetDim(0).ToString()));
         }
     }
@@ -195,17 +195,17 @@ void FmhaFwdAppendKVOp<T>::SanityCheck(Variable* q,
     // k seq_len
     if (cache_seqlen_k != nullptr) {
         if (cache_seqlen_k->GetDtype() != DataType::INT64) {
-            LI_THROW(Unimplemented("cache_seqlen_k must be int64 tensor, but got cache_seqlen_k: {}",
+            FC_THROW(Unimplemented("cache_seqlen_k must be int64 tensor, but got cache_seqlen_k: {}",
                                    DataTypeToString(cache_seqlen_k->GetDtype())));
         }
 
-        LI_ENFORCE_EQ(cache_seqlen_k->GetShape().GetNumDim(),
+        FC_ENFORCE_EQ(cache_seqlen_k->GetShape().GetNumDim(),
                       1,
                       Unimplemented("cache_seqlen_k must be 1D tensor, but got cache_seqlen_k: {}",
                                     cache_seqlen_k->GetShape().GetNumDim()));
 
         if (cache_seqlen_k->GetShape().GetDim(0) != k->GetShape().GetDim(0)) {
-            LI_THROW(Unimplemented("cache_seqlen_k must have the same batch size as k, but got cache_seqlen_k: {}",
+            FC_THROW(Unimplemented("cache_seqlen_k must have the same batch size as k, but got cache_seqlen_k: {}",
                                    cache_seqlen_k->GetShape().GetDim(0).ToString()));
         }
     }
@@ -215,12 +215,12 @@ void FmhaFwdAppendKVOp<T>::SanityCheck(Variable* q,
         // cache_k: [max_num_page_blocks, paged_block_size, kv_num_heads, qk_head_dim]
         // cache_v: [max_num_page_blocks, paged_block_size, kv_num_heads, v_head_dim]
         if (cache_k->GetShape().GetNumDim() != 4) {
-            LI_THROW(
+            FC_THROW(
                 Unimplemented("cache_k must have 4 dimensions, but got cache_k: {}", cache_k->GetShape().GetNumDim()));
         }
 
         if (cache_v->GetShape().GetNumDim() != 4) {
-            LI_THROW(
+            FC_THROW(
                 Unimplemented("cache_v must have 4 dimensions, but got cache_v: {}", cache_k->GetShape().GetNumDim()));
         }
 
@@ -228,7 +228,7 @@ void FmhaFwdAppendKVOp<T>::SanityCheck(Variable* q,
             || cache_k->GetShape().GetDim(1) != DDim(this->paged_block_size_)
             || cache_k->GetShape().GetDim(2) != DDim(this->kv_num_heads_)
             || cache_k->GetShape().GetDim(3) != DDim(this->qk_head_dim_)) {
-            LI_THROW(Unimplemented("cache_k must have shape [num_blocks, paged_block_size, qk_num_heads, qk_head_dim], "
+            FC_THROW(Unimplemented("cache_k must have shape [num_blocks, paged_block_size, qk_num_heads, qk_head_dim], "
                                    "but got cache_k: {}",
                                    cache_k->GetShape().ToString()));
         }
@@ -236,7 +236,7 @@ void FmhaFwdAppendKVOp<T>::SanityCheck(Variable* q,
         if (cache_v->GetShape().GetDim(1) != DDim(this->paged_block_size_)
             || cache_v->GetShape().GetDim(2) != DDim(this->kv_num_heads_)
             || cache_v->GetShape().GetDim(3) != DDim(this->v_head_dim_)) {
-            LI_THROW(Unimplemented("cache_v must have shape [num_blocks, paged_block_size, qk_num_heads, v_head_dim], "
+            FC_THROW(Unimplemented("cache_v must have shape [num_blocks, paged_block_size, qk_num_heads, v_head_dim], "
                                    "but got cache_v: {}",
                                    cache_v->GetShape().ToString()));
         }
@@ -245,12 +245,12 @@ void FmhaFwdAppendKVOp<T>::SanityCheck(Variable* q,
         // cache_k: [batch_size, kv_seq_len, kv_num_heads, qk_head_dim]
         // cache_v: [batch_size, kv_seq_len, kv_num_heads, v_head_dim]
         if (cache_k->GetShape().GetNumDim() != 4) {
-            LI_THROW(
+            FC_THROW(
                 Unimplemented("cache_k must have 4 dimensions, but got cache_k: {}", cache_k->GetShape().GetNumDim()));
         }
 
         if (cache_k->GetShape().GetNumDim() != 4) {
-            LI_THROW(
+            FC_THROW(
                 Unimplemented("cache_k must have 4 dimensions, but got cache_k: {}", cache_k->GetShape().GetNumDim()));
         }
 
@@ -258,7 +258,7 @@ void FmhaFwdAppendKVOp<T>::SanityCheck(Variable* q,
             || cache_k->GetShape().GetDim(1) != cache_v->GetShape().GetDim(1)
             || cache_k->GetShape().GetDim(2) != DDim(this->kv_num_heads_)
             || cache_k->GetShape().GetDim(3) != DDim(this->qk_head_dim_)) {
-            LI_THROW(Unimplemented("cache_k must have shape [batch_size, kv_seq_len, qk_num_heads, qk_head_dim], "
+            FC_THROW(Unimplemented("cache_k must have shape [batch_size, kv_seq_len, qk_num_heads, qk_head_dim], "
                                    "but got cache_k: {}",
                                    cache_k->GetShape().ToString()));
         }
@@ -267,7 +267,7 @@ void FmhaFwdAppendKVOp<T>::SanityCheck(Variable* q,
             || cache_v->GetShape().GetDim(1) != cache_k->GetShape().GetDim(1)
             || cache_v->GetShape().GetDim(2) != DDim(this->kv_num_heads_)
             || cache_v->GetShape().GetDim(3) != DDim(this->v_head_dim_)) {
-            LI_THROW(Unimplemented("cache_v must have shape [batch_size, kv_seq_len, qk_num_heads, v_head_dim], "
+            FC_THROW(Unimplemented("cache_v must have shape [batch_size, kv_seq_len, qk_num_heads, v_head_dim], "
                                    "but got cache_v: {}",
                                    cache_v->GetShape().ToString()));
         }
@@ -276,28 +276,28 @@ void FmhaFwdAppendKVOp<T>::SanityCheck(Variable* q,
     // check rotary sin, rotary cos
     if (rotary_sin != nullptr && rotary_cos != nullptr) {
         if (this->rotary_dim_ <= 0) {
-            LI_THROW(Unimplemented("rotary_dim must be set when using rotary_sin and rotary_cos"));
+            FC_THROW(Unimplemented("rotary_dim must be set when using rotary_sin and rotary_cos"));
         }
 
         if (rotary_sin->GetShape().GetNumDim() != 2) {
-            LI_THROW(Unimplemented("rotary_sin must have 2 dimension, but got rotary_sin: {}",
+            FC_THROW(Unimplemented("rotary_sin must have 2 dimension, but got rotary_sin: {}",
                                    rotary_sin->GetShape().GetNumDim()));
         }
 
         if (rotary_sin->GetShape().GetDim(0) != rotary_cos->GetShape().GetDim(0)
             || rotary_sin->GetShape().GetDim(1) != DDim(this->rotary_dim_ / 2)) {
-            LI_THROW(Unimplemented(
+            FC_THROW(Unimplemented(
                 "rotary_sin must have shape [max(q_seqlen, kv_seq_len)*2, rotary_dim / 2], but got rotary_sin: {}",
                 rotary_sin->GetShape().ToString()));
         }
 
         if (rotary_cos->GetShape().GetNumDim() != 2) {
-            LI_THROW(Unimplemented("rotary_cos must have 2 dimension, but got rotary_cos: {}",
+            FC_THROW(Unimplemented("rotary_cos must have 2 dimension, but got rotary_cos: {}",
                                    rotary_cos->GetShape().GetNumDim()));
         }
 
         if (rotary_cos->GetShape().GetDim(1) != DDim(this->rotary_dim_ / 2)) {
-            LI_THROW(Unimplemented(
+            FC_THROW(Unimplemented(
                 "rotary_cos must have shape [max(q_seqlen, kv_seq_len)*2, rotary_dim / 2], but got rotary_cos: {}",
                 rotary_cos->GetShape().ToString()));
         }
@@ -306,16 +306,16 @@ void FmhaFwdAppendKVOp<T>::SanityCheck(Variable* q,
     // cache_batch_idx
     if (this->use_cache_batch_idx_) {
         if (cache_batch_idx == nullptr) {
-            LI_THROW(Unimplemented("cache_batch_idx not nullptr"));
+            FC_THROW(Unimplemented("cache_batch_idx not nullptr"));
         }
 
         if (cache_batch_idx->GetShape().GetNumDim() != 1) {
-            LI_THROW(Unimplemented("cache_batch_idx must have 1 dimension, but got cache_batch_idx: {}",
+            FC_THROW(Unimplemented("cache_batch_idx must have 1 dimension, but got cache_batch_idx: {}",
                                    cache_batch_idx->GetShape().GetNumDim()));
         }
 
         if (cache_batch_idx->GetShape().GetDim(0) != q->GetShape().GetDim(0)) {
-            LI_THROW(Unimplemented("cache_batch_idx must have shape [batch_size], but got cache_batch_idx: {}",
+            FC_THROW(Unimplemented("cache_batch_idx must have shape [batch_size], but got cache_batch_idx: {}",
                                    cache_batch_idx->GetShape().ToString()));
         }
     }

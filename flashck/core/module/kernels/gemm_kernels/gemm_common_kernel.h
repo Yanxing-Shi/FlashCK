@@ -14,8 +14,8 @@
 
 #include "flashck/core/module/kernels/kernel.h"
 
-#include "flashck/core/profiler/base.h"
-#include "flashck/core/profiler/library.h"
+#include "flashck/core/profiling/base.h"
+#include "flashck/core/profiling/library.h"
 
 static const std::string g_exec_cond_source = R"(
 {{indent}}if ({{cond}}) {

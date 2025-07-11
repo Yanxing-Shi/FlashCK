@@ -9,7 +9,7 @@ namespace flashck {
 
 #define LOAD_SYMBOL(kernel_func, name_str)                                                                             \
     if (!Target::Instance()->kernel_lib_.has_symbol(name_str)) {                                                       \
-        LI_THROW(Unavailable("Kernel symbol not found {}", name_str));                                                 \
+        FC_THROW(Unavailable("Kernel symbol not found {}", name_str));                                                 \
     }                                                                                                                  \
     kernel_func = Target::Instance()->kernel_lib_.get2_function<decltype(kernel_func)>(kernel_func_name);
 

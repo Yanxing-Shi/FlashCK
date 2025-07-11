@@ -11,8 +11,8 @@
 #include "flashck/core/graph/tensor.h"
 #include "flashck/core/utils/dtype.h"
 
-#include "flashck/core/profiler/base.h"
-#include "flashck/core/profiler/gpu_profiler_runner.h"
+#include "flashck/core/profiling/base.h"
+#include "flashck/core/profiling/gpu_profiler_runner.h"
 
 namespace flashck {
 
@@ -169,12 +169,12 @@ public:
     virtual std::vector<std::tuple<std::filesystem::path, std::filesystem::path>>
     GenOpProfiler(const DynamicProfileStrategy& dynamic_profiling_strategy)
     {
-        LI_THROW(Unimplemented("{}", "GenOpProfiler is not implemented."));
+        FC_THROW(Unimplemented("{}", "GenOpProfiler is not implemented."));
     }
 
     virtual std::string GenOpFunction()
     {
-        LI_THROW(Unimplemented("{}", "GenOpFunction is not implemented."));
+        FC_THROW(Unimplemented("{}", "GenOpFunction is not implemented."));
     };
 
     bool has_profiler_     = true;

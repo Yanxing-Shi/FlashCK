@@ -12,9 +12,9 @@
 #include "flashck/core/utils/string_utils.h"
 #include "flashck/core/utils/timer.h"
 
-#include "flashck/core/profiler/target.h"
+#include "flashck/core/profiling/target.h"
 
-LI_DECLARE_string(LI_HOME_PATH);
+FC_DECLARE_string(FC_HOME_PATH);
 
 namespace flashck {
 
@@ -98,7 +98,7 @@ std::string GemmCommonKernel::GenDimCalculator(const std::shared_ptr<DimInfo>& d
         dim_names_vec.emplace_back("(" + prefix + std::to_string(idx) + ")");
     }
 
-    std::string dim_names = JoinToString(dim_names_vec, "*");
+    std::string dim_names = JoinStrings(dim_names_vec, "*");
     return dim_names;
 }
 
@@ -126,7 +126,7 @@ GemmCommonKernel::GenShapeEvalCode(const std::string&                           
         shape_eval_vec.emplace_back(TemplateLoadAndRender(g_shape_eval_source, shape_eval_value_map));
     }
 
-    return JoinToString(shape_eval_vec, "\n");
+    return JoinStrings(shape_eval_vec, "\n");
 }
 
 /*
@@ -302,7 +302,7 @@ GemmCommonKernel::GenGemmCommonKernelProfiler(const std::string&                
         std::string       code = TemplateLoadAndRender(g_profiler_source, profiler_value_map);
 
         std::filesystem::path prefix_path =
-            std::filesystem::path(FLAGS_LI_HOME_PATH) / folder_name / model_name / "profiler" / kernel_name;
+            std::filesystem::path(FLAGS_FC_HOME_PATH) / folder_name / model_name / "profiler" / kernel_name;
         if (!std::filesystem::exists(prefix_path)) {
             std::filesystem::create_directories(prefix_path);
         }
@@ -319,7 +319,7 @@ GemmCommonKernel::GenGemmCommonKernelProfiler(const std::string&                
             src_file.close();
         }
         else {
-            LI_THROW(Unavailable("unable to open file {}", ToString(src_path)));
+            FC_THROW(Unavailable("unable to open file {}", ToString(src_path)));
         }
 
         file_tuples.push_back(std::make_tuple(src_path, obj_path));
@@ -531,7 +531,7 @@ GemmCommonKernel::GenGemmCommonKernelFunction(const std::string&                
 //                     args.stream_);
 //     }
 //     else {
-//         LI_THROW(Unimplemented("unimplemented kernel_call_type: {}", static_cast<int>(kernel_call_type)));
+//         FC_THROW(Unimplemented("unimplemented kernel_call_type: {}", static_cast<int>(kernel_call_type)));
 //     }
 
 //     // GpuDeviceSynchronize();

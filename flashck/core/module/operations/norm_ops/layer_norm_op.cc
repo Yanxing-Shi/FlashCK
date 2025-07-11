@@ -6,9 +6,9 @@
 #include "flashck/core/utils/flags.h"
 #include "flashck/core/utils/log.h"
 
-LI_DECLARE_bool(LI_FORCE_PROFILE);
-LI_DECLARE_bool(LI_FORCE_PROFILER_CACHE);
-LI_DECLARE_string(LI_HOME_PATH);
+FC_DECLARE_bool(FC_FORCE_PROFILE);
+FC_DECLARE_bool(FC_FORCE_PROFILING_DB);
+FC_DECLARE_string(FC_HOME_PATH);
 
 namespace flashck {
 
@@ -31,13 +31,13 @@ void LayerNormOp<T>::CheckParamShape(const Shape& x_shape, const Shape& param_sh
     }
 
     if (!x_shape.GetLastDim().IsStatic()) {
-        LI_THROW(Unimplemented("layernorm requires reduction dim to be static. Current input shape: {}",
+        FC_THROW(Unimplemented("layernorm requires reduction dim to be static. Current input shape: {}",
                                x_shape.ToString()));
     }
 
     for (const auto& shape : param_shape.ToVector()) {
         if (!shape.IsStatic()) {
-            LI_THROW(Unimplemented(
+            FC_THROW(Unimplemented(
                 "Layernorm {} shape must be immutable values. Current value: {}", param_name, param_shape.ToString()));
         }
     }
@@ -45,7 +45,7 @@ void LayerNormOp<T>::CheckParamShape(const Shape& x_shape, const Shape& param_sh
     int64_t batch_ndims = x_shape.GetNumDim() - param_shape.GetNumDim();
     for (int i = 0; i < param_shape.GetNumDim(); i++) {
         if (param_shape[i].GetValues() != x_shape[batch_ndims + i].GetValues()) {
-            LI_THROW(Unavailable(
+            FC_THROW(Unavailable(
                 "Layernorm {} shape must be broadcastable to the input shape. Current {} shape: {}, input shape: {}",
                 param_name,
                 param_shape.ToString(),
@@ -65,7 +65,7 @@ void LayerNormOp<T>::CheckShape(const Shape& x_shape,
                                 const Shape& y_scale_shape,
                                 const Shape& normalized_shape)
 {
-    LI_ENFORCE_LT(
+    FC_ENFORCE_LT(
         normalized_shape.GetNumDim(),
         x_shape.GetNumDim(),
         Unavailable(
@@ -73,12 +73,12 @@ void LayerNormOp<T>::CheckShape(const Shape& x_shape,
             normalized_shape.ToString(),
             x_shape.ToString()));
 
-    LI_ENFORCE_GE(x_shape.GetNumDim(),
+    FC_ENFORCE_GE(x_shape.GetNumDim(),
                   2,
                   Unimplemented("norm only supports 2D or higher input, runtime rank: {}", x_shape.GetNumDim()));
 
     if (fused_add_ != FusedAddEnum::NO_ADD) {
-        LI_ENFORCE_EQ(
+        FC_ENFORCE_EQ(
             x_residual_shape.GetNumDim(),
             x_shape.GetNumDim(),
             Unimplemented("norm only supports 2D or higher input, runtime rank: {}", x_residual_shape.GetNumDim()));
@@ -166,19 +166,19 @@ Variable* LayerNormOp<T>::operator()(Variable*   x,
 {
     SanityCheck(x, gamma, beta, x_bias, x_residual, smooth_scale, y_residual, y_scale);
     if (is_add_bias_ != NormBiasEnum::NO_BIAS && x_bias == nullptr) {
-        LI_THROW(Unimplemented("bias add requires x_bias to be provided"));
+        FC_THROW(Unimplemented("bias add requires x_bias to be provided"));
     }
     if (fused_add_ != FusedAddEnum::NO_ADD && x_residual == nullptr) {
-        LI_THROW(Unimplemented("Fused add requires x_residual to be provided"));
+        FC_THROW(Unimplemented("Fused add requires x_residual to be provided"));
     }
     if (fused_quant_ == FusedQuantEnum::SMOOTH_DYNAMIC_QUANT && smooth_scale == nullptr) {
-        LI_THROW(Unimplemented("Fused quant requires smooth_scale to be provided"));
+        FC_THROW(Unimplemented("Fused quant requires smooth_scale to be provided"));
     }
     if (fused_add_ == FusedAddEnum::PRE_ADD_STORE && y_residual == nullptr) {
-        LI_THROW(Unimplemented("Fused add requires y_residual to be provided"));
+        FC_THROW(Unimplemented("Fused add requires y_residual to be provided"));
     }
     if (fused_quant_ != FusedQuantEnum::NO_SWEEP && y_scale == nullptr) {
-        LI_THROW(Unimplemented("Fused quant requires y_scale to be provided"));
+        FC_THROW(Unimplemented("Fused quant requires y_scale to be provided"));
     }
 
     eps_                             = eps;
@@ -240,17 +240,17 @@ std::string LayerNormOp<T>::GenExecKey(const std::map<std::string, std::vector<i
             key_strs.emplace_back(Sprintf("{} >= {} && {} <= {}", name, values[0], name, values.back()));
         }
         else {
-            LI_THROW(Unavailable("norm input has empty dim values: {}", values[0]));
+            FC_THROW(Unavailable("norm input has empty dim values: {}", values[0]));
         }
     }
 
-    return JoinToString(key_strs, " && ");
+    return JoinStrings(key_strs, " && ");
 }
 
 template<typename T>
 void LayerNormOp<T>::ExtractExecPath(const DynamicProfileStrategy& dynamic_profiling_strategy, const int step_value)
 {
-    LI_ENFORCE_EQ(
+    FC_ENFORCE_EQ(
         normalized_shape_.GetNumDim(),
         1,
         Unimplemented("For profiling, normalized_shape must be 1D, but got {}", normalized_shape_.GetNumDim()));
@@ -325,7 +325,7 @@ void LayerNormOp<T>::ExtractExecPath(const DynamicProfileStrategy& dynamic_profi
     }
 
     else {
-        LI_THROW(Unimplemented("{}", "norm only supports MIN or MAX dynamic profiling"));
+        FC_THROW(Unimplemented("{}", "norm only supports MIN or MAX dynamic profiling"));
     }
 }
 
@@ -345,9 +345,9 @@ void LayerNormOp<T>::IfShouldBuildProfiler(const std::vector<std::string>& workl
                                     g_fused_add_enum_str_map.at(fused_add_),
                                     g_fused_quant_enum_str_map.at(fused_quant_));
 
-        auto cache_value = Target::Instance()->QueryProfileCache(GenOperationKind::Norm, query);
+        auto cache_value = Target::Instance()->QueryProfileCache(CodeGenKind::Norm, query);
 
-        if (cache_value != std::make_tuple("null", -1) && !FLAGS_LI_FORCE_PROFILE) {
+        if (cache_value != std::make_tuple("null", -1) && !FLAGS_FC_FORCE_PROFILE) {
             std::string best_algo = std::get<0>(cache_value);
             int64_t     split_k   = std::get<1>(cache_value);
             LOG(INFO) << "Load profiling result for" << op_name_ << "from cache, algo" << best_algo << "split_k"
@@ -375,7 +375,7 @@ LayerNormOp<T>::GenOpProfiler(const DynamicProfileStrategy& dynamic_profiling_st
 
     exec_key_ = GetKeyVector(exec_path_);
 
-    if (!FLAGS_LI_FORCE_PROFILER_CACHE) {
+    if (!FLAGS_FC_FORCE_PROFILER_CACHE) {
         IfShouldBuildProfiler(exec_key_);
     }
     else {
@@ -405,11 +405,11 @@ LayerNormOp<T>::GenOpProfiler(const DynamicProfileStrategy& dynamic_profiling_st
     std::vector<std::tuple<std::filesystem::path, std::filesystem::path>> generated_profilers;
 
     for (int i = 0; i < exec_key_.size(); i++) {
-        Target::Instance()->GenerateKernel(GenOperationKind::Norm, layernorm_problems[i]);
+        Target::Instance()->GenerateKernel(CodeGenKind::Norm, layernorm_problems[i]);
 
         kernel_instance_map_ = register_kernel_ptr_->Init(op_kind_, epilogue_op_);
         if (kernel_instance_map_.size() == 0) {
-            LI_THROW(Fatal("No layernorm op instances were generated for {}", op_name_));
+            FC_THROW(Fatal("No layernorm op instances were generated for {}", op_name_));
         }
 
         if (exec_path_[exec_key_[i]]->algo_ == "") {
@@ -431,7 +431,7 @@ std::vector<std::string> LayerNormOp<T>::GenOpProfileCmd(const std::string&     
     std::filesystem::path exe_path = std::filesystem::path(profiler_prefix) / profiler_filename;
 
     if (!CheckExistWithRetries(exe_path, 3, 5)) {
-        LI_THROW(Fatal("Profiler {} is not executable", exe_path.string()));
+        FC_THROW(Fatal("Profiler {} is not executable", exe_path.string()));
     }
 
     std::vector<std::string> cmd = {exe_path.string(),
@@ -466,7 +466,7 @@ void LayerNormOp<T>::ProfileSingleWorkload(const std::string&                   
                                 g_fused_add_enum_str_map.at(fused_add_),
                                 g_fused_quant_enum_str_map.at(fused_quant_));
 
-    auto cache_value = Target::Instance()->QueryProfileCache(GenOperationKind::Norm, query);
+    auto cache_value = Target::Instance()->QueryProfileCache(CodeGenKind::Norm, query);
 
     if (cache_value == std::make_tuple("null", -1) && force_cache) {
         LOG(WARNING) << "force_cache is enabled but we could not find the following cache available on device. "
@@ -479,7 +479,7 @@ void LayerNormOp<T>::ProfileSingleWorkload(const std::string&                   
                 [&](const std::vector<ProfileResult>&           result,
                     const std::shared_ptr<ProfilerPostprocess>& postprocessing_delegate_ptr) {
                     postprocessing_delegate_ptr->AddInstance(
-                        result, GenOperationKind::Norm, GetAttrsMap(), kernel_config_name, workload);
+                        result, CodeGenKind::Norm, GetAttrsMap(), kernel_config_name, workload);
                 };
             return process_result_callback;
         };
@@ -487,7 +487,7 @@ void LayerNormOp<T>::ProfileSingleWorkload(const std::string&                   
         auto                     input_shape = InvertExecKey(workload);
         std::vector<std::string> command     = GenOpProfileCmd(profiler_prefix, kernel_config_name, input_shape);
 
-        LOG(INFO) << "profile command: " << JoinToString(command);
+        LOG(INFO) << "profile command: " << JoinStrings(command);
 
         profiler_runner_ptr->Push(command, GenCallback());
     }
@@ -499,7 +499,7 @@ void LayerNormOp<T>::Profile(const std::shared_ptr<GPUProfilerRunner>& profiler_
 {
 
     std::filesystem::path profiler_prefix =
-        std::filesystem::path(FLAGS_LI_HOME_PATH) / folder_name / context_ptr_->GetName() / "profiler" / op_name_;
+        std::filesystem::path(FLAGS_FC_HOME_PATH) / folder_name / context_ptr_->GetName() / "profiler" / op_name_;
 
     for (const auto& workload : exec_key_) {
         if (exec_path_[workload]->algo_ == "") {
@@ -507,7 +507,7 @@ void LayerNormOp<T>::Profile(const std::shared_ptr<GPUProfilerRunner>& profiler_
                 kernel_instance_map_ = register_kernel_ptr_->Init(op_kind_, epilogue_op_);
             }
 
-            ProfileSingleWorkload(profiler_prefix, workload, profiler_runner_ptr, FLAGS_LI_FORCE_PROFILER_CACHE);
+            ProfileSingleWorkload(profiler_prefix, workload, profiler_runner_ptr, FLAGS_FC_FORCE_PROFILER_CACHE);
         }
         else {
             LOG(INFO) << op_name_ << " from cache, not profile";

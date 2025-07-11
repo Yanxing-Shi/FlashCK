@@ -28,4 +28,4 @@ public:
 
 }  // namespace flashck
 
-flashck_REGISTER_KERNEL(CK, split_k_gemm_rcr, flashck::SplitKGemmRCRKernel, RCR, _Float16, float, ushort);
+FC_REGISTER_KERNEL(LEGACY, split_k_gemm_rcr, flashck::SplitKGemmRCRKernel, RCR, _Float16, float, ushort);

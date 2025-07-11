@@ -5,7 +5,7 @@ namespace flashck {
 template<typename T>
 void GemmRCRBiasBroadcastOp<T>::IsVaildInputs(const std::vector<Variable*>& input_var)
 {
-    LI_ENFORCE_GE(
+    FC_ENFORCE_GE(
         input_var.size(),
         3,
         InvalidArgument("input for gemm_rcr_bias_broadcast should be at least 3, got {} instead.", input_var.size()));
@@ -15,7 +15,7 @@ void GemmRCRBiasBroadcastOp<T>::IsVaildInputs(const std::vector<Variable*>& inpu
         for (int i = 3; i < input_var.size(); i++) {
             Shape d_shape = input_var[i]->GetShape();
             if (d_shape != base_shape) {
-                LI_THROW(InvalidArgument("Additional elementwise shape {} doesn't match gemm_bias' shape {}",
+                FC_THROW(InvalidArgument("Additional elementwise shape {} doesn't match gemm_bias' shape {}",
                                          d_shape.ToString(),
                                          base_shape.ToString()));
             }

@@ -13,7 +13,7 @@ Shape::Shape(std::initializer_list<DDim> dim, std::string name): dims_(dim), nam
 void Shape::CheckDims(const int64_t dim) const
 {
     if (dim > GetNumDim() - 1) {
-        LI_THROW(InvalidArgument("shape {} index out of bounds{}.", dim, dims_.size()));
+        FC_THROW(InvalidArgument("shape {} index out of bounds{}.", dim, dims_.size()));
     }
 }
 
@@ -63,7 +63,7 @@ Shape Shape::InsertDim(const int64_t dim, const DDim& value)
     }
 
     if (dim > GetNumDim()) {
-        LI_THROW(InvalidArgument("shape {} index out of bounds{}.", dim, dims_.size()));
+        FC_THROW(InvalidArgument("shape {} index out of bounds{}.", dim, dims_.size()));
     }
 
     dims_.insert(dims_.begin() + dim, value);

@@ -3,10 +3,10 @@
 #include "flashck/core/memory/memory_manager.h"
 #include "flashck/core/utils/rocm_info.h"
 
-#include "flashck/core/profiler/builder.h"
-#include "flashck/core/profiler/codegen.h"
-#include "flashck/core/profiler/gpu_profiler_runner.h"
-#include "flashck/core/profiler/target.h"
+#include "flashck/core/profiling/builder.h"
+#include "flashck/core/profiling/codegen.h"
+#include "flashck/core/profiling/gpu_profiler_runner.h"
+#include "flashck/core/profiling/target.h"
 
 namespace flashck {
 
@@ -269,7 +269,7 @@ void Context::BuildContext()
         tmp_buff_ = allocator_ptr_->Malloc(max_tensor_size_);
     }
     catch (...) {
-        LI_THROW(ResourceExhausted(
+        FC_THROW(ResourceExhausted(
             "allocate temporary buffer failed!\n, max_tensor_name_ is: {}, max_tensor_size_ is: {} MB",
             max_tensor_name_,
             max_tensor_size_ / (1024 * 1024)));
@@ -296,7 +296,7 @@ void Context::BuildContext()
         allocator_ptr_->Free(tmp_buff_);
     }
     catch (...) {
-        LI_THROW(ResourceExhausted("free temporary buffer {} failed!", tmp_buff_));
+        FC_THROW(ResourceExhausted("free temporary buffer {} failed!", tmp_buff_));
     }
 
     mem_manager_ptr_->CalculateBuffer();

@@ -1,14 +1,6 @@
 #include "flashck/core/module/kernels/norm_kernels/layer_norm_kernel.h"
 
-#include <unordered_set>
-
-#include "flashck/core/utils/dylib_utils.h"
-#include "flashck/core/utils/file_utils.h"
-#include "flashck/core/utils/flags.h"
-#include "flashck/core/utils/jinjia2_utils.h"
-#include "flashck/core/utils/log.h"
-
-LI_DECLARE_string(LI_HOME_PATH);
+FC_DECLARE_string(FC_HOME_PATH);
 
 namespace flashck {
 
@@ -51,7 +43,7 @@ NormCommonKernel::GenCommonKernelProfiler(const std::string&                    
     std::vector<std::tuple<std::filesystem::path, std::filesystem::path>> file_tuples;
 
     std::filesystem::path prefix_path =
-        std::filesystem::path(FLAGS_LI_HOME_PATH) / folder_name / model_name / "profiler" / kernel_name;
+        std::filesystem::path(FLAGS_FC_HOME_PATH) / folder_name / model_name / "profiler" / kernel_name;
     if (!std::filesystem::exists(prefix_path)) {
         std::filesystem::create_directories(prefix_path);
     }
@@ -66,7 +58,7 @@ NormCommonKernel::GenCommonKernelProfiler(const std::string&                    
         common_header_file.close();
     }
     else {
-        LI_THROW(Unavailable("unable to open file {}", ToString(common_header_path)));
+        FC_THROW(Unavailable("unable to open file {}", ToString(common_header_path)));
     }
 
     for (const auto& [kernel_config_name, kernel_instance] : kernel_instance_map) {
@@ -131,7 +123,7 @@ NormCommonKernel::GenCommonKernelProfiler(const std::string&                    
         std::string       profiler_source = TemplateLoadAndRender(g_norm_profiler_source, profiler_value_map);
 
         std::filesystem::path prefix_path =
-            std::filesystem::path(FLAGS_LI_HOME_PATH) / folder_name / model_name / "profiler" / kernel_name;
+            std::filesystem::path(FLAGS_FC_HOME_PATH) / folder_name / model_name / "profiler" / kernel_name;
         if (!std::filesystem::exists(prefix_path)) {
             std::filesystem::create_directories(prefix_path);
         }
@@ -148,7 +140,7 @@ NormCommonKernel::GenCommonKernelProfiler(const std::string&                    
             src_file.close();
         }
         else {
-            LI_THROW(Unavailable("unable to open file {}", ToString(src_path)));
+            FC_THROW(Unavailable("unable to open file {}", ToString(src_path)));
         }
 
         file_tuples.push_back(std::make_tuple(src_path, obj_path));
@@ -177,7 +169,7 @@ std::string NormCommonKernel::GenCommonKernelFunction(const std::string&        
     auto smooth_scale_dtype = std::any_cast<DataType>(kernel_func_map.at("smooth_scale_dtype"));
     auto y_scale_dtype      = std::any_cast<DataType>(kernel_func_map.at("y_scale_dtype"));
 
-    std::filesystem::path prefix_path = std::filesystem::path(FLAGS_LI_HOME_PATH) / "kernel_profile" / model_name;
+    std::filesystem::path prefix_path = std::filesystem::path(FLAGS_FC_HOME_PATH) / "kernel_profile" / model_name;
     if (!std::filesystem::exists(prefix_path)) {
         std::filesystem::create_directories(prefix_path);
     }
@@ -192,7 +184,7 @@ std::string NormCommonKernel::GenCommonKernelFunction(const std::string&        
         common_header_file.close();
     }
     else {
-        LI_THROW(Unavailable("unable to open file {}", ToString(common_header_path)));
+        FC_THROW(Unavailable("unable to open file {}", ToString(common_header_path)));
     }
 
     std::string                        instance_decl;

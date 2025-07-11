@@ -7,7 +7,7 @@
 
 #include "flashck/core/module/kernels/kernel_factory.h"
 #include "flashck/core/module/kernels/norm_kernels/rms_norm_kernel.h"
-#include "flashck/core/profiler/library.h"
+#include "flashck/core/profiling/library.h"
 
 namespace flashck {
 

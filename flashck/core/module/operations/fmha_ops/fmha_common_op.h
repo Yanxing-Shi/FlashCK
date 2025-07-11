@@ -1,30 +1,8 @@
 #pragma once
 
-#include <numeric>
-#include <string>
-#include <vector>
-
-#include "flashck/core/module/operations/fmha_ops/fmha_fwd_splitkv_utils.h"
-
-#include "flashck/core/graph/node.h"
-
-#include "flashck/core/module/kernels/fmha_kernels/fmha_common_kernel.h"
-#include "flashck/core/module/kernels/kernel_factory.h"
-#include "flashck/core/profiler/library.h"
-
-#include "flashck/core/utils/debug_utils.h"
-#include "flashck/core/utils/dtype.h"
-#include "flashck/core/utils/file_utils.h"
-#include "flashck/core/utils/flags.h"
-#include "flashck/core/utils/log.h"
-#include "flashck/core/utils/printf.h"
-
-#include "flashck/core/profiler/base.h"
-#include "flashck/core/profiler/gpu_profiler_runner.h"
-
-LI_DECLARE_bool(LI_FORCE_PROFILE);
-LI_DECLARE_bool(LI_FORCE_PROFILER_CACHE);
-LI_DECLARE_string(LI_HOME_PATH);
+FC_DECLARE_bool(FC_FORCE_PROFILE);
+FC_DECLARE_bool(FC_FORCE_PROFILING_DB);
+FC_DECLARE_string(FC_HOME_PATH);
 
 namespace flashck {
 
@@ -56,7 +34,7 @@ public:
                 return 2;
             }
             else {
-                LI_THROW(Unavailable("The shape of elementwise bias is wrong"));
+                FC_THROW(Unavailable("The shape of elementwise bias is wrong"));
             }
         }
         else if (bias_enum == BiasEnum::ALIBI) {
@@ -67,11 +45,11 @@ public:
                 return 1;
             }
             else {
-                LI_THROW(Unavailable("The shape of alibi bias is wrong"));
+                FC_THROW(Unavailable("The shape of alibi bias is wrong"));
             }
         }
         else {
-            LI_THROW(Unavailable("no bias not return rank info"));
+            FC_THROW(Unavailable("no bias not return rank info"));
         }
     }
 
@@ -100,11 +78,11 @@ public:
                 key_strs.emplace_back(Sprintf("{} >= {} && {} <= {}", name, values[0], name, values.back()));
             }
             else {
-                LI_THROW(Unavailable("fmha input has empty dim values: {}", values[0]));
+                FC_THROW(Unavailable("fmha input has empty dim values: {}", values[0]));
             }
         }
 
-        return JoinToString(key_strs, " && ");
+        return JoinStrings(key_strs, " && ");
     }
 
     std::map<std::string, std::vector<std::shared_ptr<DimInfo>>> ExtractDims()
@@ -137,7 +115,7 @@ public:
             }
 
             if (dim_info == nullptr) {
-                LI_THROW(Fatal("Couldn't find valid dim info for dim {}", name));
+                FC_THROW(Fatal("Couldn't find valid dim info for dim {}", name));
             }
 
             std::vector<Variable*> var_vec   = dim_info->source_ == TensorSource::kInput ? input_var_ : output_var_;
@@ -220,7 +198,7 @@ public:
                     std::fill(values.begin(), values.end(), values.front());
                 }
                 VLOG(1) << "max_step: " << max_value_size;
-                VLOG(1) << "name: " << name << " iter_values: " << JoinToString(values, ",")
+                VLOG(1) << "name: " << name << " iter_values: " << JoinStrings(values, ",")
                         << " size: " << values.size();
             }
 
@@ -245,7 +223,7 @@ public:
         }
 
         else {
-            LI_THROW(Unimplemented("fmha only supports MIN or MAX or Interation dynamic profiling"));
+            FC_THROW(Unimplemented("fmha only supports MIN or MAX or Interation dynamic profiling"));
         }
     }
 
@@ -265,9 +243,9 @@ public:
                                         g_short_tensor_operation_names_map.at(epilogue_op_),
                                         exec_entry_sha1};
 
-            auto cache_value = Target::Instance()->QueryProfileCache(GenOperationKind::Fmha, query);
+            auto cache_value = Target::Instance()->QueryProfileCache(CodeGenKind::Fmha, query);
 
-            if (cache_value != std::make_tuple("null", -1) && !FLAGS_LI_FORCE_PROFILE) {
+            if (cache_value != std::make_tuple("null", -1) && !FLAGS_FC_FORCE_PROFILE) {
                 std::string best_algo = std::get<0>(cache_value);
                 int64_t     split_k   = std::get<1>(cache_value);
                 LOG(INFO) << "Load profiling result for" << op_name_ << "from cache, algo" << best_algo << "split_k"
@@ -294,7 +272,7 @@ public:
 
         exec_key_ = GetKeyVector(exec_path_);
 
-        if (!FLAGS_LI_FORCE_PROFILER_CACHE) {
+        if (!FLAGS_FC_FORCE_PROFILER_CACHE) {
             IfShouldBuildProfiler(exec_key_);
         }
         else {
@@ -314,11 +292,11 @@ public:
         std::vector<std::tuple<std::filesystem::path, std::filesystem::path>> generated_profilers;
 
         for (int i = 0; i < exec_key_.size(); i++) {
-            Target::Instance()->GenerateKernel(GenOperationKind::Fmha, fmha_problems[i]);
+            Target::Instance()->GenerateKernel(CodeGenKind::Fmha, fmha_problems[i]);
 
             kernel_instance_map_ = register_kernel_ptr_->Init(op_kind_, epilogue_op_);
             if (kernel_instance_map_.size() == 0) {
-                LI_THROW(Fatal("No fmha op instances were generated for {}", op_name_));
+                FC_THROW(Fatal("No fmha op instances were generated for {}", op_name_));
             }
 
             if (exec_path_[exec_key_[i]]->algo_ == "") {
@@ -342,7 +320,7 @@ public:
         std::filesystem::path exe_path = std::filesystem::path(profiler_prefix) / profiler_filename;
 
         if (!CheckExistWithRetries(exe_path, 3, 5)) {
-            LI_THROW(Fatal("Profiler {} is not executable", exe_path.string()));
+            FC_THROW(Fatal("Profiler {} is not executable", exe_path.string()));
         }
 
         std::vector<std::string> cmd_args = fbuild_cmd(exec_key);
@@ -372,7 +350,7 @@ public:
                                     g_short_tensor_operation_names_map.at(epilogue_op_),
                                     exec_entry_sha1};
 
-        auto cache_value = Target::Instance()->QueryProfileCache(GenOperationKind::Fmha, query);
+        auto cache_value = Target::Instance()->QueryProfileCache(CodeGenKind::Fmha, query);
 
         if (cache_value == std::make_tuple("null", -1) && force_cache) {
             LOG(WARNING) << "force_cache is enabled but we could not find the following cache available on device. "
@@ -385,7 +363,7 @@ public:
                     [&](const std::vector<ProfileResult>&           result,
                         const std::shared_ptr<ProfilerPostprocess>& postprocessing_delegate_ptr) {
                         postprocessing_delegate_ptr->AddInstance(result,
-                                                                 GenOperationKind::Fmha,
+                                                                 CodeGenKind::Fmha,
                                                                  GetAttrsMap(),
                                                                  kernel_instance.first,
                                                                  workload,
@@ -399,7 +377,7 @@ public:
             std::vector<std::string> command =
                 GenOpProfileCmd(profiler_prefix, kernel_instance.first, workload, fbuild_cmd);
 
-            LOG(INFO) << "profile command: " << JoinToString(command);
+            LOG(INFO) << "profile command: " << JoinStrings(command);
 
             if (op_kind_ == FmhaOperationKind::FwdSplitKV) {
 
@@ -438,7 +416,7 @@ public:
     void Profile(const std::shared_ptr<GPUProfilerRunner>& profiler_runner_ptr, const std::string& folder_name) override
     {
         std::filesystem::path profiler_prefix =
-            std::filesystem::path(FLAGS_LI_HOME_PATH) / folder_name / context_ptr_->GetName() / "profiler" / op_name_;
+            std::filesystem::path(FLAGS_FC_HOME_PATH) / folder_name / context_ptr_->GetName() / "profiler" / op_name_;
 
         for (const auto& workload : exec_key_) {
             if (exec_path_[workload]->algo_ == "") {
@@ -446,7 +424,7 @@ public:
                     kernel_instance_map_ = register_kernel_ptr_->Init(op_kind_, epilogue_op_);
                 }
 
-                ProfileSingleWorkload(profiler_prefix, workload, profiler_runner_ptr, FLAGS_LI_FORCE_PROFILER_CACHE);
+                ProfileSingleWorkload(profiler_prefix, workload, profiler_runner_ptr, FLAGS_FC_FORCE_PROFILER_CACHE);
             }
             else {
                 LOG(INFO) << op_name_ << " from cache, not profile";

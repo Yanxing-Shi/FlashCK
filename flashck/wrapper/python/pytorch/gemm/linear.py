@@ -4,11 +4,12 @@ Linear API
 
 from typing import Callable, Dict, Optional, Tuple, Union
 
+
 class Linear:
-    
-    def __init__(self, in_features:int,  out_features: int, bias: bool = True, params_dtype: Optional[torch.dtype] = None,specialization: Optional[str] = None)-> None:
+
+    def __init__(self, in_features: int,  out_features: int, bias: bool = True, params_dtype: Optional[torch.dtype] = None, specialization: Optional[str] = None) -> None:
         super().__init__()
-        
+
         params_dtype = torch.get_default_dtype() if params_dtype is None else params_dtype
         self.in_features = in_features
         self.out_features = out_features
@@ -29,19 +30,12 @@ class Linear:
                 device=device,
                 dtype=params_dtype,
             )
-    
+
     @no_torch_dynamo()
     def forward(self,
-        *args: torch.Tensor
-    ) -> Union[torch.Tensor, Tuple[torch.Tensor, ...]]:
-    """
-        Apply the linear transformation to the input.
+                *args: torch.Tensor
+                ) -> Union[torch.Tensor, Tuple[torch.Tensor, ...]]:
 
-        Parameters
-        ----------
-        inp : torch.Tensor
-             Input tensor.
-    """
         assert len(args) >= 1
 
         if len(args) == 2:
@@ -51,13 +45,10 @@ class Linear:
                 inputs = [x, self.weight.tensor(), args[1]]
             output = self.op(*inputs)
             return output
-        
+
         output = (
             self.op(x, self.weight.tensor(), bias=self.bias.tensor())
             if self.use_bias
             else self.op(x, self.weight.tensor())
         )
         return output
-        
-
-        

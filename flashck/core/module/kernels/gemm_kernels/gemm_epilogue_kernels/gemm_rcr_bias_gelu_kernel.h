@@ -33,4 +33,4 @@ public:
 
 }  // namespace flashck
 
-flashck_REGISTER_KERNEL(CK, gemm_rcr_bias_gelu, flashck::GemmRCRBiasGeluKernel, RCR, _Float16, float, ushort);
+FC_REGISTER_KERNEL(LEGACY, gemm_rcr_bias_gelu, flashck::GemmRCRBiasGeluKernel, RCR, _Float16, float, ushort);

@@ -45,35 +45,6 @@ public:
         return os.str();
     }
 
-    GemmKernelArgs(void*       in_ptr,
-                   void*       weight_ptr,
-                   void*       out_ptr,
-                   int64_t     a_dim0,
-                   int64_t     a_dim1,
-                   int64_t     a_dim2,
-                   int64_t     b_dim0,
-                   int64_t     b_dim1,
-                   int64_t     b_dim2,
-                   int64_t     c_dim0,
-                   int64_t     c_dim1,
-                   int64_t     c_dim2,
-                   hipStream_t stream):
-        in_ptr_(in_ptr),
-        weight_ptr_(weight_ptr),
-        out_ptr_(out_ptr),
-        a_dim0_(a_dim0),
-        a_dim1_(a_dim1),
-        a_dim2_(a_dim2),
-        b_dim0_(b_dim0),
-        b_dim1_(b_dim1),
-        b_dim2_(b_dim2),
-        c_dim0_(c_dim0),
-        c_dim1_(c_dim1),
-        c_dim2_(c_dim2),
-        stream_(stream)
-    {
-    }
-
     // gemm
     void* in_ptr_;
     void* weight_ptr_;
@@ -111,32 +82,6 @@ public:
     hipStream_t stream_;
 };
 
-/*----------------------norm-----------------------------------------*/
-struct NormKernelArgs {
-    void* x_ptr_;
-    void* x_residual_ptr_;
-    void* smooth_scale_ptr_;
-    void* x_bias_ptr_;  // layer_norm
-    void* gamma_ptr_;
-    void* beta_ptr_;  // layer_norm
-    void* y_ptr_;
-    void* y_residual_ptr_;
-    void* y_scale_ptr_;
-
-    int64_t x_dim_0_ = -1;
-    int64_t x_dim_1_ = -1;
-
-    float eps_;
-
-    int64_t x_stride_;
-    int64_t xr_stride_;
-    int64_t y_stride_;
-    int64_t yr_stride_;
-
-    hipStream_t stream_;
-};
-
-/*---------------------------fmha----------------------------------*/
 struct FmhaFwdKernelArgs {
     // User-provided member variables
     void *                 q_ptr_, *k_ptr_, *v_ptr_, *bias_ptr_, *out_ptr_;

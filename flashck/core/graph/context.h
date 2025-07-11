@@ -12,7 +12,7 @@
 #include "flashck/core/memory/allocator.h"
 #include "flashck/core/memory/memory_manager.h"
 
-#include "flashck/core/profiler/base.h"
+#include "flashck/core/profiling/base.h"
 
 namespace flashck {
 

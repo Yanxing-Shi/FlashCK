@@ -1,14 +1,6 @@
 #include "flashck/core/module/kernels/norm_kernels/layer_norm_kernel.h"
 
-#include <unordered_set>
-
-#include "flashck/core/utils/dylib_utils.h"
-#include "flashck/core/utils/file_utils.h"
-#include "flashck/core/utils/flags.h"
-#include "flashck/core/utils/jinjia2_utils.h"
-#include "flashck/core/utils/log.h"
-
-LI_DECLARE_string(LI_HOME_PATH);
+FC_DECLARE_string(FC_HOME_PATH);
 
 namespace flashck {
 

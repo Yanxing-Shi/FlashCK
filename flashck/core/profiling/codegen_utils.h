@@ -1,0 +1,203 @@
+#pragma once
+
+#include <string>
+
+#include "flashck/core/profiling/codegen_common.h"
+#include "flashck/core/utils/common.h"
+
+namespace flashck {
+
+enum class Metric {
+    LATENCY   = 0,
+    TFLOPS    = 1,
+    BANDWIDTH = 2
+};
+
+inline std::string MetricToString(Metric metric)
+{
+    switch (metric) {
+        case Metric::LATENCY:
+            return "Latency";
+        case Metric::TFLOPS:
+            return "TFlops";
+        case Metric::BANDWIDTH:
+            return "Bandwidth";
+        default:
+            throw std::invalid_argument("Unsupported metric type");
+    }
+}
+
+enum class CodeGenKind {
+    Gemm      = 0,
+    Norm      = 1,
+    Embedding = 2,
+    Fmha      = 3,
+};
+
+inline std::string CodeGenKindToString(CodeGenKind kind)
+{
+    switch (kind) {
+        case CodeGenKind::Gemm:
+            return "Gemm";
+        case CodeGenKind::Norm:
+            return "Norm";
+        case CodeGenKind::Embedding:
+            return "Embedding";
+        case CodeGenKind::Fmha:
+            return "Fmha";
+        default:
+            throw std::invalid_argument("Unsupported CodeGenKind");
+    }
+}
+
+class Environment {
+public:
+    std::string Serialize() const
+    {
+        return "{\n"
+               "   \"device_name\": \""
+               + device_name_
+               + "\",\n"
+                 "   \"rocm_version\": \""
+               + rocm_version_
+               + "\"\n"
+                 "}";
+    }
+
+    std::string device_name_;
+    std::string rocm_version_;
+};
+
+class Setting {
+public:
+    std::string Serialize() const
+    {
+        return "{\n"
+               "   \"n_warmup\": "
+               + std::to_string(n_warmup_)
+               + ",\n"
+                 "   \"n_repeat\": "
+               + std::to_string(n_repeat_)
+               + ",\n"
+                 "   \"is_gpu_timer\": "
+               + (is_gpu_timer_ ? "true" : "false")
+               + ",\n"
+                 "   \"verify\": "
+               + std::to_string(verify_)
+               + ",\n"
+                 "   \"log\": "
+               + (log_ ? "true" : "false")
+               + ",\n"
+                 "   \"flush_cache\": "
+               + (flush_cache_ ? "true" : "false")
+               + ",\n"
+                 "   \"rotating_count\": "
+               + std::to_string(rotating_count_)
+               + "\n"
+                 "}";
+    }
+
+    int  n_warmup_;
+    int  n_repeat_;
+    bool is_gpu_timer_;
+    int  verify_;
+    bool log_;
+    bool flush_cache_;
+    int  rotating_count_;
+};
+
+class PerfResult {
+public:
+    std::string Serialize() const
+    {
+        return "{\n"
+               "   \"split_k\": "
+               + std::to_string(split_k_)
+               + ",\n"
+                 "   \"latency(ms)\": "
+               + std::to_string(latency_)
+               + ",\n"
+                 "   \"tflops(TFlops)\": "
+               + std::to_string(tflops_)
+               + ",\n"
+                 "   \"bandwidth(GB/s)\": "
+               + std::to_string(bandwidth_)
+               + "\n"
+                 "}";
+    }
+
+    static bool compare(const PerfResult& a, const PerfResult& b, Metric m)
+    {
+        switch (m) {
+            case Metric::LATENCY:
+                return a.latency_ < b.latency_;
+            case Metric::TFLOPS:
+                return a.tflops_ > b.tflops_;
+            case Metric::BANDWIDTH:
+                return a.bandwidth_ > b.bandwidth_;
+            default:
+                throw std::invalid_argument("Unsupported metric type");
+        }
+    }
+
+    int64_t split_k_;
+    double  latency_;
+    double  tflops_;
+    double  bandwidth_;
+};
+
+// This structure is used to store the results of profiling operations
+class InstanceData {
+public:
+    template<typename Visitor>
+    auto VisitProblem(Visitor&& vis)
+    {
+        return std::visit(std::forward<Visitor>(vis), problem_);
+    }
+
+    void SetProblem(auto&& prob)
+    {
+        problem_ = std::forward<decltype(prob)>(prob);
+    }
+
+    std::string Serialize() const
+    {
+        return "{\n"
+               "   \"environment\": "
+               + environment_.Serialize()
+               + ",\n"
+                 "   \"setting\": "
+               + setting_.Serialize()
+               + ",\n"
+                 "   \"code_gen_kind\": \""
+               + CodeGenKindToString(code_gen_kind_)
+               + "\",\n"
+                 "   \"instance_name\": \""
+               + instance_name_
+               + "\",\n"
+                 "   \"perf_result\": "
+               + perf_result_.Serialize()
+               + "\n"
+                 "}";
+    }
+
+    Environment environment_;
+    Setting     setting_;
+    CodeGenKind code_gen_kind_;
+
+    std::variant<NormProblem> problem_;
+    std::string               instance_name_;
+    PerfResult                perf_result_;
+};
+
+// This structure is used to store the execution items for profiling
+class ExecItem {
+public:
+    std::string profiling_key_;
+
+    std::string exec_cond_;
+    std::string instance_name_;
+    PerfResult  perf_result_;
+};
+
+}  // namespace flashck

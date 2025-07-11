@@ -33,12 +33,12 @@ bool KernelFactory::HasRegisteredKernel(const std::string& kernel_name, const Ke
 {
     auto kernel_map_iter = kernel_map_.find(kernel_name);
     if (kernel_map_iter == kernel_map_.end()) {
-        LI_THROW(NotFound("The kernel {} is not registered", kernel_name));
+        FC_THROW(NotFound("The kernel {} is not registered", kernel_name));
         return false;
     }
     auto kernel_key_iter = kernel_map_iter->second.find(kernel_key);
     if (kernel_key_iter == kernel_map_iter->second.end()) {
-        LI_THROW(NotFound("The kernel {} is not registered", kernel_name));
+        FC_THROW(NotFound("The kernel {} is not registered", kernel_name));
         return false;
     }
     return true;
@@ -49,12 +49,12 @@ std::shared_ptr<Kernel> KernelFactory::SelectKernel(const std::string& kernel_na
 {
     auto iter = kernel_map_.find(kernel_name);
     if (iter == kernel_map_.end()) {
-        LI_THROW(NotFound("The kernel {} is not registered.", kernel_name));
+        FC_THROW(NotFound("The kernel {} is not registered.", kernel_name));
     }
 
     auto kernel_iter = iter->second.find(kernel_key);
     if (kernel_iter == iter->second.end()) {
-        LI_THROW(NotFound("The kernel {} is not registered.", kernel_name));
+        FC_THROW(NotFound("The kernel {} is not registered.", kernel_name));
     }
 
     auto kernel_ptr = kernel_map_[kernel_name][kernel_key];

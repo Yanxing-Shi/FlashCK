@@ -5,7 +5,7 @@
 #include "flashck/core/utils/flags.h"
 #include "flashck/core/utils/log.h"
 
-LI_DECLARE_string(LI_HOME_PATH);
+FC_DECLARE_string(FC_HOME_PATH);
 
 namespace flashck {
 

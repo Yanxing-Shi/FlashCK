@@ -23,11 +23,11 @@ public:
     DDim(std::vector<int64_t> values, std::string name = ""): name_(name)
     {
         // value to vector
-        LI_ENFORCE_GE(
+        FC_ENFORCE_GE(
             values.size(), 1, Unavailable("Dynamic shape must have at least 1 values, but got {}", values.size()));
 
         std::sort(values.begin(), values.end(), [](int64_t a, int64_t b) { return std::abs(a) < std::abs(b); });
-        // LI_ENFORCE_GE(*values.begin(), 0, Unavailable("Dynamic shape values must > 0, but got {}",
+        // FC_ENFORCE_GE(*values.begin(), 0, Unavailable("Dynamic shape values must > 0, but got {}",
         // *values.begin()));
 
         values.erase(std::unique(values.begin(), values.end()), values.end());

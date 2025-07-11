@@ -8,7 +8,7 @@
 #include "flashck/core/utils/jinjia2_utils.h"
 #include "flashck/core/utils/log.h"
 
-LI_DECLARE_string(LI_HOME_PATH);
+FC_DECLARE_string(FC_HOME_PATH);
 
 namespace flashck {
 
@@ -57,7 +57,7 @@ FmhaCommonKernel::GenFmhaCommonKernelProfiler(const std::string&                
     std::vector<std::tuple<std::filesystem::path, std::filesystem::path>> file_tuples;
 
     std::filesystem::path prefix_path =
-        std::filesystem::path(FLAGS_LI_HOME_PATH) / folder_name / model_name / "profiler" / kernel_name;
+        std::filesystem::path(FLAGS_FC_HOME_PATH) / folder_name / model_name / "profiler" / kernel_name;
     if (!std::filesystem::exists(prefix_path)) {
         std::filesystem::create_directories(prefix_path);
     }
@@ -76,7 +76,7 @@ FmhaCommonKernel::GenFmhaCommonKernelProfiler(const std::string&                
         common_header_file.close();
     }
     else {
-        LI_THROW(Unavailable("unable to open file {}", ToString(common_header_path)));
+        FC_THROW(Unavailable("unable to open file {}", ToString(common_header_path)));
     }
 
     // kernel instance file
@@ -84,7 +84,7 @@ FmhaCommonKernel::GenFmhaCommonKernelProfiler(const std::string&                
         std::string config, config_name;
 
         if (fmha_flag == "fwd") {
-            auto fmha_fwd_kernel_instance = std::static_pointer_cast<FmhaFwdOperation>(kernel_instance);
+            auto fmha_fwd_kernel_instance = std::static_pointer_cast<FmhaFwdCodeGen>(kernel_instance);
             config                        = fmha_fwd_kernel_instance->Emit();
             config_name                   = fmha_fwd_kernel_instance->GetConfigName();
         }
@@ -104,7 +104,7 @@ FmhaCommonKernel::GenFmhaCommonKernelProfiler(const std::string&                
             config_name                   = fmha_fwd_kernel_instance->GetConfigName();
         }
         else {
-            LI_THROW(Unavailable("not implemented for operation kind"));
+            FC_THROW(Unavailable("not implemented for operation kind"));
         }
 
         jinja2::ValuesMap dtype_decl_value_map{{"DataType", TileDataTypeToString(dtype)}};
@@ -160,7 +160,7 @@ FmhaCommonKernel::GenFmhaCommonKernelProfiler(const std::string&                
             src_file.close();
         }
         else {
-            LI_THROW(Unavailable("unable to open file {}", ToString(src_path)));
+            FC_THROW(Unavailable("unable to open file {}", ToString(src_path)));
         }
 
         file_tuples.push_back(std::make_tuple(src_path, obj_path));
@@ -190,7 +190,7 @@ FmhaCommonKernel::GenFmhaCommonKernelFunction(const std::string&                
     auto dtype            = std::any_cast<DataType>(kernel_func_map.at("dtype"));
     auto paged_block_size = std::any_cast<int64_t>(kernel_func_map.at("paged_block_size"));
 
-    std::filesystem::path prefix_path = std::filesystem::path(FLAGS_LI_HOME_PATH) / folder_name / model_name;
+    std::filesystem::path prefix_path = std::filesystem::path(FLAGS_FC_HOME_PATH) / folder_name / model_name;
     if (!std::filesystem::exists(prefix_path)) {
         std::filesystem::create_directories(prefix_path);
     }
@@ -207,7 +207,7 @@ FmhaCommonKernel::GenFmhaCommonKernelFunction(const std::string&                
         common_header_file.close();
     }
     else {
-        LI_THROW(Unavailable("unable to open file {}", ToString(common_header_path)));
+        FC_THROW(Unavailable("unable to open file {}", ToString(common_header_path)));
     }
 
     // kernel instance file
@@ -223,7 +223,7 @@ FmhaCommonKernel::GenFmhaCommonKernelFunction(const std::string&                
         if (instance_def_flag.find(instance_name) == instance_def_flag.end()) {
             auto kernel_instance = kernel_instance_map.at(algo);
             if (fmha_flag == "fwd") {
-                auto fmha_fwd_kernel_instance = std::static_pointer_cast<FmhaFwdOperation>(kernel_instance);
+                auto fmha_fwd_kernel_instance = std::static_pointer_cast<FmhaFwdCodeGen>(kernel_instance);
                 config                        = fmha_fwd_kernel_instance->Emit();
                 config_name                   = fmha_fwd_kernel_instance->GetConfigName();
             }
@@ -244,7 +244,7 @@ FmhaCommonKernel::GenFmhaCommonKernelFunction(const std::string&                
                 config_name = fmha_fwd_kernel_instance->GetConfigName();
             }
             else {
-                LI_THROW(Unavailable("not implemented for operation kind"));
+                FC_THROW(Unavailable("not implemented for operation kind"));
             }
             instance_def_flag.insert(instance_name);
         }

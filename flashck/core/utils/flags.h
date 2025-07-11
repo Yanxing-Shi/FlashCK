@@ -57,12 +57,6 @@ This file is designed to define all public FLAGS.
 
 namespace flashck {
 
-/**
- * @brief Metadata container for command-line flag information
- *
- * Stores runtime information about registered flags including type-erased value
- * pointers and documentation. Used for reflection and dynamic flag handling.
- */
 struct FlagInfo {
     /// Type-erased value storage supporting multiple flag types
     using ValueType = std::variant<bool, int32_t, int64_t, uint64_t, double, std::string>;
@@ -74,83 +68,30 @@ struct FlagInfo {
     bool          is_writable;   /**< Flag modification permission (false for internal flags) */
 };
 
-/// Registry mapping of flag names to their metadata (name -> FlagInfo)
 using ExportedFlagInfoMap = std::map<std::string, FlagInfo>;
 
-/**
- * @brief Access mutable global flag registry (singleton pattern)
- * @return Pointer to thread-local flag metadata instance
- *
- * @note 1. Initializes on first call (C++11 thread-safe init)
- *       2. Returned pointer valid for registry lifetime
- * @warning Requires external synchronization for concurrent writes
- */
 ExportedFlagInfoMap* GetMutableExportedFlagInfoMap()
 {
     static ExportedFlagInfoMap g_exported_flag_info_map;
     return &g_exported_flag_info_map;
 }
 
-/**
- * @brief Access read-only global flag registry
- * @return Immutable reference to singleton flag metadata
- *
- * @note Internally invokes mutable version for singleton access
- * @warning Returned references invalid if registry modified
- */
 const ExportedFlagInfoMap& GetExportedFlagInfoMap()
 {
     return *GetMutableExportedFlagInfoMap();
 }
 
-/**
- * @brief Dynamically sets the value of a registered command-line flag
- *
- * @param name Name of the flag to modify (case-sensitive)
- * @param value New value to set (must be parseable to flag's type)
- * @return true If the value was successfully updated
- * @return false If the flag doesn't exist or value parsing failed
- *
- * @warning This modifies global state - thread safety depends on gflags' implementation
- * @note Changes may not affect components that already read the flag value
- * @see gflags::SetCommandLineOption()
- */
 bool SetFlagValue(const char* name, const char* value)
 {
     return !gflags::SetCommandLineOption(name, value).empty();
 }
 
-/**
- * @brief Checks if a command-line flag exists in the registry
- *
- * @param name Name of the flag to search for (case-sensitive)
- * @return true If the flag exists (regardless of whether it was explicitly set)
- * @return false If the flag is not registered
- *
- * @note This checks registration status, not whether the flag's value is default
- * @warning Does not verify access permissions or mutability status
- * @see gflags::GetCommandLineOption()
- */
 bool FindFlag(const char* name)
 {
     std::string dummy;
     return gflags::GetCommandLineOption(name, &dummy);
 }
 
-/**
- * @brief Internal macro for defining and exporting CFC flags
- * @param __name Flag identifier (UPPER_CASE naming)
- * @param __is_writable User modification permission flag
- * @param __cpp_type Native C++ type for type checking
- * @param __gflag_type Underlying gflags type suffix (e.g. bool/int32)
- * @param __default_value Default value of identifier
- * @param __doc Documentation string for help output
- *
- * @note 1. Generates static registration object per flag
- *       2. Enforces type safety via static_assert
- *       3. Automatically registers to global flag registry
- * @warning Reserved for internal use - use FC_DEFINE_* macros instead
- */
 #define __FC_DEFINE_EXPORTED_FLAG(__name, __is_writable, __cpp_type, __gflag_type, __default_value, __doc)             \
     FC_DEFINE_##__gflag_type(__name, __default_value, __doc);                                                          \
     struct __FCRegisterFlag_##__name {                                                                                 \

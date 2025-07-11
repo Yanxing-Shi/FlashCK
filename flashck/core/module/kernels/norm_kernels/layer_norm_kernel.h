@@ -278,4 +278,4 @@ public:
 };
 }  // namespace flashck
 
-flashck_REGISTER_KERNEL(CK_TILE, layer_norm, flashck::LayerNormKernel, ALL_LAYOUT, _Float16, float, ushort);
+FC_REGISTER_KERNEL(CK_TILE, layer_norm, flashck::LayerNormKernel, ALL_LAYOUT, _Float16, float, ushort);

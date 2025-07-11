@@ -34,7 +34,7 @@ FuseMultiHeadAttentionLayer<T>::FuseMultiHeadAttentionLayer(int64_t             
     use_out_bias_(use_out_bias)
 {
     if (is_qkv_packed && !(qk_head_dim_ == v_head_dim_ && q_num_heads_ == kv_num_heads_)) {
-        LI_THROW(Unavailable("qkv packed"));
+        FC_THROW(Unavailable("qkv packed"));
     }
 
     int64_t hidden_dim = q_num_heads_ * qk_head_dim_;
@@ -136,7 +136,7 @@ void FuseMultiHeadAttentionLayer<T>::LoadParam(const T* gamma_ptr,
                                                const T* out_bias_ptr)
 {
     layer_norm_->LoadParam(gamma_ptr, beta_ptr);
-    LI_ENFORCE_EQ(is_qkv_packed_, true, Unavailable("is_packed_qkv must true"));
+    FC_ENFORCE_EQ(is_qkv_packed_, true, Unavailable("is_packed_qkv must true"));
     qkv_in_proj_->LoadParam(qkv_weight_ptr, qkv_bias_ptr);
     if (has_residual_) {
         out_proj_->LoadParam(out_weight_ptr, out_bias_ptr);
@@ -156,7 +156,7 @@ void FuseMultiHeadAttentionLayer<T>::LoadParam(const T* gamma_ptr,
                                                const T* out_bias_ptr)
 {
     layer_norm_->LoadParam(gamma_ptr, beta_ptr);
-    LI_ENFORCE_EQ(is_qkv_packed_, false, Unavailable("is_packed_qkv must false"));
+    FC_ENFORCE_EQ(is_qkv_packed_, false, Unavailable("is_packed_qkv must false"));
     q_in_proj_->LoadParam(q_weight_ptr, q_bias_ptr);
     k_in_proj_->LoadParam(k_weight_ptr, k_bias_ptr);
     v_in_proj_->LoadParam(v_weight_ptr, v_bias_ptr);

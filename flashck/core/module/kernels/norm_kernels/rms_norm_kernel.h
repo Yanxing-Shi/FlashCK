@@ -232,4 +232,4 @@ public:
 };
 }  // namespace flashck
 
-flashck_REGISTER_KERNEL(CK_TILE, rms_norm, flashck::RMSNormKernel, ALL_LAYOUT, _Float16, float, ushort);
+FC_REGISTER_KERNEL(TILE, rms_norm, flashck::RMSNormKernel, ALL_LAYOUT, _Float16, float, ushort);

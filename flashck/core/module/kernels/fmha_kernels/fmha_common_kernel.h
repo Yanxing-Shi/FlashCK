@@ -1,6 +1,6 @@
 #pragma once
 
-#include "flashck/core/profiler/base.h"
+#include "flashck/core/profiling/base.h"
 
 #include "flashck/core/module/kernels/fmha_kernels/fmha_kernel_static.h"
 #include "flashck/core/module/kernels/kernel.h"

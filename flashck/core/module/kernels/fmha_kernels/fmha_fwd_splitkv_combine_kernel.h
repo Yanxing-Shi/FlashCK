@@ -298,5 +298,5 @@ public:
 
 }  // namespace flashck
 
-flashck_REGISTER_KERNEL(
+FC_REGISTER_KERNEL(
     CK_TILE, fmha_fwd_splitkv_combine, flashck::FmhaFwdSplitKVCombineKernel, ALL_LAYOUT, _Float16, ushort);

@@ -13,18 +13,18 @@
 #include "flashck/core/utils/layout.h"
 #include "flashck/core/utils/log.h"
 
-#include "flashck/core/profiler/base.h"
-#include "flashck/core/profiler/gpu_profiler_runner.h"
+#include "flashck/core/profiling/base.h"
+#include "flashck/core/profiling/gpu_profiler_runner.h"
 
 #include "flashck/core/graph/node.h"
 
 #include "flashck/core/module/kernels/gemm_kernels/gemm_common_kernel.h"
 #include "flashck/core/module/kernels/kernel_factory.h"
-#include "flashck/core/profiler/gemm_cache_entry.h"
+#include "flashck/core/profiling/gemm_cache_entry.h"
 
-LI_DECLARE_bool(LI_FORCE_PROFILE);
-LI_DECLARE_bool(LI_FORCE_PROFILER_CACHE);
-LI_DECLARE_string(LI_HOME_PATH);
+FC_DECLARE_bool(FC_FORCE_PROFILE);
+FC_DECLARE_bool(FC_FORCE_PROFILING_DB);
+FC_DECLARE_string(FC_HOME_PATH);
 
 namespace flashck {
 
@@ -44,11 +44,11 @@ public:
         auto b_shape = b->GetShape();
 
         if (a_shape.GetLastDim() != b_shape.GetLastDim()) {
-            LI_THROW(Unavailable("A/B shape mismatch, A: {}, B: {}", a_shape.ToString(), b_shape.ToString()));
+            FC_THROW(Unavailable("A/B shape mismatch, A: {}, B: {}", a_shape.ToString(), b_shape.ToString()));
         }
 
         if (!a_shape.GetLastDim().IsStatic()) {
-            LI_THROW(Unavailable("K must be static! k: {}", a_shape.GetLastDim().ToString()));
+            FC_THROW(Unavailable("K must be static! k: {}", a_shape.GetLastDim().ToString()));
         }
     }
 
@@ -57,15 +57,15 @@ public:
         Shape a_shape = a->GetShape();
         Shape b_shape = b->GetShape();
         if (a_shape.GetNumDim() < 2) {
-            LI_THROW(Unavailable("Input A shape should be at least 2D, got {}", a_shape.ToString()));
+            FC_THROW(Unavailable("Input A shape should be at least 2D, got {}", a_shape.ToString()));
         }
 
         if (b_shape.GetNumDim() < 2) {
-            LI_THROW(Unavailable("Input B shape should be at least 2D, got {}", b_shape.ToString()));
+            FC_THROW(Unavailable("Input B shape should be at least 2D, got {}", b_shape.ToString()));
         }
 
         if (a->GetDtype() != b->GetDtype()) {
-            LI_THROW(Unavailable("Input A and B should have the same data type, got {} and {}",
+            FC_THROW(Unavailable("Input A and B should have the same data type, got {} and {}",
                                  DataTypeToString(a->GetDtype()),
                                  DataTypeToString(b->GetDtype())));
         }
@@ -93,11 +93,11 @@ public:
                 key_strs.emplace_back(Sprintf("{} >= {} && {} <= {}", name, values[0], name, values.back()));
             }
             else {
-                LI_THROW(Fatal("Gemm input has empty dim values: {}", values[0]));
+                FC_THROW(Fatal("Gemm input has empty dim values: {}", values[0]));
             }
         }
 
-        return JoinToString(key_strs, " && ");
+        return JoinStrings(key_strs, " && ");
     }
 
     static std::vector<int64_t> InverseKeyFunc(const std::string& key)
@@ -137,7 +137,7 @@ public:
             }
 
             if (dim_info == nullptr) {
-                LI_THROW(Fatal("Couldn't find valid dim info for dim {}", name));
+                FC_THROW(Fatal("Couldn't find valid dim info for dim {}", name));
             }
 
             std::vector<Variable*> var_vec   = dim_info->source_ == TensorSource::kInput ? input_var_ : output_var_;
@@ -220,7 +220,7 @@ public:
                     std::fill(values.begin(), values.end(), values.front());
                 }
                 VLOG(1) << "max_step: " << max_value_size;
-                VLOG(1) << "name: " << name << " iter_values: " << JoinToString(values, ",")
+                VLOG(1) << "name: " << name << " iter_values: " << JoinStrings(values, ",")
                         << " size: " << values.size();
             }
 
@@ -245,7 +245,7 @@ public:
         }
 
         else {
-            LI_THROW(Unimplemented("{}", "Gemm only supports MIN or MAX or Interation dynamic profiling"));
+            FC_THROW(Unimplemented("{}", "Gemm only supports MIN or MAX or Interation dynamic profiling"));
         }
     }
 
@@ -264,9 +264,9 @@ public:
                                         exec_entry_sha1,
                                         permute_shape_.ToString());
 
-            auto cache_value = Target::Instance()->QueryProfileCache(GenOperationKind::Gemm, query);
+            auto cache_value = Target::Instance()->QueryProfileCache(CodeGenKind::Gemm, query);
 
-            if (cache_value != std::make_tuple("null", -1) && !FLAGS_LI_FORCE_PROFILE) {
+            if (cache_value != std::make_tuple("null", -1) && !FLAGS_FC_FORCE_PROFILE) {
                 std::string best_algo = std::get<0>(cache_value);
                 int64_t     split_k   = std::get<1>(cache_value);
                 LOG(INFO) << "Load profiling result for" << op_name_ << "from cache, algo" << best_algo << "split_k"
@@ -293,7 +293,7 @@ public:
 
         exec_key_ = GetKeyVector(exec_path_);
 
-        if (!FLAGS_LI_FORCE_PROFILER_CACHE) {
+        if (!FLAGS_FC_FORCE_PROFILER_CACHE) {
             IfShouldBuildProfiler(exec_key_);
         }
         else {
@@ -327,12 +327,12 @@ public:
         std::vector<std::tuple<std::filesystem::path, std::filesystem::path>> generated_profilers;
 
         for (int i = 0; i < exec_key_.size(); i++) {
-            Target::Instance()->GenerateKernel(GenOperationKind::Gemm, gemm_problems[i]);
+            Target::Instance()->GenerateKernel(CodeGenKind::Gemm, gemm_problems[i]);
 
             // init kernel instance map
             kernel_instance_map_ = register_kernel_ptr_->Init(op_kind_, epilogue_op_);
             if (kernel_instance_map_.size() == 0) {
-                LI_THROW(Fatal("No GEMM op instances were generated for {}", op_name_));
+                FC_THROW(Fatal("No GEMM op instances were generated for {}", op_name_));
             }
 
             // // run compile-time filter
@@ -349,7 +349,7 @@ public:
 
             // kernel_instance_map_ = new_kernel_instance_map;
             // if (kernel_instance_map_.size() == 0) {
-            //     LI_THROW(Unavailable(
+            //     FC_THROW(Unavailable(
             //         "No GEMM op instances are left after filtering for {}, This is probably due to
             //         incompatible alignment requirements.", op_name_));
             // }
@@ -376,7 +376,7 @@ public:
         std::filesystem::path exe_path = std::filesystem::path(profiler_prefix) / profiler_filename;
 
         if (!CheckExistWithRetries(exe_path, 3, 5)) {
-            LI_THROW(Fatal("Profiler {} is not executable", exe_path.string()));
+            FC_THROW(Fatal("Profiler {} is not executable", exe_path.string()));
         }
 
         // k,m,n
@@ -443,7 +443,7 @@ public:
                                     exec_entry_sha1,
                                     permute_shape_.ToString());
 
-        auto cache_value = Target::Instance()->QueryProfileCache(GenOperationKind::Gemm, query);
+        auto cache_value = Target::Instance()->QueryProfileCache(CodeGenKind::Gemm, query);
 
         if (cache_value == std::make_tuple("null", -1) && force_cache) {
             LOG(WARNING) << "force_cache is enabled but we could not find the following cache available on device. "
@@ -455,12 +455,8 @@ public:
                 auto process_result_callback =
                     [&](const std::vector<ProfileResult>&           result,
                         const std::shared_ptr<ProfilerPostprocess>& postprocessing_delegate_ptr) {
-                        postprocessing_delegate_ptr->AddInstance(result,
-                                                                 GenOperationKind::Gemm,
-                                                                 GetAttrsMap(),
-                                                                 kernel_config_name,
-                                                                 workload,
-                                                                 split_k_profile);
+                        postprocessing_delegate_ptr->AddInstance(
+                            result, CodeGenKind::Gemm, GetAttrsMap(), kernel_config_name, workload, split_k_profile);
                     };
                 return process_result_callback;
             };
@@ -470,7 +466,7 @@ public:
             std::vector<std::string> command =
                 GenOpProfileCmd(profiler_prefix, kernel_config_name, workload, fbuild_cmd);
 
-            LOG(INFO) << "profile command: " << JoinToString(command);
+            LOG(INFO) << "profile command: " << JoinStrings(command);
 
             if (StartsWith(op_name_, "split_k")) {
                 std::vector<int64_t> k_m_n_values = InverseKeyFunc(workload);  // {k, m, n} using std::map sort
@@ -502,7 +498,7 @@ public:
                  const std::string&                        folder_name = "kernel_profile") override
     {
         std::filesystem::path profiler_prefix =
-            std::filesystem::path(FLAGS_LI_HOME_PATH) / folder_name / context_ptr_->GetName() / "profiler" / op_name_;
+            std::filesystem::path(FLAGS_FC_HOME_PATH) / folder_name / context_ptr_->GetName() / "profiler" / op_name_;
 
         for (const auto& workload : exec_key_) {
             if (exec_path_[workload]->algo_ == "") {
@@ -510,7 +506,7 @@ public:
                     kernel_instance_map_ = register_kernel_ptr_->Init(op_kind_, epilogue_op_);
                 }
 
-                ProfileSingleWorkload(profiler_prefix, workload, profiler_runner_ptr, FLAGS_LI_FORCE_PROFILER_CACHE);
+                ProfileSingleWorkload(profiler_prefix, workload, profiler_runner_ptr, FLAGS_FC_FORCE_PROFILER_CACHE);
             }
             else {
                 LOG(INFO) << op_name_ << " from cache, not profile";

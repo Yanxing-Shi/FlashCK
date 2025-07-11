@@ -12,7 +12,7 @@ Allocator::Allocator(int device_id): device_id_(device_id)
     const int          device_count         = GetGPUDeviceCount();
 
     if (device_id < 0 || device_id >= device_count) {
-        LI_THROW(InvalidArgument("Invalid device id: {}, total devices: {}", device_id, device_count));
+        FC_THROW(InvalidArgument("Invalid device id: {}, total devices: {}", device_id, device_count));
     }
 
     hipMemPool_t mem_pool = nullptr;

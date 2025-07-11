@@ -22,18 +22,18 @@ FmhaFwdSplitKVOp<T>::FmhaFwdSplitKVOp(std::string              op_name,
                                       int64_t                  num_splits):
     FmhaCommonOp<T, FmhaFwdSplitKVOp<T>>::FmhaCommonOp(op_name)
 {
-    LI_ENFORCE_EQ(paged_block_size % 128,
+    FC_ENFORCE_EQ(paged_block_size % 128,
                   0,
                   Unavailable("only paged-kvcache block size divisible by 128 are currently supported"));
 
-    LI_ENFORCE_LE(num_splits, 128, Unavailable("num_splits greater than 128 is not supported"));
+    FC_ENFORCE_LE(num_splits, 128, Unavailable("num_splits greater than 128 is not supported"));
 
-    LI_ENFORCE_EQ(
+    FC_ENFORCE_EQ(
         q_num_heads % kv_num_heads,
         0,
         Unavailable("q_num_heads should be divisible by kv_num_heads, but got {} and {}", q_num_heads, kv_num_heads));
 
-    LI_ENFORCE_LE(qk_head_dim, 256, Unavailable("FlashAttention forward only supports head dimension at most 256"));
+    FC_ENFORCE_LE(qk_head_dim, 256, Unavailable("FlashAttention forward only supports head dimension at most 256"));
 
     this->op_kind_     = FmhaOperationKind::FwdSplitKV;
     this->op_name_     = op_name;
@@ -139,13 +139,13 @@ void FmhaFwdSplitKVOp<T>::SanityCheck(Variable* q,
     // op mode
     if (this->op_mode_ == FmhaOperationMode::Group && q->GetShape().GetDim(0) != DDim(1)
         && k->GetShape().GetDim(0) != DDim(1) && v->GetShape().GetDim(0) != DDim(1)) {
-        LI_THROW(Unimplemented("group mode batch size must 1"));
+        FC_THROW(Unimplemented("group mode batch size must 1"));
     }
 
     // num of dimensions
     if (q->GetShape().GetNumDim() != k->GetShape().GetNumDim()
         || q->GetShape().GetNumDim() != v->GetShape().GetNumDim()) {
-        LI_THROW(Unimplemented(
+        FC_THROW(Unimplemented(
             "query, key, value must have the same number of dimensions, but got query: {}, key: {}, value: {}",
             q->GetShape().GetNumDim(),
             k->GetShape().GetNumDim(),
@@ -154,7 +154,7 @@ void FmhaFwdSplitKVOp<T>::SanityCheck(Variable* q,
 
     // batch size
     if (q->GetShape().GetDim(0) != k->GetShape().GetDim(0) || q->GetShape().GetDim(0) != v->GetShape().GetDim(0)) {
-        LI_THROW(Unimplemented("query, key, value must have the same batch size, but got query: {}, key: {}, value: {}",
+        FC_THROW(Unimplemented("query, key, value must have the same batch size, but got query: {}, key: {}, value: {}",
                                q->GetShape().GetDim(0).ToString(),
                                k->GetShape().GetDim(0).ToString(),
                                v->GetShape().GetDim(0).ToString()));
@@ -162,7 +162,7 @@ void FmhaFwdSplitKVOp<T>::SanityCheck(Variable* q,
 
     // seq_len
     if (k->GetShape().GetDim(1) != v->GetShape().GetDim(1)) {
-        LI_THROW(Unimplemented("k, v must have the same seq_len, but got k: {}, v: {}",
+        FC_THROW(Unimplemented("k, v must have the same seq_len, but got k: {}, v: {}",
                                k->GetShape().GetDim(1).ToString(),
                                v->GetShape().GetDim(1).ToString()));
     }
@@ -170,24 +170,24 @@ void FmhaFwdSplitKVOp<T>::SanityCheck(Variable* q,
     // num heads
     if (q->GetShape().GetDim(2) != DDim(this->q_num_heads_) || k->GetShape().GetDim(2) != DDim(this->kv_num_heads_)
         || v->GetShape().GetDim(2) != DDim(this->kv_num_heads_)) {
-        LI_THROW(Unimplemented("num heads not right"));
+        FC_THROW(Unimplemented("num heads not right"));
     }
 
     // embed_dim
     if (q->GetShape().GetDim(3) != DDim(this->qk_head_dim_) || k->GetShape().GetDim(3) != DDim(this->qk_head_dim_)
         || v->GetShape().GetDim(3) != DDim(this->v_head_dim_)) {
-        LI_THROW(Unimplemented("embedding dim not right"));
+        FC_THROW(Unimplemented("embedding dim not right"));
     }
 
     // bias
     if (bias != nullptr && this->bias_enum_ != BiasEnum::NO_BIAS) {
         if (bias->GetShape().GetNumDim() != 4 && this->bias_enum_ == BiasEnum::ELEMENTWISE_BIAS) {
-            LI_THROW(Unimplemented("elementwise bias must have 4 dimensions, but got bias: {}",
+            FC_THROW(Unimplemented("elementwise bias must have 4 dimensions, but got bias: {}",
                                    bias->GetShape().GetNumDim()));
         }
 
         if (bias->GetShape().GetNumDim() != 2 && this->bias_enum_ == BiasEnum::ALIBI) {
-            LI_THROW(
+            FC_THROW(
                 Unimplemented("alibi bias must have 4 dimensions, but got bias: {}", bias->GetShape().GetNumDim()));
         }
 
@@ -203,7 +203,7 @@ void FmhaFwdSplitKVOp<T>::SanityCheck(Variable* q,
         bool  broadcastable;
         Shape bias_broadcast_shape;
         std::tie(broadcastable, bias_broadcast_shape) = Shape::GetBroadCastMaxShape(bias_shape, bias_expected_shape);
-        LI_ENFORCE_EQ(broadcastable,
+        FC_ENFORCE_EQ(broadcastable,
                       true,
                       Unimplemented("bias shape is not broadcastable: {} vs {}",
                                     bias_shape.ToString(),
@@ -213,54 +213,54 @@ void FmhaFwdSplitKVOp<T>::SanityCheck(Variable* q,
     // seqstart_q seqstart_k
     if (seqstart_q != nullptr && seqstart_k != nullptr) {
         if (seqstart_q->GetShape().GetDim(0) != (q->GetShape().GetDim(0) + DDim(1))) {
-            LI_THROW(Unimplemented("seqstart_q must have the shape [B+1], but got seqstart_q: {}",
+            FC_THROW(Unimplemented("seqstart_q must have the shape [B+1], but got seqstart_q: {}",
                                    seqstart_q->GetShape().ToString()));
         }
 
         if (seqstart_k->GetShape().GetDim(0) != (k->GetShape().GetDim(0) + DDim(1))) {
-            LI_THROW(Unimplemented("seqstart_k must have the shape [B+1], but got seqstart_k: {}",
+            FC_THROW(Unimplemented("seqstart_k must have the shape [B+1], but got seqstart_k: {}",
                                    seqstart_k->GetShape().ToString()));
         }
 
         // if (seqstart_q->GetDtype() != DataType::INT32) {
-        //     LI_THROW(Unimplemented("seqstart_q must be int32 tensor, but got seqstart_q: {}",
+        //     FC_THROW(Unimplemented("seqstart_q must be int32 tensor, but got seqstart_q: {}",
         //                              DataTypeToString(seqstart_q->GetDtype())));
         // }
 
         // if (seqstart_k->GetDtype() != DataType::INT32) {
-        //     LI_THROW(Unimplemented("seqstart_k must be int32 tensor, but got seqstart_k: {}",
+        //     FC_THROW(Unimplemented("seqstart_k must be int32 tensor, but got seqstart_k: {}",
         //                              DataTypeToString(seqstart_k->GetDtype())));
         // }
 
-        LI_ENFORCE_EQ(
+        FC_ENFORCE_EQ(
             seqstart_q->GetShape().GetNumDim(),
             1,
             Unimplemented("seqstart_q must be 1D tensor, but got seqstart_q: {}", seqstart_q->GetShape().GetNumDim()));
 
-        LI_ENFORCE_EQ(
+        FC_ENFORCE_EQ(
             seqstart_k->GetShape().GetNumDim(),
             1,
             Unimplemented("seqstart_k must be 1D tensor, but got seqstart_k: {}", seqstart_k->GetShape().GetNumDim()));
 
         if (q->GetShape().GetDim(0) != DDim(1)) {
-            LI_THROW(Unimplemented("seqstart_q and seqstart_k is only supported for group mode"));
+            FC_THROW(Unimplemented("seqstart_q and seqstart_k is only supported for group mode"));
         }
     }
 
     // k seq_len
     if (seqlen_k != nullptr) {
         if (seqlen_k->GetDtype() != DataType::INT64) {
-            LI_THROW(Unimplemented("seqlen_k must be int64 tensor, but got seqlen_k: {}",
+            FC_THROW(Unimplemented("seqlen_k must be int64 tensor, but got seqlen_k: {}",
                                    DataTypeToString(seqlen_k->GetDtype())));
         }
 
-        LI_ENFORCE_EQ(
+        FC_ENFORCE_EQ(
             seqlen_k->GetShape().GetNumDim(),
             1,
             Unimplemented("seqlen_k must be 1D tensor, but got seqlen_k: {}", seqlen_k->GetShape().GetNumDim()));
 
         if (seqlen_k->GetShape().GetDim(0) != k->GetShape().GetDim(0)) {
-            LI_THROW(Unimplemented("seqlen_k must have the same batch size as key, but got seqlen_k: {}",
+            FC_THROW(Unimplemented("seqlen_k must have the same batch size as key, but got seqlen_k: {}",
                                    seqlen_k->GetShape().GetDim(0).ToString()));
         }
     }
@@ -268,21 +268,21 @@ void FmhaFwdSplitKVOp<T>::SanityCheck(Variable* q,
     // block tables
     if (block_table != nullptr) {
         if (this->paged_block_size_ <= 0) {
-            LI_THROW(Unimplemented("block_table is not supported for paged_block_size == 0"));
+            FC_THROW(Unimplemented("block_table is not supported for paged_block_size == 0"));
         }
 
         if (block_table->GetShape().GetNumDim() != 2) {
-            LI_THROW(Unimplemented("block_table must have 2 dimensions, but got block_table: {}",
+            FC_THROW(Unimplemented("block_table must have 2 dimensions, but got block_table: {}",
                                    block_table->GetShape().GetNumDim()));
         }
 
         if (block_table->GetShape().GetDim(0) != q->GetShape().GetDim(0)) {
-            LI_THROW(Unimplemented("block_table must have the same batch size as query, but got block_table: {}",
+            FC_THROW(Unimplemented("block_table must have the same batch size as query, but got block_table: {}",
                                    block_table->GetShape().GetDim(0).ToString()));
         }
 
         // if (block_table->GetShape().GetDim(1) != DDim(this->num_blocks_)) {
-        //     LI_THROW(
+        //     FC_THROW(
         //         Unimplemented("block_table must have the same num_blocks as num_blocks, but got block_table: {}",
         //                       block_table->GetShape().GetDim(1).ToString()));
         // }
@@ -290,10 +290,10 @@ void FmhaFwdSplitKVOp<T>::SanityCheck(Variable* q,
 
     // cache_batch_idx
     if (cache_batch_idx != nullptr) {
-        LI_ENFORCE_EQ(cache_batch_idx->GetShape().GetNumDim(), 1, Unavailable("cache_batch_idx dims should be 1"));
+        FC_ENFORCE_EQ(cache_batch_idx->GetShape().GetNumDim(), 1, Unavailable("cache_batch_idx dims should be 1"));
 
         if (cache_batch_idx->GetShape().GetDim(0) != q->GetShape().GetDim(0)) {
-            LI_THROW(
+            FC_THROW(
                 Unimplemented("cache_batch_idx must have the same batch size as query, but got cache_batch_idx: {}",
                               cache_batch_idx->GetShape().GetDim(0).ToString()));
         }

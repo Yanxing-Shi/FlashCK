@@ -462,4 +462,4 @@ public:
 
 }  // namespace flashck
 
-flashck_REGISTER_KERNEL(CK_TILE, fmha_fwd_appendkv, flashck::FmhaFwdAppendKVKernel, ALL_LAYOUT, _Float16, ushort);
+FC_REGISTER_KERNEL(CK_TILE, fmha_fwd_appendkv, flashck::FmhaFwdAppendKVKernel, ALL_LAYOUT, _Float16, ushort);

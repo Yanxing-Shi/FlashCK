@@ -3,13 +3,6 @@
 #include "flashck/core/module/kernels/gemm_kernels/gemm_common_kernel.h"
 #include "flashck/core/module/kernels/kernel_registry.h"
 
-/*
-GEMM ROCM backend for A[RowMajor], B[ColumnMajor], C[RowMajor], i.e.
-c[m, n] = tanh(a[m, k] * b[n, k] + bias[n])
-This is used for `torch.nn.functional.linear + tanh`
-When used for `linear`, need to set A->Data, B->Weight, C->Bias
-*/
-
 namespace flashck {
 
 class GemmRCRBiasTanhKernel: public GemmCommonKernel {
@@ -33,4 +26,4 @@ public:
 
 }  // namespace flashck
 
-flashck_REGISTER_KERNEL(CK, gemm_rcr_bias_tanh, flashck::GemmRCRBiasTanhKernel, RCR, _Float16, float, ushort);
+FC_REGISTER_KERNEL(LEGACY, gemm_rcr_bias_tanh, flashck::GemmRCRBiasTanhKernel, RCR, _Float16, float, ushort);

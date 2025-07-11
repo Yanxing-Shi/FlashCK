@@ -3,12 +3,6 @@
 #include "flashck/core/module/kernels/gemm_kernels/gemm_common_kernel.h"
 #include "flashck/core/module/kernels/kernel_registry.h"
 
-/*
-GEMM ROCM backend for A[RowMajor], B[ColumnMajor], C[RowMajor], i.e.
-c[m, n] = SILU(a[m, k] * b[n, k] + bias[n])
-This is used for `torch.nn.functional.linear + silu`
-*/
-
 namespace flashck {
 
 class GemmRCRBiasSiLUKernel: public GemmCommonKernel {
@@ -32,4 +26,4 @@ public:
 
 }  // namespace flashck
 
-flashck_REGISTER_KERNEL(CK, gemm_rcr_bias_silu, flashck::GemmRCRBiasSiLUKernel, RCR, _Float16, float, ushort);
+FC_REGISTER_KERNEL(LEGACY, gemm_rcr_bias_silu, flashck::GemmRCRBiasSiLUKernel, RCR, _Float16, float, ushort);

@@ -3,13 +3,6 @@
 #include "flashck/core/module/kernels/gemm_kernels/gemm_common_kernel.h"
 #include "flashck/core/module/kernels/kernel_registry.h"
 
-/*
-GEMM Specialization for
-C = Add(GeMM(A, B) + bias, D0)),
-where A[RowMajor][M, K], B[ColMajor][N, K], C[RowMajor][M, N]
-bias[RowMajor][N], D0[RowMajor][M, N]
-*/
-
 namespace flashck {
 
 class GemmRCRBiasAddKernel: public GemmCommonKernel {
@@ -33,4 +26,4 @@ public:
 
 }  // namespace flashck
 
-flashck_REGISTER_KERNEL(CK, gemm_rcr_bias_add, flashck::GemmRCRBiasAddKernel, RCR, _Float16, float, ushort);
+FC_REGISTER_KERNEL(LEGACY, gemm_rcr_bias_add, flashck::GemmRCRBiasAddKernel, RCR, _Float16, float, ushort);

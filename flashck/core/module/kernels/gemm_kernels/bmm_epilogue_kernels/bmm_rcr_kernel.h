@@ -26,4 +26,4 @@ public:
 
 }  // namespace flashck
 
-flashck_REGISTER_KERNEL(CK, bmm_rcr, flashck::BmmRCRKernel, RCR, _Float16, float, ushort);
+FC_REGISTER_KERNEL(CK, bmm_rcr, flashck::BmmRCRKernel, RCR, _Float16, float, ushort);

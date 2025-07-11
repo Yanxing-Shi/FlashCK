@@ -26,5 +26,5 @@ public:
 
 }  // namespace flashck
 
-flashck_REGISTER_KERNEL(
-    CK, gemm_rcr_bias_permute_m2n3, flashck::GemmRCRBiasPermuteM2N3Kernel, RCR, _Float16, float, ushort);
+FC_REGISTER_KERNEL(
+    LEGACY, gemm_rcr_bias_permute_m2n3, flashck::GemmRCRBiasPermuteM2N3Kernel, RCR, _Float16, float, ushort);

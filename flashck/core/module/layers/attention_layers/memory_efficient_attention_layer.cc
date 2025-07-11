@@ -56,7 +56,7 @@ Variable* MemoryEfficientAttentionLayer<T>::operator()(Variable* q,
         SetInputs({q, k, v, bias, seqstart_q, seqstart_k, seqlen_k});
     }
     else {
-        LI_THROW(Unimplemented("fmha only supports Batch && group"));
+        FC_THROW(Unimplemented("fmha only supports Batch && group"));
     }
 
     Variable* fmha_out =

@@ -184,7 +184,7 @@ std::vector<std::unique_ptr<char[], AllocDeleter>> MemoryManager::AllocateMemory
         VLOG(2) << "Allocated main buffer: " << HumanReadableSize(total_size);
     }
     catch (const std::bad_alloc& e) {
-        LI_THROW(ResourceExhausted("Failed to allocate main buffer of size {}", HumanReadableSize(total_size)));
+        FC_THROW(ResourceExhausted("Failed to allocate main buffer of size {}", HumanReadableSize(total_size)));
     }
 
     return buffers;
@@ -205,7 +205,7 @@ void MemoryManager::AssignMemoryAddresses(const std::vector<std::pair<TensorUsag
 
     for (const auto& [usage, offset] : usages) {
         if (offset + usage.size > total_buffer_size_) {
-            LI_THROW(LogicError("Memory overflow detected for tensor {}", usage.unique_id));
+            FC_THROW(LogicError("Memory overflow detected for tensor {}", usage.unique_id));
         }
         tensor_ptr_map_[usage.unique_id] = main_buffer + offset;
     }
@@ -230,7 +230,7 @@ void MemoryManager::ValidateMemoryAllocations(const std::vector<std::pair<Tensor
 
         for (const auto& [conflict_id, conflict_start, conflict_end] : conflicts) {
             if (conflict_id != usage.unique_id) {
-                LI_THROW(LogicError("Memory conflict between tensor {} ({}-{}) and {} ({}-{})",
+                FC_THROW(LogicError("Memory conflict between tensor {} ({}-{}) and {} ({}-{})",
                                     usage.unique_id,
                                     offset,
                                     end,

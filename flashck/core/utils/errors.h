@@ -53,49 +53,38 @@ enum class ErrorFlag {
     EXTERNAL = 12,
 };
 
-template<ErrorFlag E>
-constexpr std::string_view ErrorName;
-
-template<>
-constexpr std::string_view ErrorName<ErrorFlag::LEGACY> = "LegacyError";
-
-template<>
-constexpr std::string_view ErrorName<ErrorFlag::INVALID_ARGUMENT> = "InvalidArgumentError";
-
-template<>
-constexpr std::string_view ErrorName<ErrorFlag::NOT_FOUND> = "NotFoundError";
-
-template<>
-constexpr std::string_view ErrorName<ErrorFlag::OUT_OF_RANGE> = "OutOfRangeError";
-
-template<>
-constexpr std::string_view ErrorName<ErrorFlag::ALREADY_EXISTS> = "AlreadyExistsError";
-
-template<>
-constexpr std::string_view ErrorName<ErrorFlag::RESOURCE_EXHAUSTED> = "ResourceExhaustedError";
-
-template<>
-constexpr std::string_view ErrorName<ErrorFlag::PRECONDITION_NOT_MET> = "PreconditionNotMetError";
-
-template<>
-constexpr std::string_view ErrorName<ErrorFlag::PERMISSION_DENIED> = "PermissionDeniedError";
-
-template<>
-constexpr std::string_view ErrorName<ErrorFlag::EXECUTION_TIMEOUT> = "ExecutionTimeout";
-
-template<>
-constexpr std::string_view ErrorName<ErrorFlag::UNIMPLEMENTED> = "UnimplementedError";
-
-template<>
-constexpr std::string_view ErrorName<ErrorFlag::UNAVAILABLE> = "UnavailableError";
-
-template<>
-constexpr std::string_view ErrorName<ErrorFlag::FATAL> = "FatalError";
-
-template<>
-constexpr std::string_view ErrorName<ErrorFlag::EXTERNAL> = "ExternalError";
-
-static const std::string_view GetErrorName(ErrorFlag flag);
+static std::string GetErrorName(ErrorFlag flag)
+{
+    switch (flag) {
+        case ErrorFlag::LEGACY:
+            return "LegacyError";
+            break;
+        case ErrorFlag::INVALID_ARGUMENT:
+            return "InvalidArgumentError";
+            break;
+        case ErrorFlag::NOT_FOUND:
+            return "NotFoundError";
+            break;
+        case ErrorFlag::OUT_OF_RANGE:
+            return "OutOfRangeError";
+            break;
+        case ErrorFlag::PERMISSION_DENIED:
+            return "PermissionDeniedError";
+            break;
+        case ErrorFlag::UNIMPLEMENTED:
+            return "UnimplementedError";
+            break;
+        case ErrorFlag::UNAVAILABLE:
+            return "UnavailableError";
+            break;
+        case ErrorFlag::FATAL:
+            return "FatalError";
+            break;
+        default:
+            throw std::invalid_argument("The error type is undefined.");
+            break;
+    }
+}
 
 /**
  * @brief Encapsulates error information with type and message.
@@ -111,7 +100,7 @@ public:
      * @param flag Error category from ErrorFlag enumeration
      * @param msg Detailed error description
      */
-    explicit ErrorSummary(ErrorFlag flag, std::string_view msg): flag_(flag), msg_(std::move(msg)) {}
+    explicit ErrorSummary(ErrorFlag flag, std::string msg): flag_(flag), msg_(std::move(msg)) {}
 
     /**
      * @brief Gets the error category flag.
@@ -126,7 +115,7 @@ public:
      * @brief Gets the detailed error message.
      * @return Const reference to the message string
      */
-    const std::string_view GetErrorMessage() const
+    const std::string GetErrorMessage() const
     {
         return msg_;
     }
@@ -137,35 +126,22 @@ public:
      */
     std::string ToString() const
     {
-        const std::string_view name = GetErrorName(GetErrorFlag());
-        const std::string_view msg  = GetErrorMessage();
+        const std::string name = GetErrorName(GetErrorFlag());
+        const std::string msg  = GetErrorMessage();
 
         return Sprintf("{}: {}", name, msg);
     }
 
 private:
-    ErrorFlag        flag_;
-    std::string_view msg_;
+    ErrorFlag   flag_;
+    std::string msg_;
 };
 
-/**
- * @def REGISTER_ERROR(FUNC, CONST)
- * @brief Generates error creation functions for specific error types.
- *
- * Creates template functions that format error messages and return ErrorSummary
- * objects with the specified error type.
- */
 #define REGISTER_ERROR(FUNC, CONST)                                                                                    \
-    /**                                                                                                                \
-     * @brief Creates %CONST error with formatted message                                                              \
-     * @param format Format string with printf-style placeholders                                                      \
-     * @param args Arguments for format string                                                                         \
-     * @return ErrorSummary containing specified error information                                                     \
-     */                                                                                                                \
     template<typename... Args>                                                                                         \
-    inline ErrorSummary FUNC(const char* format, Args... args)                                                         \
+    inline ErrorSummary FUNC(fmt::format_string<Args...> format, Args&&... args)                                       \
     {                                                                                                                  \
-        return ErrorSummary(CONST, Sprintf(format, args...));                                                          \
+        return ErrorSummary(CONST, fmt::vformat(format, fmt::make_format_args(args...)));                              \
     }
 
 // Error type generator instantiations

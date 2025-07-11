@@ -4,7 +4,7 @@
 
 #include "flashck/core/utils/rocm_info.h"
 
-#include "flashck/core/profiler/target.h"
+#include "flashck/core/profiling/target.h"
 
 namespace flashck {
 

@@ -49,7 +49,7 @@ public:
         auto a_batch_size = a_shape.GetDim(0);
         auto b_batch_size = b_shape.GetDim(0);
         if (a_batch_size != b_batch_size && a_batch_size != 1 && b_batch_size != 1) {
-            LI_THROW(Unavailable(
+            FC_THROW(Unavailable(
                 "bmm operand A and B should have same batch_size, or batch_size = 1! Current shape A: {} shape B: {} .",
                 a_shape.ToString(),
                 b_shape.ToString()));
@@ -64,24 +64,24 @@ public:
         Shape b_shape = b->GetShape();
 
         if (a_shape.GetNumDim() != 2 && a_shape.GetNumDim() != 3) {
-            LI_THROW(
+            FC_THROW(
                 Unavailable("bmm operand A should have 2 or 3 dimensions! Current shape: {}.", a_shape.ToString()));
         }
 
         if (b_shape.GetNumDim() != 2 && b_shape.GetNumDim() != 3) {
-            LI_THROW(
+            FC_THROW(
                 Unavailable("bmm operand A should have 2 or 3 dimensions! Current shape: {}.", b_shape.ToString()));
         }
 
         if (a_shape.GetNumDim() == 2 && b_shape.GetNumDim() == 2) {
-            LI_THROW(Unavailable(
+            FC_THROW(Unavailable(
                 "bmm operand A and B both have 2 dimensions! Use gemm instead. Current a_shape: {}, b_shape: {}",
                 a_shape.ToString(),
                 b_shape.ToString()));
         }
 
         if (a->GetDtype() != b->GetDtype()) {
-            LI_THROW(Unavailable("bmm operand A and B should have the same dtype! Current a_dtype: {}, b_dtype: {}.",
+            FC_THROW(Unavailable("bmm operand A and B should have the same dtype! Current a_dtype: {}, b_dtype: {}.",
                                  DataTypeToString(a->GetDtype()),
                                  DataTypeToString(b->GetDtype())));
         }
@@ -91,7 +91,7 @@ public:
                                                                   const std::vector<int64_t>& batch_dims,
                                                                   const DDim&                 output_batch)
     {
-        LI_ENFORCE_EQ(
+        FC_ENFORCE_EQ(
             input_shapes.size(),
             batch_dims.size(),
             Unavailable(

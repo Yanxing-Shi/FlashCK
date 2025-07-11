@@ -1,9 +1,5 @@
 #pragma once
 
-#include <functional>
-#include <memory>
-#include <string>
-
 #include "flashck/core/graph/layer.h"
 #include "flashck/core/graph/node.h"
 

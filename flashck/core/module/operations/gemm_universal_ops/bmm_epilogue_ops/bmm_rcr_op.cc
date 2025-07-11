@@ -140,7 +140,7 @@ void BmmRCROp<CppType>::ForwardImpl()
         gemm_args.b_dim2_ = this->GetParentNode(1)->GetShape().GetDim(1).GetValues()[0];
     }
     else {
-        LI_THROW(Unavailable("Unsupported input shape"));
+        FC_THROW(Unavailable("Unsupported input shape"));
     }
 
     gemm_args.stream_ = this->context_ptr_->GetStream();

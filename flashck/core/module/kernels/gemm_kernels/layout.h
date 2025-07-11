@@ -2,12 +2,8 @@
 
 #include <string>
 
-#include "flashck/core/profiler/gemm_operation.h"
-#include "flashck/core/profiler/library.h"
-
-/*
-Layout class
-*/
+#include "flashck/core/profiling/gemm_operation.h"
+#include "flashck/core/profiling/library.h"
 
 namespace flashck {
 

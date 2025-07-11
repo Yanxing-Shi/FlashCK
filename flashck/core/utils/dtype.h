@@ -1,5 +1,10 @@
 #pragma once
 
+#include <cstdint>
+#include <string>
+#include <tuple>
+#include <type_traits>
+
 namespace flashck {
 
 enum class DataType {
@@ -19,76 +24,77 @@ enum class DataType {
     FLOAT64 = 10
 };
 
-template<DataType DT>
-struct DataTypeTraits {
-    static_assert(sizeof(DT) == 0, "Unsupported data type");
-};
-
-class TypeSystem {
-public:
-    template<DataType DT>
-    static constexpr void ValidateType()
-    {
-        static_assert(DataTypeTraits<DT>::size == sizeof(typename DataTypeTraits<DT>::cpp_type), "Type size mismatch");
-        static_assert(DataTypeTraits<DT>::alignment == alignof(typename DataTypeTraits<DT>::cpp_type),
-                      "Alignment mismatch");
+// GetDataType function template
+// Returns the DataType enum corresponding to the given type T
+// Supported types: bool, float, double, int32_t, uint32_t, int64_t, uint64_t
+// If T is not supported, static_assert will trigger a compile-time error
+template<typename T>
+constexpr DataType GetDataType()
+{
+    if constexpr (std::is_same_v<T, bool>) {
+        return DataType::BOOL;
     }
-
-    // static void ValidateConversion(DataType src, DataType dst)
-    // {
-    //     const size_t src_size = GetTypeSize(src);
-    //     const size_t dst_size = GetTypeSize(dst);
-
-    //     if (src_size < dst_size) {
-    //         throw std::runtime_error("Potential precision loss in type conversion");
-    //     }
-    // }
-
-    template<DataType DT>
-    static constexpr const char* GetTypeFullName()
-    {
-        ValidateType<DT>();
-        return DataTypeTraits<DT>::full_name;
+    else if constexpr (std::is_same_v<T, float>) {
+        return DataType::FLOAT32;
     }
-
-    template<DataType DT>
-    static constexpr const char* GetTypeShortName()
-    {
-        ValidateType<DT>();
-        return DataTypeTraits<DT>::short_name;
+    else if constexpr (std::is_same_v<T, double>) {
+        return DataType::FLOAT64;
     }
-
-    // static const char* GetTypeName(DataType dt)
-    // {
-    //     switch (dt) {
-    //         case DataType::FLOAT8:
-    //             return "float8";
-    //         case DataType::BFLOAT8:
-    //             return "bfloat8";
-    //         default:
-    //             throw std::invalid_argument("Unknown data type");
-    //     }
-    // }
-
-    template<DataType DT>
-    static constexpr size_t GetTypeSize()
-    {
-        validate_type<DT>();
-        return DataTypeTraits<DT>::size;
+    else if constexpr (std::is_same_v<T, int32_t>) {
+        return DataType::INT32;
     }
+    else if constexpr (std::is_same_v<T, uint32_t>) {
+        return DataType::UINT32;
+    }
+    else if constexpr (std::is_same_v<T, int64_t>) {
+        return DataType::INT64;
+    }
+    else if constexpr (std::is_same_v<T, uint64_t>) {
+        return DataType::UINT64;
+    }
+    else {
+        static_assert(false, "Unsupported data type");
+    }
+}
 
-    // static size_t get_type_size(DataType dt)
-    // {
-    //     switch (dt) {
-    //         case DataType::FLOAT8:
-    //             return sizeof(float8);
-    //         case DataType::BFLOAT8:
-    //             return sizeof(bfloat8);
+const char* DataTypeToString(DataType type)
+{
+    switch (type) {
+        case DataType::BOOL:
+            return "bool";
+        case DataType::FLOAT8:
+            return "fp8";
+        case DataType::BFLOAT8:
+            return "bf8";
+        case DataType::FLOAT16:
+            return "fp16";
+        case DataType::BFLOAT16:
+            return "bf16";
+        case DataType::UINT32:
+            return "u32";
+        case DataType::INT32:
+            return "i32";
+        case DataType::FLOAT32:
+            return "fp32";
+        case DataType::UINT64:
+            return "u64";
+        case DataType::INT64:
+            return "i64";
+        case DataType::FLOAT64:
+            return "fp64";
+        default:
+            return "unknown";
+    }
+}
 
-    //         default:
-    //             throw std::invalid_argument("Unknown data type");
-    //     }
-    // }
-};
+// Check if a type is supported as a data type
+// Supported types: bool, float, double, int32_t, uint32_t, int64_t, uint64_t
+template<typename T>
+constexpr bool IsSupportedDataType()
+{
+    return std::is_same_v<T, bool> || std::is_same_v<T, float> || std::is_same_v<T, double>
+           || std::is_same_v<T, int32_t> || std::is_same_v<T, uint32_t> || std::is_same_v<T, int64_t>
+           || std::is_same_v<T, uint64_t>;
+}
 
 }  // namespace flashck

@@ -11,9 +11,9 @@
 
 #include "flashck/core/graph/shape.h"
 
-#include "flashck/core/profiler/base.h"
-#include "flashck/core/profiler/library.h"
-#include "flashck/core/profiler/target.h"
+#include "flashck/core/profiling/base.h"
+#include "flashck/core/profiling/library.h"
+#include "flashck/core/profiling/target.h"
 
 #include "flashck/core/utils/enforce.h"
 
@@ -40,7 +40,7 @@ public:
     virtual std::map<std::string, std::shared_ptr<void>> Init(const OperationKind&   op_kind,
                                                               const TensorOperation& extra_kind)
     {
-        LI_THROW(Unimplemented("Kernel base init is not implemented."));
+        FC_THROW(Unimplemented("Kernel base init is not implemented."));
     }
 
     // step.2 GenKernelProfiler
@@ -49,7 +49,7 @@ public:
                       const std::unordered_map<std::string, std::any>& kernel_func_map,
                       const std::string&                               folder_name = "kernel_profile")
     {
-        LI_THROW(Unimplemented("Kernel base GenKernelProfiler is not implemented."));
+        FC_THROW(Unimplemented("Kernel base GenKernelProfiler is not implemented."));
     }
 
     // step.3 GenKernelFunction
@@ -57,13 +57,13 @@ public:
                                           const std::string&                               model_name,
                                           const std::unordered_map<std::string, std::any>& kernel_func_map)
     {
-        LI_THROW(Unimplemented("Kernel base GenKernelFunction is not implemented."));
+        FC_THROW(Unimplemented("Kernel base GenKernelFunction is not implemented."));
     }
 
     // step.4 KernelLauncher
     virtual void KernelLauncher(const std::string& kernel_func_name, const KernelArgs& args)
     {
-        LI_THROW(Unimplemented("Kernel base KernelLauncher is not implemented."));
+        FC_THROW(Unimplemented("Kernel base KernelLauncher is not implemented."));
     }
 };
 
