@@ -6,52 +6,27 @@ namespace flashck {
 
 Allocator::Allocator(int device_id): device_id_(device_id), stream_(nullptr)
 {
-    ScopedContext guard(device_id_);
     HIP_ERROR_CHECK(hipStreamCreate(&stream_));
 }
 
 Allocator::~Allocator()
 {
-    for (auto& [ptr, is_device] : ptr_info_) {
-        if (is_device) {
-            // device memory
-            HIP_ERROR_CHECK(hipFreeAsync(ptr, stream_));
+    // Free all allocated pointers
+    while (!ptr_info_.empty()) {
+        auto  it        = ptr_info_.begin();
+        char* ptr       = it->first;
+        bool  is_device = it->second;
+
+        try {
+            Free(ptr, is_device);
         }
-        else {
-            // host memory
-            HIP_ERROR_CHECK(hipHostFree(ptr));
+        catch (const std::exception& e) {
+            // Log error but don't throw in destructor
+            LOG(ERROR) << "Error freeing pointer in destructor: " << e.what();
+            // Remove from map to avoid infinite loop
+            ptr_info_.erase(it);
         }
     }
-
-    if (stream_ != nullptr) {
-        HIP_ERROR_CHECK(hipStreamSynchronize(stream_));
-        HIP_ERROR_CHECK(hipStreamDestroy(stream_));
-    }
-
-    ptr_info_.clear();
-}
-
-void Allocator::DeviceMalloc(char*& tensor_ptr, size_t size, int init_type)
-{
-    if (init_type == 0) {
-        // Standard allocation
-        HIP_ERROR_CHECK(hipMalloc((void**)&tensor_ptr, size));
-    }
-    else {
-        // Zero-initialized allocation
-        HIP_ERROR_CHECK(hipMalloc((void**)&tensor_ptr, size));
-        HIP_ERROR_CHECK(hipMemset(tensor_ptr, 0, size));
-    }
-}
-
-void Allocator::GetSetDevice(int device_id)
-{
-    HIP_ERROR_CHECK(hipSetDevice(device_id));
-}
-
-void Allocator::GpuStreamSync(hipStream_t stream)
-{
-    HIP_ERROR_CHECK(hipStreamSynchronize(stream));
 }
 
 char* Allocator::Malloc(const size_t size, int init_type, bool is_device)
@@ -62,11 +37,16 @@ char* Allocator::Malloc(const size_t size, int init_type, bool is_device)
 
     char* tensor_ptr = nullptr;
 
-    ScopedContext guard(device_id_);
+    HIP_ERROR_CHECK(hipSetDevice(device_id_));
 
     if (is_device) {
         // Allocate device memory
-        DeviceMalloc(tensor_ptr, size, init_type);
+        HIP_ERROR_CHECK(hipMalloc((void**)&tensor_ptr, size));
+
+        // Initialize memory if requested
+        if (init_type != 0) {
+            HIP_ERROR_CHECK(hipMemset(tensor_ptr, init_type, size));
+        }
     }
     else {
         // Allocate pinned host memory
@@ -91,11 +71,11 @@ void Allocator::Free(char* tensor_ptr, bool is_device)
         return;
     }
 
-    ScopedContext guard(device_id_);
+    HIP_ERROR_CHECK(hipSetDevice(device_id_));
 
     if (is_device) {
         HIP_ERROR_CHECK(hipFreeAsync(tensor_ptr, stream_));
-        GpuStreamSync(stream_);
+        HIP_ERROR_CHECK(hipStreamSynchronize(stream_));
     }
     else {
         HIP_ERROR_CHECK(hipHostFree(tensor_ptr));
