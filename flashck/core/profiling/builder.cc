@@ -199,9 +199,9 @@ Builder::GenMakefileForRunning(const std::vector<std::tuple<std::filesystem::pat
                       obj_files.push_back(SplitStrings(std::get<1>(val).string(), "/").back());
                   });
 
-    std::string build_so_cmd = "hipcc -shared -fPIC $(CFLAGS) -o $@ $(obj_files)";
+    std::string build_so_cmd = ProfilingEngine::GetInstance()->GetCompiler()->GetCompilerCommand({"$@"}, {"$<"}, "so");
 
-    std::string c_file_cmd = ProfilingEngine::GetInstance()->GetCompiler()->GetCompilerCommand({"$@"}, {"$<"}, ".o");
+    std::string c_file_cmd = ProfilingEngine::GetInstance()->GetCompiler()->GetCompilerCommand({"$@"}, {"$<"}, "o");
 
     c_file_cmd   = TimeCmd(c_file_cmd);
     build_so_cmd = TimeCmd(build_so_cmd);
@@ -312,8 +312,8 @@ Builder::GenMakefileForTuning(const std::vector<std::tuple<std::filesystem::path
         // generate two lines for the Makefile
         std::string src_str  = JoinStrings(dependencies[target], " ");
         std::string dep_line = Sprintf("{}: {}", target.string(), src_str);
-        std::string cmd_line = TimeCmd(
-            ProfilingEngine::GetInstance()->GetCompiler()->GetCompilerCommand({src_str}, target.string(), ".o"));
+        std::string cmd_line =
+            TimeCmd(ProfilingEngine::GetInstance()->GetCompiler()->GetCompilerCommand({src_str}, target.string(), "o"));
 
         std::string command = Sprintf("{}\n\t{}", dep_line, cmd_line);
         commands.emplace_back(command);

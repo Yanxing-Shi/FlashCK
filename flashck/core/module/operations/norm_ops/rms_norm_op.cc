@@ -218,7 +218,7 @@ std::string RMSNormOp<T>::GenExecKey(const std::map<std::string, std::vector<int
 }
 
 template<typename T>
-void RMSNormOp<T>::ExtractExecPath(const DynamicProfileStrategy& dynamic_profiling_strategy, const int step_value)
+void RMSNormOp<T>::ExtractExecPath(const ProfilingStrategy& dynamic_profiling_strategy, const int step_value)
 {
     FC_ENFORCE_EQ(
         normalized_shape_.GetNumDim(),
@@ -245,7 +245,7 @@ void RMSNormOp<T>::ExtractExecPath(const DynamicProfileStrategy& dynamic_profili
         {"n", {n}},
     };
 
-    if (dynamic_profiling_strategy == DynamicProfileStrategy::kMax) {
+    if (dynamic_profiling_strategy == ProfilingStrategy::kMax) {
         std::map<std::string, std::vector<int64_t>> max_values = {
             {"m", {m_max}},
             {"n", {n}},
@@ -256,7 +256,7 @@ void RMSNormOp<T>::ExtractExecPath(const DynamicProfileStrategy& dynamic_profili
 
         exec_path_[exec_item_ptr->profiling_key_] = exec_item_ptr;
     }
-    else if (dynamic_profiling_strategy == DynamicProfileStrategy::kMin) {
+    else if (dynamic_profiling_strategy == ProfilingStrategy::kMin) {
         std::map<std::string, std::vector<int64_t>> min_values = {
             {"m", {m_min}},
             {"n", {n}},
@@ -267,7 +267,7 @@ void RMSNormOp<T>::ExtractExecPath(const DynamicProfileStrategy& dynamic_profili
 
         exec_path_[exec_item_ptr->profiling_key_] = exec_item_ptr;
     }
-    else if (dynamic_profiling_strategy == DynamicProfileStrategy::kIteration) {
+    else if (dynamic_profiling_strategy == ProfilingStrategy::kIteration) {
         std::map<std::string, std::vector<int64_t>> iter_values_map;
         for (int64_t m = m_min; m <= m_max; m += step_value) {
             iter_values_map["m"].push_back(m);
@@ -334,7 +334,7 @@ void RMSNormOp<T>::IfShouldBuildProfiler(const std::vector<std::string>& workloa
 
 template<typename T>
 std::vector<std::tuple<std::filesystem::path, std::filesystem::path>>
-RMSNormOp<T>::GenOpProfiler(const DynamicProfileStrategy& dynamic_profiling_strategy)
+RMSNormOp<T>::GenOpProfiler(const ProfilingStrategy& dynamic_profiling_strategy)
 {
     KernelKey kernel_key(SourceType::CK_TILE, DataLayout::ALL_LAYOUT, CppTypeToDataType<T>::Type());
     register_kernel_ptr_ =
@@ -417,10 +417,10 @@ std::vector<std::string> RMSNormOp<T>::GenOpProfileCmd(const std::string&       
 }
 
 template<typename T>
-void RMSNormOp<T>::ProfileSingleWorkload(const std::string&                        profiler_prefix,
-                                         const std::string&                        workload,
-                                         const std::shared_ptr<GPUProfilerRunner>& profiler_runner_ptr,
-                                         bool                                      force_cache)
+void RMSNormOp<T>::ProfileSingleWorkload(const std::string&                         profiler_prefix,
+                                         const std::string&                         workload,
+                                         const std::shared_ptr<GPUProfilingRunner>& profiler_runner_ptr,
+                                         bool                                       force_cache)
 {
     std::vector<std::string> kernel_instance_map_key = GetKeyVector(kernel_instance_map_);
 
@@ -467,8 +467,8 @@ void RMSNormOp<T>::ProfileSingleWorkload(const std::string&                     
 Selects the fastest kernel configurations.
 */
 template<typename T>
-void RMSNormOp<T>::Profile(const std::shared_ptr<GPUProfilerRunner>& profiler_runner_ptr,
-                           const std::string&                        folder_name)
+void RMSNormOp<T>::Profile(const std::shared_ptr<GPUProfilingRunner>& profiler_runner_ptr,
+                           const std::string&                         folder_name)
 {
 
     std::filesystem::path profiler_prefix =

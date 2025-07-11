@@ -8,6 +8,7 @@
 #include <unistd.h>
 
 #include "flashck/core/utils/errors.h"
+#include "flashck/core/utils/string_utils.h"
 
 namespace flashck {
 

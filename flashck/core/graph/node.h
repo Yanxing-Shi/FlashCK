@@ -9,10 +9,9 @@
 #include "flashck/core/graph/node.h"
 #include "flashck/core/graph/shape.h"
 #include "flashck/core/graph/tensor.h"
-#include "flashck/core/utils/dtype.h"
 
-#include "flashck/core/profiling/base.h"
-#include "flashck/core/profiling/gpu_profiler_runner.h"
+#include "flashck/core/profiling/gpu_profiling_runner.h"
+#include "flashck/core/profiling/profiling_strategy.h"
 
 namespace flashck {
 
@@ -161,13 +160,12 @@ public:
     Variable* GetChildNode(const int index);
     Variable* GetParentNode(const int index);
 
-    virtual void Profile(const std::shared_ptr<GPUProfilerRunner>& profiler_runner_ptr,
-                         const std::string&                        folder_name = "kernel_profile")
+    virtual void Profile(const GPUProfilingRunner& profiler_runner, const std::string& folder_name = "kernel_profile")
     {
     }
 
     virtual std::vector<std::tuple<std::filesystem::path, std::filesystem::path>>
-    GenOpProfiler(const DynamicProfileStrategy& dynamic_profiling_strategy)
+    GenOpProfiler(const ProfilingStrategy& dynamic_profiling_strategy)
     {
         FC_THROW(Unimplemented("{}", "GenOpProfiler is not implemented."));
     }
@@ -175,7 +173,7 @@ public:
     virtual std::string GenOpFunction()
     {
         FC_THROW(Unimplemented("{}", "GenOpFunction is not implemented."));
-    };
+    }
 
     bool has_profiler_     = true;
     bool has_gen_function_ = true;

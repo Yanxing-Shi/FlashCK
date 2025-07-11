@@ -67,25 +67,25 @@ public:
 
     std::string GenExecKey(const std::map<std::string, std::vector<int64_t>>& name_value_mapping);
 
-    void ExtractExecPath(const DynamicProfileStrategy& dynamic_profiling_strategy = DynamicProfileStrategy::kMax,
-                         const int                     step_value                 = 1);
+    void ExtractExecPath(const ProfilingStrategy& dynamic_profiling_strategy = ProfilingStrategy::kMax,
+                         const int                step_value                 = 1);
 
     void IfShouldBuildProfiler(const std::vector<std::string>& workloads);
 
     std::vector<std::tuple<std::filesystem::path, std::filesystem::path>>
-    GenOpProfiler(const DynamicProfileStrategy& dynamic_profiling_strategy = DynamicProfileStrategy::kMax) override;
+    GenOpProfiler(const ProfilingStrategy& dynamic_profiling_strategy = ProfilingStrategy::kMax) override;
 
     std::vector<std::string> GenOpProfileCmd(const std::string&          profiler_prefix,
                                              const std::string&          profiler_filename,
                                              const std::vector<int64_t>& input_shape);
 
-    void ProfileSingleWorkload(const std::string&                        profiler_prefix,
-                               const std::string&                        workload,
-                               const std::shared_ptr<GPUProfilerRunner>& profiler_runner_ptr,
-                               bool                                      force_cache);
+    void ProfileSingleWorkload(const std::string&                         profiler_prefix,
+                               const std::string&                         workload,
+                               const std::shared_ptr<GPUProfilingRunner>& profiler_runner_ptr,
+                               bool                                       force_cache);
 
-    void Profile(const std::shared_ptr<GPUProfilerRunner>& profiler_runner_ptr,
-                 const std::string&                        folder_name) override;
+    void Profile(const std::shared_ptr<GPUProfilingRunner>& profiler_runner_ptr,
+                 const std::string&                         folder_name) override;
 
     std::string GenOpFunction() override;
 

@@ -90,8 +90,8 @@ public:
         return static_cast<OpType*>(this)->ExtractDimsImpl();
     }
 
-    void ExtractExecPath(const DynamicProfileStrategy& dynamic_profiling_strategy = DynamicProfileStrategy::kMax,
-                         const int                     step_value                 = 1)
+    void ExtractExecPath(const ProfilingStrategy& dynamic_profiling_strategy = ProfilingStrategy::kMax,
+                         const int                step_value                 = 1)
     {
         std::map<std::string, std::vector<std::shared_ptr<DimInfo>>> dim_info_map = this->ExtractDims();
 
@@ -152,7 +152,7 @@ public:
             VLOG(1) << "name: " << name << " max_dims_value: " << max_value;
         }
 
-        if (dynamic_profiling_strategy == DynamicProfileStrategy::kMax) {
+        if (dynamic_profiling_strategy == ProfilingStrategy::kMax) {
             std::map<std::string, std::vector<int64_t>> max_values;
             for (auto& [name, shape_values] : shape_values_map) {
                 int64_t max_shape_values = *max_element(shape_values.begin(), shape_values.end());
@@ -167,7 +167,7 @@ public:
 
             exec_path_[exec_item_ptr->profiling_key_] = exec_item_ptr;
         }
-        else if (dynamic_profiling_strategy == DynamicProfileStrategy::kMin) {
+        else if (dynamic_profiling_strategy == ProfilingStrategy::kMin) {
             std::map<std::string, std::vector<int64_t>> min_values;
             for (auto& [name, shape_values] : shape_values_map) {
                 int64_t min_shape_values = *min_element(shape_values.begin(), shape_values.end());
@@ -178,7 +178,7 @@ public:
                 std::make_shared<ExecItem>(GenExecKey(min_values), GenExecKey(shape_values_map), "");
             exec_path_[exec_item_ptr->profiling_key_] = exec_item_ptr;
         }
-        else if (dynamic_profiling_strategy == DynamicProfileStrategy::kIteration) {
+        else if (dynamic_profiling_strategy == ProfilingStrategy::kIteration) {
             // iteration
             std::map<std::string, std::vector<int64_t>> iter_values_map;
             size_t                                      max_value_size = 0;
@@ -262,7 +262,7 @@ public:
     }
 
     std::vector<std::tuple<std::filesystem::path, std::filesystem::path>>
-    GenOpProfiler(const DynamicProfileStrategy& dynamic_profiling_strategy = DynamicProfileStrategy::kMax) override
+    GenOpProfiler(const ProfilingStrategy& dynamic_profiling_strategy = ProfilingStrategy::kMax) override
     {
         KernelKey kernel_key(SourceType::CK_TILE, DataLayout::ALL_LAYOUT, CppTypeToDataType<CppType>::Type());
         register_kernel_ptr_ = KernelFactory::Instance().SelectKernel(g_fmha_kind_names_map.at(op_kind_), kernel_key);
@@ -332,10 +332,10 @@ public:
         return cmd;
     }
 
-    void ProfileSingleWorkload(const std::string&                        profiler_prefix,
-                               const std::string&                        workload,
-                               const std::shared_ptr<GPUProfilerRunner>& profiler_runner_ptr,
-                               bool                                      force_cache)
+    void ProfileSingleWorkload(const std::string&                         profiler_prefix,
+                               const std::string&                         workload,
+                               const std::shared_ptr<GPUProfilingRunner>& profiler_runner_ptr,
+                               bool                                       force_cache)
     {
         std::string exec_entry_sha1 = SHA1ToHexString(workload);
         auto        query           = FmhaQueryEntry{DataTypeToShortString(CppTypeToDataType<CppType>::Type()),
@@ -413,7 +413,8 @@ public:
         }
     }
 
-    void Profile(const std::shared_ptr<GPUProfilerRunner>& profiler_runner_ptr, const std::string& folder_name) override
+    void Profile(const std::shared_ptr<GPUProfilingRunner>& profiler_runner_ptr,
+                 const std::string&                         folder_name) override
     {
         std::filesystem::path profiler_prefix =
             std::filesystem::path(FLAGS_FC_HOME_PATH) / folder_name / context_ptr_->GetName() / "profiler" / op_name_;

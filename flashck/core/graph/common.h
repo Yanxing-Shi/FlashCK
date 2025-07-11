@@ -2,8 +2,7 @@
 
 #include <memory>
 
-#include "flashck/core/utils/enforce.h"
-#include "flashck/core/utils/log.h"
+#include "flashck/core/utils/common.h"
 
 namespace flashck {
 

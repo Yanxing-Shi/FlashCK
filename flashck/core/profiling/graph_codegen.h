@@ -4,7 +4,7 @@
 #include <vector>
 
 #include "flashck/core/graph/node.h"
-#include "flashck/core/profiling/base.h"
+#include "flashck/core/profiling/profiling_strategy.h"
 #include "flashck/core/utils/flags.h"
 
 FC_DECLARE_string(FC_HOME_PATH);
@@ -19,12 +19,12 @@ using PathTuple         = std::tuple<std::filesystem::path, std::filesystem::pat
 using GenFunctionResult = std::vector<PathTuple>;
 
 // Generates profiling file paths for operations supporting dynamic profiling.
-GenProfilerResult GenProfiler(const std::vector<Operation*>& model_ops, const DynamicProfileStrategy& strategy)
+GenProfilerResult GenProfiler(const std::vector<Operation*>& model_ops, const ProfilingStrategy& strategy)
 {
     GenProfilerResult results;
     results.reserve(model_ops.size());
 
-    for (const auto* op : model_ops) {
+    for (auto* op : model_ops) {
         CHECK(op != nullptr) << "Invalid null Operation pointer";  // Defensive programming
 
         if (!op->has_profiler_) {
@@ -32,7 +32,8 @@ GenProfilerResult GenProfiler(const std::vector<Operation*>& model_ops, const Dy
             continue;
         }
 
-        VLOG(1) << "Generate profiler for " << op->GetName() << " with strategy: " << strategy.ToString();
+        VLOG(1) << "Generate profiler for " << op->GetName()
+                << " with strategy: " << ProfilingStrategyToString(strategy);
         results.emplace_back(op->GenOpProfiler(strategy));
     }
 
@@ -59,7 +60,7 @@ GenFunctionResult GenFunctionSource(const std::vector<Operation*>& model_ops,
 
     file_tuples.reserve(model_ops.size());
 
-    for (const auto* op : model_ops) {
+    for (auto* op : model_ops) {
         CHECK(op != nullptr) << "Received null Operation pointer";
 
         if (!op->has_gen_function_) {

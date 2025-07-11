@@ -248,7 +248,7 @@ std::string LayerNormOp<T>::GenExecKey(const std::map<std::string, std::vector<i
 }
 
 template<typename T>
-void LayerNormOp<T>::ExtractExecPath(const DynamicProfileStrategy& dynamic_profiling_strategy, const int step_value)
+void LayerNormOp<T>::ExtractExecPath(const ProfilingStrategy& dynamic_profiling_strategy, const int step_value)
 {
     FC_ENFORCE_EQ(
         normalized_shape_.GetNumDim(),
@@ -275,7 +275,7 @@ void LayerNormOp<T>::ExtractExecPath(const DynamicProfileStrategy& dynamic_profi
         {"n", {n}},
     };
 
-    if (dynamic_profiling_strategy == DynamicProfileStrategy::kMax) {
+    if (dynamic_profiling_strategy == ProfilingStrategy::kMax) {
         std::map<std::string, std::vector<int64_t>> max_values = {
             {"m", {m_max}},
             {"n", {n}},
@@ -286,7 +286,7 @@ void LayerNormOp<T>::ExtractExecPath(const DynamicProfileStrategy& dynamic_profi
 
         exec_path_[exec_item_ptr->profiling_key_] = exec_item_ptr;
     }
-    else if (dynamic_profiling_strategy == DynamicProfileStrategy::kMin) {
+    else if (dynamic_profiling_strategy == ProfilingStrategy::kMin) {
         std::map<std::string, std::vector<int64_t>> min_values = {
             {"m", {m_min}},
             {"n", {n}},
@@ -297,7 +297,7 @@ void LayerNormOp<T>::ExtractExecPath(const DynamicProfileStrategy& dynamic_profi
 
         exec_path_[exec_item_ptr->profiling_key_] = exec_item_ptr;
     }
-    else if (dynamic_profiling_strategy == DynamicProfileStrategy::kIteration) {
+    else if (dynamic_profiling_strategy == ProfilingStrategy::kIteration) {
         std::map<std::string, std::vector<int64_t>> iter_values_map;
         for (int64_t m = m_min; m <= m_max; m += step_value) {
             iter_values_map["m"].push_back(m);
@@ -364,7 +364,7 @@ void LayerNormOp<T>::IfShouldBuildProfiler(const std::vector<std::string>& workl
 
 template<typename T>
 std::vector<std::tuple<std::filesystem::path, std::filesystem::path>>
-LayerNormOp<T>::GenOpProfiler(const DynamicProfileStrategy& dynamic_profiling_strategy)
+LayerNormOp<T>::GenOpProfiler(const ProfilingStrategy& dynamic_profiling_strategy)
 {
     KernelKey kernel_key(SourceType::CK_TILE, DataLayout::ALL_LAYOUT, CppTypeToDataType<T>::Type());
     register_kernel_ptr_ =
@@ -447,10 +447,10 @@ std::vector<std::string> LayerNormOp<T>::GenOpProfileCmd(const std::string&     
 }
 
 template<typename T>
-void LayerNormOp<T>::ProfileSingleWorkload(const std::string&                        profiler_prefix,
-                                           const std::string&                        workload,
-                                           const std::shared_ptr<GPUProfilerRunner>& profiler_runner_ptr,
-                                           bool                                      force_cache)
+void LayerNormOp<T>::ProfileSingleWorkload(const std::string&                         profiler_prefix,
+                                           const std::string&                         workload,
+                                           const std::shared_ptr<GPUProfilingRunner>& profiler_runner_ptr,
+                                           bool                                       force_cache)
 {
     std::vector<std::string> kernel_instance_map_key = GetKeyVector(kernel_instance_map_);
 
@@ -494,8 +494,8 @@ void LayerNormOp<T>::ProfileSingleWorkload(const std::string&                   
 }
 
 template<typename T>
-void LayerNormOp<T>::Profile(const std::shared_ptr<GPUProfilerRunner>& profiler_runner_ptr,
-                             const std::string&                        folder_name)
+void LayerNormOp<T>::Profile(const std::shared_ptr<GPUProfilingRunner>& profiler_runner_ptr,
+                             const std::string&                         folder_name)
 {
 
     std::filesystem::path profiler_prefix =

@@ -4,4 +4,4 @@ file(GLOB GraphFile CONFIGURE_DEPENDS "*.cc")
 
 add_library(graph STATIC ${GraphFile})
 set_property(TARGET graph PROPERTY POSITION_INDEPENDENT_CODE ON)
-target_link_libraries(graph PUBLIC utils profiling_engine)
+target_link_libraries(graph PUBLIC utils)

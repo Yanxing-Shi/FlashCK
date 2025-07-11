@@ -16,9 +16,9 @@ private:
     std::vector<InstanceData> instances_;
 };
 
-class GPUProfilerRunner {
+class GPUProfilingRunner {
 public:
-    explicit GPUProfilerRunner(const Postprocesser& postprocesser);
+    explicit GPUProfilingRunner(const Postprocesser& postprocesser);
 
     void Push(const std::vector<std::string>&                                           cmds,
               std::function<void(const std::vector<PerfResult>&, const Postprocesser&)> process_result_callback);

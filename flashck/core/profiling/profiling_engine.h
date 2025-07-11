@@ -1,6 +1,8 @@
 #pragma once
 
+#include "flashck/core/profiling/builder.h"
 #include "flashck/core/profiling/compiler.h"
+#include "flashck/core/profiling/graph_codegen.h"
 #include "flashck/core/profiling/profiling_db.h"
 
 namespace flashck {
@@ -29,6 +31,10 @@ public:
     std::filesystem::path TryFallbackDBPath();
 
     void FlushExistingDB(const std::filesystem::path& path);
+
+    void CodegenAndProfileKernel(const std::vector<Operation*>& model_ops,
+                                 const std::string&             context_name,
+                                 const ProfilingStrategy&       strategy);
 
     // load kernel library
     void

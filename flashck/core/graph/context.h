@@ -12,19 +12,16 @@
 #include "flashck/core/memory/allocator.h"
 #include "flashck/core/memory/memory_manager.h"
 
-#include "flashck/core/profiling/base.h"
-
 namespace flashck {
 
 class Context {
 public:
-    Context(std::string context_name, Mode mode, int dev_id = -1);
+    Context(std::string context_name, int dev_id = -1);
 
     virtual ~Context();
 
     // Property
     std::string                    GetName() const;
-    Mode                           GetMode() const;
     std::string                    GetModeStr() const;
     bool                           IsBuilt() const;
     bool                           IsBuilding() const;
@@ -44,36 +41,12 @@ public:
     Node*  GetLastNode() const;
     bool   CheckIfInit();
 
-    // codegen profiler
-
-    void CodegenAndProfileKernel(const DynamicProfileStrategy& strategy = DynamicProfileStrategy::kMax);
-
-    // Register
-    static void
-    RegisterPyBindLayer(const std::string& layer_name, const int layer_id, const std::shared_ptr<void>& layer_ptr);
-    static std::shared_ptr<char> GetPyBindLayer(const std::string& layer_name, const int layer_id);
-    void                         RegisterObject(const std::string& object_name, char* object);
-    char*                        GetObject(const std::string& object_name) const;
-
     // Context
     void BuildContext();
 
-    static int
-    CreateGlobalContext(const std::string& model_name, Mode mode = Mode::Inference, const int device_id = -1);
+    static int                      CreateGlobalContext(const std::string& model_name, const int device_id = -1);
     static std::shared_ptr<Context> GetGlobalInstance();
     static void                     SetGlobalContext(const std::string& context_name);
-
-    // Auto Regression model
-    void SetBeginRegress();
-    void SetEndRegress();
-    int  GetBeginRegressIdx() const;
-    int  GetEndRegressIdx() const;
-    void UpdateBeginRegressIdx(int node_idx);
-    void UpdateEndRegressIdx(int node_idx);
-    bool GetRegressStatus() const;
-
-    // Debug
-    void Synchronize();
 
     // it will record layer info when layer constructor
     std::map<std::string, int> layer_name_cnt;
@@ -93,9 +66,6 @@ private:
     int         dev_id_;
     hipStream_t stream_ = 0;
 
-    // Property
-    Mode mode_;
-
     bool                           is_context_built_    = false;
     bool                           is_context_building_ = false;
     std::shared_ptr<MemoryManager> mem_manager_ptr_;
@@ -110,19 +80,10 @@ private:
     std::vector<Layer*>     all_layers_{};   // record all layers
     std::deque<Layer*>      layer_context_;  // contain all layers in context
 
-    // Register
-    static std::unordered_map<std::string, std::shared_ptr<char>> register_layers_;
-    std::unordered_map<std::string, void*>                        register_pool_;
-
     // context
     static int global_context_id_;  // record how many times context is initialized
     static std::unordered_map<std::string, std::shared_ptr<Context>> global_contexts_map_;
     static std::shared_ptr<Context>                                  global_context_ptr_;
-
-    // Auto Regression model
-    int  begin_regress_idx_ = -1;
-    int  end_regress_idx_   = -1;
-    bool in_regress_        = false;
 };
 
 };  // namespace flashck

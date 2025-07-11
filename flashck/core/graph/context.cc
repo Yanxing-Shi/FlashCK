@@ -1,23 +1,16 @@
 #include "flashck/core/graph/context.h"
 
 #include "flashck/core/memory/memory_manager.h"
-#include "flashck/core/utils/rocm_info.h"
-
-#include "flashck/core/profiling/builder.h"
-#include "flashck/core/profiling/codegen.h"
-#include "flashck/core/profiling/gpu_profiler_runner.h"
-#include "flashck/core/profiling/target.h"
 
 namespace flashck {
 
-Context::Context(std::string context_name, Mode mode, int dev_id):
+Context::Context(std::string context_name, int dev_id):
     context_name_(context_name),
     dev_id_(dev_id),
-    mode_(mode),
     mem_manager_ptr_(new MemoryManager()),
     allocator_ptr_(mem_manager_ptr_->GetAllocator())
 {
-    LOG(INFO) << "Initial Context, status_type: " << ModeToStr(mode_) << "\n";
+    LOG(INFO) << "Initial Context\n";
 }
 
 Context::~Context()
@@ -31,11 +24,6 @@ Context::~Context()
 std::string Context::GetName() const
 {
     return context_name_;
-}
-
-Mode Context::GetMode() const
-{
-    return mode_;
 }
 
 bool Context::IsBuilt() const
@@ -166,83 +154,6 @@ bool Context::CheckIfInit()
     return check_flag;
 }
 
-// kernel tunning
-void Context::CodegenAndProfileKernel(const DynamicProfileStrategy& strategy)
-{
-    // step1: gen profiler
-    // using FLAGS_selected_gpus to Get devices
-    std::vector<int> selected_gpu = Target::Instance()->GetTargetSelectedDevices();
-    VLOG(1) << "Selected devices for profiling: " << selected_gpu;
-
-    std::vector<std::vector<std::tuple<std::filesystem::path, std::filesystem::path>>> graph_generated_profilers =
-        GenProfiler(model_ops_, strategy);
-
-    // // step.2 profile result
-    VLOG(1) << "Profiler generated " << graph_generated_profilers.size() << " model operations";
-    Builder builder;
-    builder.MakeProfilers(graph_generated_profilers, context_name_);
-    auto postprocess_ptr     = std::make_shared<ProfilerPostprocess>();
-    auto profiler_runner_ptr = std::make_shared<GPUProfilerRunner>(selected_gpu.size(), postprocess_ptr, 100000);
-    for (Operation* op_ptr : model_ops_) {
-        op_ptr->Profile(profiler_runner_ptr);
-    }
-    profiler_runner_ptr->Join();
-
-    // // step3 gen kernel source function
-    std::vector<std::tuple<std::filesystem::path, std::filesystem::path>> file_tuples =
-        GenFunctionSource(model_ops_, context_name_);
-    builder.MakeExecutors(file_tuples, "generated_kernel.so", context_name_);
-
-    // read dll and load function
-    Target::Instance()->DllReader("kernel_profile", context_name_, "generated_kernel.so");
-}
-
-/*----------------Register--------------------------------*/
-// void Context::RegisterPyBindLayer(const std::string&           layer_name,
-//                                   const int                    layer_id,
-//                                   const std::shared_ptr<void>& layer_ptr)
-// {
-//     std::string register_name = layer_name + std::to_string(layer_id);
-//     if (register_layers_.find(register_name) != register_layers_.end()) {
-//         LOG(ERROR) << "The layer applied for registration has been occupied! Layer name is " << register_name;
-//         exit(-1);
-//     }
-
-//     register_layers_.emplace(register_name, layer_ptr);
-// }
-
-// std::shared_ptr<char> Context::GetPyBindLayer(const std::string& layer_name, const int layer_id)
-// {
-//     std::string register_name = layer_name + std::to_string(layer_id);
-//     auto        iter          = register_layers_.find(register_name);
-//     if (iter == register_layers_.end()) {
-//         LOG(ERROR) << "The requested layer was not found! Layer name is " << register_name;
-//         exit(-1);
-//     }
-//     return iter->second;
-// }
-
-// void Context::RegisterObject(const std::string& object_name, void* object)
-// {
-//     if (register_pool_.find(object_name) != register_pool_.end()) {
-//         LOG(ERROR) << "Error! register same name( " << object_name << " ) twice!";
-//         exit(-1);
-//     }
-//     register_pool_.emplace(object_name, object);
-// }
-
-// char* Context::GetObject(const std::string object_name) const
-// {
-//     auto iter = register_pool_.find(object_name);
-//     if (iter == register_pool_.end()) {
-//         LOG(ERROR) << "Error! can't get " << object_name;
-//         exit(-1);
-//     }
-//     return iter->second;
-// }
-
-/*---------------- Context -----------------------*/
-
 void Context::BuildContext()
 {
     if (is_context_built_ || is_context_building_)
@@ -251,7 +162,7 @@ void Context::BuildContext()
     // start context build
     is_context_building_ = true;
 
-    VLOG(1) << "start flashck context build, Mode: " << ModeToStr(mode_);
+    VLOG(1) << "start flashck context build ";
 
     // check if layer and op init
     if (!CheckIfInit()) {
@@ -284,7 +195,7 @@ void Context::BuildContext()
         root_layer->Forward();
     }
 
-    VLOG(1) << "Context has build layer, Mode: " << ModeToStr(mode_);
+    VLOG(1) << "Context has build layer ";
 
     for (auto iter : all_node_vec_) {
         if (iter->GetType() == NodeType::Variable) {
@@ -303,15 +214,15 @@ void Context::BuildContext()
 
     is_context_built_ = true;
 
-    Synchronize();
+    HIP_ERROR_CHECK(hipStreamSynchronize(stream_));
 
-    VLOG(1) << "Finish context build success, Mode: " << ModeToStr(mode_);
+    VLOG(1) << "Finish context build success ";
 }
 
-int Context::CreateGlobalContext(const std::string& context_name, Mode mode, const int device_id)
+int Context::CreateGlobalContext(const std::string& context_name, const int device_id)
 {
     global_context_id_++;
-    std::shared_ptr<Context> context_ptr = std::make_shared<Context>(context_name, mode, device_id);
+    std::shared_ptr<Context> context_ptr = std::make_shared<Context>(context_name, device_id);
     global_context_ptr_                  = context_ptr;
     if (global_contexts_map_.find(context_name) != global_contexts_map_.end()) {
         LOG(ERROR) << "Error occured! context_id " << context_name << " already exists!";
@@ -337,60 +248,6 @@ void Context::SetGlobalContext(const std::string& context_name)
 std::shared_ptr<Context> Context::GetGlobalInstance()
 {
     return global_context_ptr_;
-}
-
-/*-----------------Auto Regression model--------------------------------*/
-
-// During the model network construction process, mark the start and end
-// positions of the autoregressive part.
-void Context::SetBeginRegress()
-{
-    in_regress_ = true;
-}
-void Context::SetEndRegress()
-{
-    in_regress_ = false;
-}
-
-// Get the start and end timestamps of the autoregressive part of the network
-// structure.
-int Context::GetBeginRegressIdx() const
-{
-    return begin_regress_idx_;
-}
-
-int Context::GetEndRegressIdx() const
-{
-    return end_regress_idx_;
-}
-
-void Context::UpdateBeginRegressIdx(int node_idx)
-{
-    if (node_idx < 0) {
-        LOG(ERROR) << "Error! UpdateBeginRegressIdx with node_idx" << node_idx;
-        exit(-1);
-    }
-    begin_regress_idx_ = (begin_regress_idx_ == -1) ? node_idx : std::min(node_idx, begin_regress_idx_);
-}
-
-void Context::UpdateEndRegressIdx(int node_idx)
-{
-    if (node_idx_ < 0) {
-        LOG(ERROR) << "Error! UpdateEndRegressIdx with node_idx" << node_idx;
-        exit(-1);
-    }
-    end_regress_idx_ = (end_regress_idx_ == -1) ? node_idx : std::max(node_idx, end_regress_idx_);
-}
-
-bool Context::GetRegressStatus() const
-{
-    return in_regress_;
-}
-
-// Debug
-void Context::Synchronize()
-{
-    GpuStreamSync(GetStream());
 }
 
 int                                                       Context::global_context_id_   = 0;

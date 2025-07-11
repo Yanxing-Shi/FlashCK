@@ -141,6 +141,33 @@ void ProfilingEngine::FlushExistingDB(const std::filesystem::path& path)
     LOG(WARNING) << "Cache flush failed for " << path.string() << ": " << (ec ? ec.message() : "Unknown error");
 }
 
+void ProfilingEngine::CodegenAndProfileKernel(const std::vector<Operation*>& model_ops,
+                                              const std::string&             context_name,
+                                              const ProfilingStrategy&       strategy)
+{
+    // step1: gen profiler
+    std::vector<std::vector<std::tuple<std::filesystem::path, std::filesystem::path>>> graph_generated_profilers =
+        GenProfiler(model_ops, strategy);
+
+    // // step.2 profile result
+    VLOG(1) << "Profiler generated " << graph_generated_profilers.size() << " model operations";
+    Builder builder;
+    builder.MakeTuning(graph_generated_profilers, context_name);
+    auto profiling_runner = GPUProfilingRunner{Postprocesser{}};
+    for (Operation* op_ptr : model_ops) {
+        op_ptr->Profile(profiling_runner);
+    }
+    profiling_runner.Join();
+
+    // step3 gen kernel source function
+    std::vector<std::tuple<std::filesystem::path, std::filesystem::path>> file_tuples =
+        GenFunctionSource(model_ops, context_name);
+    builder.MakeRunning(file_tuples, "generated_kernel.so", context_name);
+
+    // read dll and load function
+    ProfilingEngine::GetInstance()->LoadKernelLibrary("kernel_profile", context_name, "generated_kernel.so");
+}
+
 void ProfilingEngine::LoadKernelLibrary(const std::string& folder_name,
                                         const std::string& context_name,
                                         const std::string& so_file_name)

@@ -87,6 +87,30 @@ const char* DataTypeToString(DataType type)
     }
 }
 
+inline size_t SizeOf(DataType data_type)
+{
+    switch (data_type) {
+        case DataType::BOOL:
+        case DataType::FLOAT8:
+        case DataType::BFLOAT8:
+            return 1;
+        case DataType::BFLOAT16:
+        case DataType::FLOAT16:
+            return 2;
+        case DataType::FLOAT32:
+        case DataType::INT32:
+        case DataType::UINT32:
+            return 4;
+        case DataType::FLOAT64:
+        case DataType::INT64:
+        case DataType::UINT64:
+            return 8;
+        default:
+            throw std::runtime_error("Unsupported data type");
+    }
+    return 0;
+}
+
 // Check if a type is supported as a data type
 // Supported types: bool, float, double, int32_t, uint32_t, int64_t, uint64_t
 template<typename T>

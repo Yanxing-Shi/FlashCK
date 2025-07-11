@@ -57,9 +57,9 @@ void Postprocesser::PostProcessResults()
     }
 }
 
-GPUProfilerRunner::GPUProfilerRunner(const Postprocesser& postprocesser): postprocesser_(postprocesser) {}
+GPUProfilingRunner::GPUProfilingRunner(const Postprocesser& postprocesser): postprocesser_(postprocesser) {}
 
-void GPUProfilerRunner::Push(
+void GPUProfilingRunner::Push(
     const std::vector<std::string>&                                           cmds,
     std::function<void(const std::vector<PerfResult>&, const Postprocesser&)> process_result_callback)
 {
@@ -100,7 +100,7 @@ void GPUProfilerRunner::Push(
     }
 }
 
-void GPUProfilerRunner::Join()
+void GPUProfilingRunner::Join()
 {
     postprocesser_.PostProcessResults();
 }

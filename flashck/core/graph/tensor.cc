@@ -1,7 +1,5 @@
 #include "flashck/core/graph/tensor.h"
 
-#include "flashck/core/utils/printf.h"
-
 namespace flashck {
 
 int Tensor::global_tensor_id = 0;
@@ -158,23 +156,6 @@ size_t Tensor::GetMaxShapeSize() const
 int Tensor::GetUniqueId() const
 {
     return id_;
-}
-
-void Tensor::PrintTensor()
-{
-    ctx_ptr_->Synchronize();
-    if (GetMaxElementSize() == 0) {
-        VLOG(1) << "error occurred! this tensor is" << name_ << " with size 0";
-        exit(-1);
-    }
-    else {
-        VLOG(1) << "tensor shape is" << shape_.ToString();
-        VLOG(1) << "tensor dtype is" << dtype_;
-    }
-
-    if (mem_type_ == MemoryType::Offset) {
-        VLOG(1) << "tensor is offset tensor, offset is " << offset_;
-    }
 }
 
 }  // namespace flashck

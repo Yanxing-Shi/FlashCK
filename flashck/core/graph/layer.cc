@@ -1,7 +1,5 @@
 #include "flashck/core/graph/layer.h"
 
-#include "flashck/core/utils/timer.h"
-
 namespace flashck {
 
 Layer::Layer(std::string name): op_vec_({})

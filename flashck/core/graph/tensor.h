@@ -7,7 +7,6 @@
 #include "flashck/core/graph/context.h"
 #include "flashck/core/graph/shape.h"
 #include "flashck/core/memory/memory_manager.h"
-#include "flashck/core/utils/dtype.h"
 
 namespace flashck {
 
@@ -56,8 +55,6 @@ public:
 
     // unique id of the tensor.
     int GetUniqueId() const;
-
-    void PrintTensor();
 
     static int global_tensor_id;
 

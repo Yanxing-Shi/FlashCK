@@ -19,9 +19,6 @@ Variable::Variable(std::string name, size_t max_size, DataType dtype, VarType ty
     else if (type_ == VarType::FixedVar) {
         MallocMemory(max_size_);
     }
-    else if (type_ == VarType::RegressiveVar) {
-        return;
-    }
     else {
         LOG(ERROR) << "Variable" << name_ << "useless type" << static_cast<int>(type_);
         exit(-1);
@@ -136,34 +133,4 @@ void Variable::MallocMemory(const size_t size)
     value_->SetTensor(value_ptr);
 }
 
-void Variable::UpdateRegressiveIdx()
-{
-    if (GetType() != VarType::RegressiveVar)
-        return;
-
-    value_->UpdateLifeIdx(context_ptr_->GetBeginRegressIdx());
-    value_->UpdateLifeIdx(context_ptr_->GetEndRegressIdx());
-}
-
-void Variable::PrintVar()
-{
-    if (!context_ptr_->IsBuilt()) {
-        return;
-    }
-
-    if (value_ == nullptr) {
-        VLOG(1) << "node " << name_ << "not have value object.";
-    }
-    else if (GetValue() == nullptr) {
-        VLOG(1) << "node " << name_ << "value address is nullptr.";
-    }
-    else {
-        try {
-            value_->PrintTensor();
-        }
-        catch (...) {
-            FC_THROW(Unavailable("{} variable print tensor value failed", name_));
-        }
-    }
-}
 }  // namespace flashck

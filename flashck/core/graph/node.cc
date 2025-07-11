@@ -1,7 +1,5 @@
 #include "flashck/core/graph/node.h"
 
-#include "flashck/core/utils/timer.h"
-
 namespace flashck {
 
 Node::Node(std::string name, NodeType type): context_ptr_(Context::GetGlobalInstance().get()), type_(type)
@@ -11,9 +9,6 @@ Node::Node(std::string name, NodeType type): context_ptr_(Context::GetGlobalInst
     int         idx         = context_ptr_->node_name_cnt[real_name];
     context_ptr_->node_name_cnt[real_name] += 1;
     name_ = real_name + "_" + std::to_string(idx);
-    if (context_ptr_->GetRegressStatus()) {
-        in_regress_scope_ = true;
-    }
 
     context_ptr_->AddNode(this);
 }
@@ -45,12 +40,6 @@ void Node::SetParentsNode(const std::vector<Node*>& parents_node)
         else
             iter->AddChildrenNode(this);
         idx++;
-    }
-
-    if (GetType() == NodeType::Operation) {
-        if (context_ptr_->GetRegressStatus()) {
-            in_regress_scope_ = true;
-        }
     }
 }
 
@@ -88,15 +77,6 @@ void Node::RecursiveForward()
     is_fwd_update_ = true;
     if (GetType() == NodeType::Operation) {
         context_ptr_->UpdateNodeIdx();
-    }
-
-    // auto regressive model
-    if (!context_ptr_->IsBuilt()) {
-        fwd_node_idx_ = context_ptr_->GetNodeIdx();
-        if (in_regress_scope_) {
-            context_ptr_->UpdateBeginRegressIdx(fwd_node_idx_);
-            context_ptr_->UpdateEndRegressIdx(fwd_node_idx_);
-        }
     }
 
     if (GetType() == NodeType::Operation) {
