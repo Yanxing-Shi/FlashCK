@@ -9,13 +9,40 @@
 #include <unordered_map>
 #include <vector>
 
-#include "flashck/core/utils/dtype.h"
-#include "flashck/core/utils/layout.h"
-#include "flashck/core/utils/source_type.h"
-
 #include "flashck/core/module/kernels/kernel.h"
 
 namespace flashck {
+
+enum class SourceType {
+    LEGACY = 0,
+    TILE   = 1,
+};
+
+inline std::string SourceTypeToString(SourceType type)
+{
+    switch (type) {
+        case SourceType::LEGACY:
+            return "legacy";
+        case SourceType::TILE:
+            return "tile";
+        default:
+            return "unknown";
+    }
+}
+
+enum class DataLayout {
+    ALL_LAYOUT = 0,
+};
+
+inline std::string DataLayoutToString(DataLayout layout)
+{
+    switch (layout) {
+        case DataLayout::ALL_LAYOUT:
+            return "all_layout";
+        default:
+            return "unknown";
+    }
+}
 
 // struct OpTypeCount {
 //     OpTypeCount()
@@ -35,15 +62,6 @@ public:
     KernelKey() = default;
     KernelKey(SourceType source_type, DataLayout layout, DataType dtype):
         source_type_(source_type), layout_(layout), dtype_(dtype)
-    {
-    }
-    explicit KernelKey(const SourceType& source_type):
-        source_type_(source_type), layout_(DataLayout::ALL_LAYOUT), dtype_(DataType::ALL_DTYPE)
-    {
-    }
-
-    KernelKey(const SourceType& source_type, const DataLayout& layout):
-        source_type_(source_type), layout_(layout), dtype_(DataType::ALL_DTYPE)
     {
     }
 

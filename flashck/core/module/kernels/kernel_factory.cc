@@ -71,11 +71,11 @@ KernelKeyMap KernelFactory::SelectKernelMap(const std::string& kernel_name)
     return iter->second;
 }
 
-/*---------------------------------------------------output stream-----------------------------------------------*/
 // output stream for kernel key
 std::ostream& operator<<(std::ostream& os, const KernelKey& kernel_key)
 {
-    os << "(" << kernel_key.GetSource() << ", " << kernel_key.GetLayout() << ", " << kernel_key.GetDtype() << ")";
+    os << "(" << SourceTypeToString(kernel_key.GetSource()) << ", " << DataLayoutToString(kernel_key.GetLayout())
+       << ", " << DataTypeToString(kernel_key.GetDtype()) << ")";
     return os;
 }
 

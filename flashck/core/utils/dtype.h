@@ -4,6 +4,7 @@
 #include <string>
 #include <tuple>
 #include <type_traits>
+#include <ostream>
 
 namespace flashck {
 
@@ -87,6 +88,12 @@ const char* DataTypeToString(DataType type)
     }
 }
 
+// Stream operator for DataType enum
+inline std::ostream& operator<<(std::ostream& os, DataType type)
+{
+    return os << DataTypeToString(type);
+}
+
 inline size_t SizeOf(DataType data_type)
 {
     switch (data_type) {
@@ -120,5 +127,46 @@ constexpr bool IsSupportedDataType()
            || std::is_same_v<T, int32_t> || std::is_same_v<T, uint32_t> || std::is_same_v<T, int64_t>
            || std::is_same_v<T, uint64_t>;
 }
+
+#define FC_FOR_EACH_DATA_TYPE(_)                                                                                       \
+    _(bool, DataType::BOOL)                                                                                            \
+    _(int32_t, DataType::INT32)                                                                                        \
+    _(uint32_t, DataType::UINT32)                                                                                      \
+    _(int64_t, DataType::INT64)                                                                                        \
+    _(uint64_t, DataType::UINT64)                                                                                      \
+    _(_BitInt(8), DataType::FLOAT8)                                                                                    \
+    _(ushort, DataType::BFLOAT16)                                                                                      \
+    _(_Float16, DataType::FLOAT16)                                                                                     \
+    _(float, DataType::FLOAT32)                                                                                        \
+    _(double, DataType::FLOAT64)
+
+template<DataType T>
+struct DataTypeToCppType;
+
+template<typename T>
+struct CppTypeToDataType;
+
+#define FC_SPECIALIZE_DataTypeToCppType(cpp_type, data_type)                                                           \
+    template<>                                                                                                         \
+    struct DataTypeToCppType<data_type> {                                                                              \
+        using type = cpp_type;                                                                                         \
+    };
+
+FC_FOR_EACH_DATA_TYPE(FC_SPECIALIZE_DataTypeToCppType)
+
+#undef FC_SPECIALIZE_DataTypeToCppType
+
+#define FC_SPECIALIZE_CppTypeToDataType(cpp_type, data_type)                                                           \
+    template<>                                                                                                         \
+    struct CppTypeToDataType<cpp_type> {                                                                               \
+        constexpr static DataType Type()                                                                               \
+        {                                                                                                              \
+            return data_type;                                                                                          \
+        }                                                                                                              \
+    };
+
+FC_FOR_EACH_DATA_TYPE(FC_SPECIALIZE_CppTypeToDataType)
+
+#undef FC_SPECIALIZE_CppTypeToDataType
 
 }  // namespace flashck

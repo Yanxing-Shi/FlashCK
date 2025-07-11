@@ -72,7 +72,8 @@ public:
      * @param norm_problem The norm problem configuration
      * @return Map of generated norm operations organized by kind and config name
      */
-    std::map<NormKind, std::map<std::string, NormCodeGen>> GenerateInstances(const NormProblem& norm_problem);
+    std::map<NormKind, std::map<std::string, std::unique_ptr<NormCodeGen>>>
+    GenerateInstances(const NormProblem& norm_problem);
 
     /**
      * @brief Gets the total number of generated instances
@@ -100,8 +101,8 @@ private:
      */
     void ValidateMode(int mode) const;
 
-    std::map<NormKind, std::map<std::string, NormCodeGen>> instance_map_;
-    int64_t                                                num_instances_ = 0;
+    std::map<NormKind, std::map<std::string, std::unique_ptr<NormCodeGen>>> instance_map_;
+    int64_t                                                                 num_instances_ = 0;
 };
 
 }  // namespace flashck

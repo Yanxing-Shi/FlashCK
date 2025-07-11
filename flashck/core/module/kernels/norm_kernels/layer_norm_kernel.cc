@@ -4,26 +4,6 @@ FC_DECLARE_string(FC_HOME_PATH);
 
 namespace flashck {
 
-std::map<std::string, std::shared_ptr<void>> LayerNormKernel::Init(const OperationKind&   op_kind,
-                                                                   const TensorOperation& extra_kind)
-{
-    std::map<std::string, std::shared_ptr<void>> layernorm_kernels_map;
-
-    auto target_kernel_instance_map = Target::Instance()->target_norm_kernel_instance_map_;
-    VLOG(1) << "target_kernel_instance_map size: " << target_kernel_instance_map.size();
-    auto extract_kernel_map = target_kernel_instance_map.at(std::get<NormOperationKind>(op_kind)).at(extra_kind);
-    for (auto [kernel_config_name, kernel_instance] : extract_kernel_map) {
-        VLOG(1) << "extract layer norm kernel: " << kernel_config_name;
-        layernorm_kernels_map[kernel_config_name] = kernel_instance;
-    }
-
-    LOG(INFO) << "Init kernel, op_kind: " << g_norm_operation_kind_names_map.at(std::get<NormOperationKind>(op_kind))
-              << ", extra_kind: " << g_tensor_operation_names.at(extra_kind)
-              << ", kernel size: " << layernorm_kernels_map.size();
-
-    return layernorm_kernels_map;
-}
-
 std::vector<std::tuple<std::filesystem::path, std::filesystem::path>>
 LayerNormKernel::GenKernelProfiler(const std::string&                               model_name,
                                    const std::unordered_map<std::string, std::any>& kernel_func_map,

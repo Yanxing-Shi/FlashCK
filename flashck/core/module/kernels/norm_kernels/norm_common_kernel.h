@@ -1,7 +1,5 @@
 #pragma once
 
-#include "flashck/core/profiling/base.h"
-
 #include "flashck/core/module/kernels/kernel.h"
 #include "flashck/core/module/kernels/kernel_registry.h"
 
@@ -144,8 +142,6 @@ namespace flashck {
 
 class NormCommonKernel: public Kernel {
 public:
-    std::map<std::string, std::shared_ptr<void>> Init(const OperationKind& op_kind, const TensorOperation& extra_kind);
-
     std::vector<std::tuple<std::filesystem::path, std::filesystem::path>>
     GenCommonKernelProfiler(const std::string&                               model_name,
                             const std::unordered_map<std::string, std::any>& kernel_func_map,

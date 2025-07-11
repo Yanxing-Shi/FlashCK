@@ -118,7 +118,7 @@ NormCodeGen NormEmitter::CreateNormCodeGen(const NormProblem& norm_problem, cons
     return norm;
 }
 
-std::map<NormKind, std::map<std::string, NormCodeGen>> NormEmitter::GenerateInstances(const NormProblem& norm_problem)
+std::map<std::string, std::unique_ptr<NormCodeGen>> NormEmitter::GenerateInstances(const NormProblem& norm_problem)
 {
     ValidateMode(FLAGS_FC_mode);
 
@@ -178,7 +178,7 @@ std::map<NormKind, std::map<std::string, NormCodeGen>> NormEmitter::GenerateInst
         NormCodeGen norm = CreateNormCodeGen(norm_problem, tile_desc);
 
         std::string config_name               = norm.GetConfigName();
-        instance_map_[norm.kind][config_name] = std::move(norm);
+        instance_map_[norm.kind][config_name] = std::make_unique<NormCodeGen>(std::move(norm));
         num_instances_++;
 
         VLOG(2) << "Generated norm instance: " << config_name;

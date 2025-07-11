@@ -262,9 +262,6 @@ namespace flashck {
 
 class LayerNormKernel: public NormCommonKernel {
 public:
-    std::map<std::string, std::shared_ptr<void>> Init(const OperationKind&   op_kind,
-                                                      const TensorOperation& extra_kind) override;
-
     std::vector<std::tuple<std::filesystem::path, std::filesystem::path>>
     GenKernelProfiler(const std::string&                               model_name,
                       const std::unordered_map<std::string, std::any>& kernel_func_map,
@@ -278,4 +275,4 @@ public:
 };
 }  // namespace flashck
 
-FC_REGISTER_KERNEL(CK_TILE, layer_norm, flashck::LayerNormKernel, ALL_LAYOUT, _Float16, float, ushort);
+FC_REGISTER_KERNEL(TILE, layer_norm, flashck::LayerNormKernel, ALL_LAYOUT, FP16, FP32);

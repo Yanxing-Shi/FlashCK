@@ -1,21 +1,11 @@
 #pragma once
 
 #include <any>
-#include <filesystem>
-#include <map>
-#include <memory>
-#include <string>
-#include <vector>
-
-#include <hip/hip_runtime.h>
 
 #include "flashck/core/graph/shape.h"
+#include "flashck/core/utils/common.h"
 
-#include "flashck/core/profiling/base.h"
 #include "flashck/core/profiling/library.h"
-#include "flashck/core/profiling/target.h"
-
-#include "flashck/core/utils/enforce.h"
 
 #include "flashck/core/module/kernels/kernel_args.h"
 #include "flashck/core/module/kernels/kernel_call_def.h"
@@ -24,24 +14,11 @@ namespace flashck {
 
 class Kernel {
 public:
-    using OperationKind = std::variant<EmbeddingOperationKind, GemmOperationKind, NormOperationKind, FmhaOperationKind>;
-    using KernelArgs    = std::variant<EmbeddingKernelArgs,
-                                       GemmKernelArgs,
-                                       NormKernelArgs,
-                                       FmhaFwdKernelArgs,
-                                       FmhaFwdAppendKVKernelArgs,
-                                       FmhaFwdSplitKVKernelArgs,
-                                       FmhaFwdSplitKVCombineKernelArgs>;
+    using kernelKind = std::variant<NormKind>;
+    using KernelArgs = std::variant<NormKernelArgs>;
 
     Kernel()          = default;
     virtual ~Kernel() = default;
-
-    // step.1 Init Kernel
-    virtual std::map<std::string, std::shared_ptr<void>> Init(const OperationKind&   op_kind,
-                                                              const TensorOperation& extra_kind)
-    {
-        FC_THROW(Unimplemented("Kernel base init is not implemented."));
-    }
 
     // step.2 GenKernelProfiler
     virtual std::vector<std::tuple<std::filesystem::path, std::filesystem::path>>

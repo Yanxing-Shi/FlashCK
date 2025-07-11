@@ -2,12 +2,21 @@
 
 #include "flashck/core/module/kernels/kernel_factory.h"
 
-#include "flashck/core/profiling/embedding_operation.h"
-#include "flashck/core/utils/string_utils.h"
-
 #define SOURCE_TYPE(arg_) flashck::SourceType::arg_
 #define DATA_LAYOUT(arg_) flashck::DataLayout::arg_
 #define DATATYPE(arg_) flashck::DataType::arg_
+
+// Add convenient aliases for DataType enum values
+#define FP16 FLOAT16
+#define FP32 FLOAT32
+#define FP64 FLOAT64
+#define BF16 BFLOAT16
+#define BF8 BFLOAT8
+#define FP8 FLOAT8
+#define I32 INT32
+#define U32 UINT32
+#define I64 INT64
+#define U64 UINT64
 
 #define FC_NARGS(...) _FC_NARGS((__VA_ARGS__, _FC_RESQ_N()))
 #define _FC_NARGS(...) _FC_ARG_N(__VA_ARGS__)
@@ -22,8 +31,8 @@
 #define FC_EXPAND(arg) arg
 
 namespace flashck {
+
 // kernel register example
-// FC_REGISTER_KERNEL(CK, gemm, all_layout, meta_kernel_class, fp16, fp32)
 template<typename T>
 class KernelRegister {
 public:
@@ -53,29 +62,21 @@ public:
     FC_EXPAND(FC_CONCAT(FC_KERNEL_REGISTRAR_INIT_,                                                                     \
                         N)(source_type, kernel_name, meta_kernel_class, layout, FC_ID, __VA_ARGS__))
 
-#define _FC_CREATE_REGISTRAR_OBJECT(source_type, kernel_name, meta_kernel_class, layout, registrer_id, cpp_dtype)      \
+#define _FC_CREATE_REGISTRAR_OBJECT(source_type, kernel_name, meta_kernel_class, layout, registrer_id, dtype)          \
     static const ::flashck::KernelRegister<meta_kernel_class> _reg_FC_kernel_##kernel_name##layout##_##registrer_id(   \
-        SOURCE_TYPE(source_type), #kernel_name, DATA_LAYOUT(layout), ::flashck::CppTypeToDataType<cpp_dtype>::Type());
+        SOURCE_TYPE(source_type), #kernel_name, DATA_LAYOUT(layout), DATATYPE(dtype));
 
-#define FC_KERNEL_REGISTRAR_INIT_1(source_type, kernel_name, meta_kernel_class, layout, registrer_id, cpp_dtype)       \
-    _FC_CREATE_REGISTRAR_OBJECT(source_type, kernel_name, meta_kernel_class, layout, registrer_id, cpp_dtype)
+#define FC_KERNEL_REGISTRAR_INIT_1(source_type, kernel_name, meta_kernel_class, layout, registrer_id, dtype)           \
+    _FC_CREATE_REGISTRAR_OBJECT(source_type, kernel_name, meta_kernel_class, layout, registrer_id, dtype)
 
-#define FC_KERNEL_REGISTRAR_INIT_2(source_type, kernel_name, meta_kernel_class, layout, registrer_id, cpp_dtype, ...)  \
-    _FC_CREATE_REGISTRAR_OBJECT(source_type, kernel_name, meta_kernel_class, layout, registrer_id, cpp_dtype)          \
+#define FC_KERNEL_REGISTRAR_INIT_2(source_type, kernel_name, meta_kernel_class, layout, registrer_id, dtype, ...)      \
+    _FC_CREATE_REGISTRAR_OBJECT(source_type, kernel_name, meta_kernel_class, layout, registrer_id, dtype)              \
     FC_EXPAND(FC_KERNEL_REGISTRAR_INIT_1(source_type, kernel_name, meta_kernel_class, layout, FC_ID, __VA_ARGS__))
 
-#define FC_KERNEL_REGISTRAR_INIT_3(source_type, kernel_name, meta_kernel_class, layout, registrer_id, cpp_dtype, ...)  \
-    _FC_CREATE_REGISTRAR_OBJECT(source_type, kernel_name, meta_kernel_class, layout, registrer_id, cpp_dtype)          \
+#define FC_KERNEL_REGISTRAR_INIT_3(source_type, kernel_name, meta_kernel_class, layout, registrer_id, dtype, ...)      \
+    _FC_CREATE_REGISTRAR_OBJECT(source_type, kernel_name, meta_kernel_class, layout, registrer_id, dtype)              \
     FC_EXPAND(FC_KERNEL_REGISTRAR_INIT_2(source_type, kernel_name, meta_kernel_class, layout, FC_ID, __VA_ARGS__))
 
-#define FC_KERNEL_REGISTRAR_INIT_4(source_type, kernel_name, meta_kernel_class, layout, registrer_id, cpp_dtype, ...)  \
-    _FC_CREATE_REGISTRAR_OBJECT(source_type, kernel_name, meta_kernel_class, layout, registrer_id, cpp_dtype)          \
+#define FC_KERNEL_REGISTRAR_INIT_4(source_type, kernel_name, meta_kernel_class, layout, registrer_id, dtype, ...)      \
+    _FC_CREATE_REGISTRAR_OBJECT(source_type, kernel_name, meta_kernel_class, layout, registrer_id, dtype)              \
     FC_EXPAND(FC_KERNEL_REGISTRAR_INIT_3(source_type, kernel_name, meta_kernel_class, layout, FC_ID, __VA_ARGS__))
-
-#define FC_REGISTER_KERNEL_FOR_ALL_DTYPE(source_type, kernel_name, meta_kernel_class, layout)                          \
-    static const ::flashck::KernelRegister<meta_kernel_class> _reg_FC_kernel_##kernel_name##layout(                    \
-        SOURCE_TYPE(source_type), #kernel_name, DATA_LAYOUT(layout), ::flashck::DataType::ALL_DTYPE);
-
-#define FC_REGISTER_KERNEL_FOR_ALL_LAYOUT_DTYPE(source_type, kernel_name, meta_kernel_class)                           \
-    static const ::flashck::KernelRegister<meta_kernel_class> _reg_FC_kernel_##kernel_name(                            \
-        SOURCE_TYPE(source_type), #kernel_name, ::flashck::DataLayout::ALL_LAYOUT, ::flashck::DataType::ALL_DTYPE);

@@ -56,9 +56,9 @@ ProfilingEngine* ProfilingEngine::GetInstance()
 }
 
 // Generates kernel operations and populates instance maps
-void ProfilingEngine::GenerateKernel(const CodeGenKind& kind, const std::variant<NormProblem>& problem)
+void ProfilingEngine::GenerateKernel(const CodeGenKind& code_gen_kind, const std::variant<NormProblem>& problem)
 {
-    switch (kind) {
+    switch (code_gen_kind) {
         case CodeGenKind::Norm:
             norm_instance_map_ = NormEmitter::GetInstance()->GenerateInstances(std::get<NormProblem>(problem));
             break;

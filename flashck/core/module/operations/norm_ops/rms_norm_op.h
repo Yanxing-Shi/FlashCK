@@ -86,8 +86,8 @@ public:
 
     std::string op_name_ = "layer_norm";
 
-    NormOperationKind op_kind_     = NormOperationKind::RMSNorm;
-    TensorOperation   epilogue_op_ = TensorOperation::PassThrough;
+    NormKind        op_kind_     = NormKind::RMSNorm;
+    TensorOperation epilogue_op_ = TensorOperation::PassThrough;
 
     Shape normalized_shape_;
     Shape default_normalized_shape_;
