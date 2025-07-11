@@ -1,5 +1,8 @@
 #include "flashck/core/profiling/builder.h"
 
+#include <iomanip>
+#include <sstream>
+
 #include "flashck/core/profiling/profiling_engine.h"
 #include "flashck/core/utils/common.h"
 
@@ -23,7 +26,6 @@ Builder::Builder()
 
 std::filesystem::path Builder::CombineSources(const std::set<std::filesystem::path>& sources)
 {
-
     if (sources.size() == 1) {
         // no need to combine a single source
         auto single_source = *(sources.begin());
@@ -31,41 +33,43 @@ std::filesystem::path Builder::CombineSources(const std::set<std::filesystem::pa
         return single_source;
     }
 
-    std::string file_lines;
+    std::ostringstream file_content;
     for (const auto& source : sources) {
-        std::ifstream source_file(source.c_str());
-        std::string   line;
-        while (std::getline(source_file, line)) {
-            // collect the original non-empty lines
-            file_lines += line;
+        std::ifstream source_file(source);
+        if (!source_file.is_open()) {
+            FC_THROW(Unavailable("Unable to open source file: {}", source.string()));
         }
-        // the last line might not end with "\n"
-        file_lines += "\n";
+
+        // Read and append file content more efficiently
+        file_content << source_file.rdbuf();
+        file_content << '\n';  // Ensure proper line ending
     }
 
     // generate a new file name conditioned on the list of the source file names
-    std::string source_string = (*sources.begin()).string();
-    std::for_each(std::next(sources.begin()), sources.end(), [&](const std::filesystem::path& val) {
-        source_string.append(";").append(val.string());
-    });
+    std::ostringstream source_stream;
+    bool               first = true;
+    for (const auto& source : sources) {
+        if (!first)
+            source_stream << ";";
+        source_stream << source.string();
+        first = false;
+    }
 
-    std::string file_name = HashToHexString(source_string);
+    std::string file_name = HashToHexString(source_stream.str());
 
     static int            sources_idx = 0;
-    std::filesystem::path file_dir    = std::filesystem::path(*std::next(sources.begin(), sources_idx++)).parent_path();
+    std::filesystem::path file_dir =
+        std::filesystem::path(*std::next(sources.begin(), sources_idx++ % sources.size())).parent_path();
     VLOG(1) << "Combined source file directory is " << file_dir.string();
     std::filesystem::path file_path = file_dir / Sprintf("temp_{}.cc", file_name);
     VLOG(1) << "Combined source file path is " << file_path.string();
 
-    std::ofstream file(file_path.c_str());
-    if (file.is_open()) {
-        file << file_lines;
-        file.close();
-    }
-    else {
-        FC_THROW(Unavailable("Unable to open file:{} ", file_path.string()));
+    std::ofstream file(file_path);
+    if (!file.is_open()) {
+        FC_THROW(Unavailable("Unable to open file: {}", file_path.string()));
     }
 
+    file << file_content.str();
     return file_path;
 }
 
@@ -211,7 +215,7 @@ Builder::GenMakefileForRunning(const std::vector<std::tuple<std::filesystem::pat
 
     std::string makefile_str  = TemplateLoadAndRender(makefile_source, makefile_value_map);
     std::string makefile_name = Sprintf("Makefile_{}", HashToHexString(so_file_name));
-    VLOG(1) << "generate makefile_name for running: " << makefile_name << "\n";
+    VLOG(1) << "generate makefile_name for running: " << makefile_name;
 
     std::filesystem::path dumpfile = build_dir / makefile_name;
     std::ofstream         makefile(dumpfile.string().c_str());
@@ -262,36 +266,36 @@ Builder::GenMakefileForTuning(const std::vector<std::tuple<std::filesystem::path
         }
     }
 
-    auto split_path = [&](const std::filesystem::path& path, const std::string& delimiter) {
-        std::vector<std::string> result = SplitStrings(path.string(), delimiter);
-        // last second + end
-        auto path_res = *(result.end() - 2) + std::string("/") + result.back();
-        return std::filesystem::path(path_res);
+    auto split_path = [](const std::filesystem::path& path) {
+        auto path_parts = SplitStrings(path.string(), "/");
+        if (path_parts.size() >= 2) {
+            return std::filesystem::path(path_parts[path_parts.size() - 2] + "/" + path_parts.back());
+        }
+        return path;
     };
 
     std::set<std::filesystem::path>                                  targets;
     std::map<std::filesystem::path, std::set<std::filesystem::path>> dependencies;
 
     for (auto& [target, sources] : target_to_sources) {
-        std::filesystem::path target_file = split_path(target, "/");
+        std::filesystem::path target_file = split_path(target);
         if (sources.size() == 1) {
             // single source: no need to combine
-            std::filesystem::path source = split_path(*(sources.begin()), "/");
+            std::filesystem::path source = split_path(*(sources.begin()));
             dependencies[target_file]    = std::set<std::filesystem::path>({source});
-            VLOG(1) << "single source: " << source.string() << " target_file: " << target_file.string() << "\n";
+            VLOG(1) << "single source: " << source.string() << " target_file: " << target_file.string();
         }
         else {
             // multi-source profiler executable
             std::set<std::filesystem::path> objects;
             for (auto& source : sources) {
-                std::filesystem::path source_file = split_path(source, "/");
+                std::filesystem::path source_file = split_path(source);
                 std::filesystem::path object      = source_file.replace_extension(".o");  // source ".cc"
                 if (!std::filesystem::exists(profiler_dir / source_file)) {
                     // compile the object only if it is absent
                     dependencies[object] = std::set<std::filesystem::path>({source_file});
                 }
-                VLOG(1) << "multi-source" << source_file.string() << "profiler executable:" << target_file.string()
-                        << "\n ";
+                VLOG(1) << "multi-source " << source_file.string() << " profiler executable: " << target_file.string();
                 objects.emplace(object);
             }
             //  then link the objects into an executable
@@ -311,10 +315,10 @@ Builder::GenMakefileForTuning(const std::vector<std::tuple<std::filesystem::path
         std::string cmd_line = TimeCmd(
             ProfilingEngine::GetInstance()->GetCompiler()->GetCompilerCommand({src_str}, target.string(), ".o"));
 
-        std::string command = Sprintf("{}\n\t{}\n", dep_line, cmd_line);
+        std::string command = Sprintf("{}\n\t{}", dep_line, cmd_line);
         commands.emplace_back(command);
 
-        VLOG(2) << "execute command: " << command << "\n";
+        VLOG(2) << "execute command: " << command;
         // update compilation statistics
         std::for_each(srcs.begin(), srcs.end(), [&](const std::filesystem::path& src) {
             if (EndsWith(src.string(), ".cc")) {
@@ -323,7 +327,7 @@ Builder::GenMakefileForTuning(const std::vector<std::tuple<std::filesystem::path
         });
 
         if (target.extension().string() != ".o") {
-            target_names.emplace(split_path(target, "/"));
+            target_names.emplace(split_path(target));
         }
     }
 
@@ -338,9 +342,9 @@ Builder::GenMakefileForTuning(const std::vector<std::tuple<std::filesystem::path
     // make the Makefile name dependent on the built target names
     std::string target_names_str = JoinStrings(target_names, "_");
     std::string makefile_suffix  = HashToHexString(target_names_str);
-    std::string makefile_name    = Sprintf("Makefile_{suffix}", fmt::arg("suffix", makefile_suffix));
+    std::string makefile_name    = Sprintf("Makefile_{}", makefile_suffix);
 
-    VLOG(1) << "generate makefile name for tuning: " << makefile_name << "\n";
+    VLOG(1) << "generate makefile name for tuning: " << makefile_name;
 
     std::filesystem::path dumpfile = profiler_dir / makefile_name;
     std::ofstream         makefile(dumpfile.c_str());
@@ -360,9 +364,9 @@ void Builder::MakeTuning(
     const std::string&                                                                        model_name,
     const std::string&                                                                        folder_name)
 {
-    bool is_emtpy = std::all_of(
+    bool is_empty = std::all_of(
         generated_profiling_files.begin(), generated_profiling_files.end(), [](const auto& v) { return v.empty(); });
-    if (is_emtpy) {
+    if (is_empty) {
         LOG(INFO) << "model all kernel profiler using cache, not generate makefile to build";
         return;
     }
@@ -376,7 +380,7 @@ void Builder::MakeTuning(
 
             if (std::filesystem::exists(source) && std::filesystem::exists(target)) {
                 // skip the existing target
-                LOG(INFO) << "source: " << source.string() << "and target: " << target.string() << "exists, skip";
+                LOG(INFO) << "source: " << source.string() << " and target: " << target.string() << " exists, skip";
                 continue;
             }
 
@@ -388,13 +392,38 @@ void Builder::MakeTuning(
     std::filesystem::path build_dir = std::filesystem::path(FLAGS_FC_HOME_PATH) / folder_name / model_name / "profiler";
 
     std::filesystem::path makefile_path = GenMakefileForTuning(file_tuples, build_dir).string();
-    VLOG(1) << "Generated Makefile for profilers: " << makefile_path.string() << "\n";
+    VLOG(1) << "Generated Makefile for profilers: " << makefile_path.string();
 
     std::string make_flags     = Sprintf("-f {} --output-sync -C {}", makefile_path.string(), build_dir.string());
     std::string make_clean_cmd = Sprintf("make {} clean", make_flags);
     std::string make_all_cmd   = Sprintf("make {} -j{} all", make_flags, num_jobs_);
 
-    RunMakeCmds({make_clean_cmd, make_all_cmd}, build_dir);
+    // Track compilation statistics
+    compilation_stats_.total_compilations += file_tuples.size();
+
+    auto [success, output] = RunMakeCmds({make_clean_cmd, make_all_cmd}, build_dir);
+
+    if (success) {
+        compilation_stats_.successful_compilations += file_tuples.size();
+        LOG(INFO) << "Successfully compiled " << file_tuples.size() << " profiling sources";
+    }
+    else {
+        auto failed_files = ParseFailedFiles(output);
+        compilation_stats_.failed_compilations += failed_files.size();
+        compilation_stats_.successful_compilations += (file_tuples.size() - failed_files.size());
+
+        for (const auto& failed_file : failed_files) {
+            compilation_stats_.failed_files.push_back(failed_file);
+        }
+
+        LOG(ERROR) << "Compilation failed for " << failed_files.size() << " out of " << file_tuples.size() << " files";
+        LOG(ERROR) << "Failed files: " << JoinStrings(failed_files, ", ");
+    }
+
+    LOG(INFO) << "Compilation statistics - Total: " << compilation_stats_.total_compilations
+              << ", Success: " << compilation_stats_.successful_compilations
+              << ", Failed: " << compilation_stats_.failed_compilations << ", Success rate: " << std::fixed
+              << std::setprecision(2) << compilation_stats_.GetSuccessRate() << "%";
 }
 
 void Builder::MakeRunning(
@@ -419,7 +448,7 @@ void Builder::MakeRunning(
 
         if (std::filesystem::exists(source) && std::filesystem::exists(target)) {
             // skip the existing target
-            LOG(INFO) << "source: " << source.string() << "and target: " << target.string() << "exists, skip";
+            LOG(INFO) << "source: " << source.string() << " and target: " << target.string() << " exists, skip";
             continue;
         }
         filter_generated_files.push_back(std::make_tuple(source, target));
@@ -427,12 +456,38 @@ void Builder::MakeRunning(
 
     // generate a makefile for running
     std::filesystem::path makefile_path = GenMakefileForRunning(filter_generated_files, so_file_name, build_dir);
-    VLOG(1) << "Generated Makefile for running: " << makefile_path.string() << "\n";
+    VLOG(1) << "Generated Makefile for running: " << makefile_path.string();
 
     std::string make_flags     = Sprintf("-f {} --output-sync -C {}", makefile_path.string(), build_dir.string());
     std::string make_clean_cmd = Sprintf("make {} clean", make_flags);
     std::string make_all_cmd   = Sprintf("make {} -j{} all", make_flags, num_jobs_);
 
-    RunMakeCmds({make_clean_cmd, make_all_cmd}, build_dir);
+    // Track compilation statistics
+    compilation_stats_.total_compilations += filter_generated_files.size();
+
+    auto [success, output] = RunMakeCmds({make_clean_cmd, make_all_cmd}, build_dir);
+
+    if (success) {
+        compilation_stats_.successful_compilations += filter_generated_files.size();
+        LOG(INFO) << "Successfully compiled " << filter_generated_files.size() << " running sources";
+    }
+    else {
+        auto failed_files = ParseFailedFiles(output);
+        compilation_stats_.failed_compilations += failed_files.size();
+        compilation_stats_.successful_compilations += (filter_generated_files.size() - failed_files.size());
+
+        for (const auto& failed_file : failed_files) {
+            compilation_stats_.failed_files.push_back(failed_file);
+        }
+
+        LOG(ERROR) << "Compilation failed for " << failed_files.size() << " out of " << filter_generated_files.size()
+                   << " files";
+        LOG(ERROR) << "Failed files: " << JoinStrings(failed_files, ", ");
+    }
+
+    LOG(INFO) << "Compilation statistics - Total: " << compilation_stats_.total_compilations
+              << ", Success: " << compilation_stats_.successful_compilations
+              << ", Failed: " << compilation_stats_.failed_compilations << ", Success rate: " << std::fixed
+              << std::setprecision(2) << compilation_stats_.GetSuccessRate() << "%";
 }
 }  // namespace flashck

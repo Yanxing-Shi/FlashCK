@@ -35,8 +35,43 @@ public:
                 const std::string&                                                           model_name,
                 const std::string& folder_name = "kernel_profile");
 
+    // Compilation statistics
+    struct CompilationStats {
+        size_t                   total_compilations      = 0;
+        size_t                   successful_compilations = 0;
+        size_t                   failed_compilations     = 0;
+        std::vector<std::string> failed_files;
+
+        double GetSuccessRate() const
+        {
+            return total_compilations > 0 ? static_cast<double>(successful_compilations) / total_compilations * 100.0 :
+                                            0.0;
+        }
+
+        void Reset()
+        {
+            total_compilations      = 0;
+            successful_compilations = 0;
+            failed_compilations     = 0;
+            failed_files.clear();
+        }
+    };
+
+    // Get compilation statistics
+    const CompilationStats& GetCompilationStats() const
+    {
+        return compilation_stats_;
+    }
+
+    // Reset compilation statistics
+    void ResetCompilationStats()
+    {
+        compilation_stats_.Reset();
+    }
+
 private:
-    int num_jobs_;
+    int              num_jobs_;
+    CompilationStats compilation_stats_;  // Track compilation statistics
 };
 
 }  // namespace flashck
