@@ -38,11 +38,10 @@ enum class NodeType {
 };
 
 enum class VarType {
-    Undefined     = 0,
-    FixedVar      = 1,
-    SharedVar     = 2,
-    OffsetVar     = 3,
-    RegressiveVar = 4,
+    Undefined = 0,
+    FixedVar  = 1,
+    SharedVar = 2,
+    OffsetVar = 3,
 };
 
 }  // namespace flashck

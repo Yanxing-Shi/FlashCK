@@ -1,5 +1,6 @@
 #pragma once
 
+#include <iomanip>
 #include <iterator>
 #include <ostream>
 #include <string>
@@ -34,5 +35,7 @@ std::ostream& operator<<(std::ostream& os, const std::vector<T>& vec);
 
 template<typename T>
 std::ostream& operator<<(std::ostream& os, const std::vector<std::vector<T>>& lod);
+
+std::string HumanReadableSize(uint64_t bytes, int precision = 2);
 
 }  // namespace flashck

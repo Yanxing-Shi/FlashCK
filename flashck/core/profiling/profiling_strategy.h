@@ -1,5 +1,6 @@
 #pragma once
 
+#include <string>
 namespace flashck {
 
 // Defines strategies for dynamically profiling CK kernel performance.
@@ -11,27 +12,20 @@ enum class ProfilingStrategy {
     kIteration = 3,  // Extract the value list of each dimension of dynamic shape according to step as input workload.
 };
 
-template<ProfilingStrategy strategy>
-struct ProfilingStrategyTraits;
-
-template<>
-struct ProfilingStrategyTraits<ProfilingStrategy::kMax> {
-    static constexpr const char* name = "max";
-};
-
-template<>
-struct ProfilingStrategyTraits<ProfilingStrategy::kMin> {
-    static constexpr const char* name = "min";
-};
-
-template<>
-struct ProfilingStrategyTraits<ProfilingStrategy::kHint> {
-    static constexpr const char* name = "hint";
-};
-
-template<>
-struct ProfilingStrategyTraits<ProfilingStrategy::kIteration> {
-    static constexpr const char* name = "iteration";
-};
+inline std::string ProfilingStrategyToString(ProfilingStrategy strategy)
+{
+    switch (strategy) {
+        case ProfilingStrategy::kMax:
+            return "Max";
+        case ProfilingStrategy::kMin:
+            return "Min";
+        case ProfilingStrategy::kHint:
+            return "Hint";
+        case ProfilingStrategy::kIteration:
+            return "Iteration";
+        default:
+            return "Unknown";
+    }
+}
 
 }  // namespace flashck

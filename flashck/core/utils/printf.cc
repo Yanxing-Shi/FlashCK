@@ -32,4 +32,20 @@ std::ostream& operator<<(std::ostream& os, const std::vector<std::vector<T>>& lo
 
 template std::ostream& operator<<(std::ostream& os, const std::vector<std::vector<int64_t>>& lod);
 
+std::string HumanReadableSize(uint64_t bytes, int precision)
+{
+    const char* units[]   = {"B", "KB", "MB", "GB", "TB"};
+    int         unitIndex = 0;
+    double      size      = static_cast<double>(bytes);
+
+    while (size >= 1024 && unitIndex < 4) {
+        size /= 1024;
+        unitIndex++;
+    }
+
+    std::ostringstream oss;
+    oss << std::fixed << std::setprecision(precision) << size << " " << units[unitIndex];
+    return oss.str();
+}
+
 }  // namespace flashck
