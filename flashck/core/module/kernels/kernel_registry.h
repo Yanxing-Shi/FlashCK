@@ -2,11 +2,12 @@
 
 #include "flashck/core/module/kernels/kernel_factory.h"
 
+// Convenient macros for enum values
 #define SOURCE_TYPE(arg_) flashck::SourceType::arg_
 #define DATA_LAYOUT(arg_) flashck::DataLayout::arg_
 #define DATATYPE(arg_) flashck::DataType::arg_
 
-// Add convenient aliases for DataType enum values
+// Data type aliases
 #define FP16 FLOAT16
 #define FP32 FLOAT32
 #define FP64 FLOAT64
@@ -18,33 +19,29 @@
 #define I64 INT64
 #define U64 UINT64
 
+// Utility macros
 #define FC_NARGS(...) _FC_NARGS((__VA_ARGS__, _FC_RESQ_N()))
 #define _FC_NARGS(...) _FC_ARG_N(__VA_ARGS__)
 #define _FC_ARG_N_EXPAND(_1, _2, _3, _4, _5, _6, _7, _8, _9, _10, _11, _12, _13, _14, _15, N, ...) N
 #define _FC_ARG_N(args) _FC_ARG_N_EXPAND args
 #define _FC_RESQ_N() 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0
-
 #define FC_ID __COUNTER__
-
 #define FC_CONCAT(arg1, arg2) arg1##arg2
-
 #define FC_EXPAND(arg) arg
 
 namespace flashck {
 
-// kernel register example
+// Kernel registration class
 template<typename T>
 class KernelRegister {
 public:
-    KernelRegister(SourceType source_type, std::string kernel_name, DataLayout layout, DataType dtype)
-    {
+    KernelRegister(SourceType source_type, const std::string& kernel_name, 
+                   DataLayout layout, DataType dtype) {
         KernelKey kernel_key(source_type, layout, dtype);
-
         KernelFactory::Instance().GetKernelsMap()[kernel_name][kernel_key] = &KernelRegister<T>::Create;
     }
 
-    inline static Kernel* Create()
-    {
+    static Kernel* Create() {
         return new T;
     }
 };

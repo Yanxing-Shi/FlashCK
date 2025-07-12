@@ -10,10 +10,8 @@ static const std::string g_norm_running_cond_tpl = R"(
 )";
 
 static const std::string g_norm_macro_decl = R"(
-// We compile all models with -fvisibility=hidden. Any symbols that need to be
-// exposed in the final shared library must be declared with FC_EXPORT to make
-// them visible.
-#ifdef __GNUC__ // Applies to any compiler with GNU extensions (clang and g++)
+// Symbol visibility macros
+#ifdef __GNUC__
 #define FC_EXPORT __attribute__((__visibility__("default")))
 #else
 #ifdef _WIN32
@@ -49,30 +47,24 @@ using {{instance_alias_name}} = {{config_name}};
 static const std::string g_norm_running_tpl = R"(
     {{make_args}}
 
-    const dim3                 grids       = {{instance_alias_name}}::GridSize(args);
-    constexpr dim3             blocks      = {{instance_alias_name}}::BlockSize();
+    const dim3 grids = {{instance_alias_name}}::GridSize(args);
+    constexpr dim3 blocks = {{instance_alias_name}}::BlockSize();
     constexpr ck_tile::index_t kBlockPerCu = 1;
-    auto                       s           = ck_tile::stream_config{stream, {{is_profiling}}, 0, 5/*warmup*/, 20/*repeat*/};
+    auto s = ck_tile::stream_config{stream, {{is_profiling}}, 0, 5/*warmup*/, 20/*repeat*/};
     auto kargs = {{instance_alias_name}}::MakeKargs(args);
     
-    float ave_time =
-        ck_tile::launch_kernel(s, ck_tile::make_kernel<blocks.x, kBlockPerCu>({{instance_alias_name}}{}, grids, blocks, 0, kargs));
+    float ave_time = ck_tile::launch_kernel(
+        s, ck_tile::make_kernel<blocks.x, kBlockPerCu>({{instance_alias_name}}{}, grids, blocks, 0, kargs));
 
-    if(ave_time < 0)
-    {
-        std::cerr << {{instance_alias_name}}::GetName()<< " not supported !" << std::endl << std::flush;
+    if(ave_time < 0) {
+        std::cerr << {{instance_alias_name}}::GetName() << " not supported!\n" << std::flush;
     }
 
 {% if not is_running %}
     std::size_t num_byte = sizeof(XDataType) * m * n + sizeof(GammaDataType) * n +
                            sizeof(BetaDataType) * n + sizeof(YDataType) * m * n;
-
     float gb_per_sec = num_byte / 1.E6 / ave_time;
-
-    // std::cout << "KERNEL:" << {{instance_alias_name}}::GetName() << ",";
-    std::cout<< "KERNEL:" << "{{config_name}}" << ",";
-    std::cout << "TIME:" << ave_time << "ms" << std::endl << std::flush;
-    // std::cout << "GB_PER_SEC:" << gb_per_sec << "GB/s" << std::endl << std::flush;
+    std::cout << "KERNEL:" << "{{config_name}}" << ",TIME:" << ave_time << "ms\n" << std::flush;
 {% endif %}
 )";
 

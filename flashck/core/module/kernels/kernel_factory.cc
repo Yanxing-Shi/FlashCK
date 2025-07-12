@@ -7,12 +7,11 @@
 
 namespace flashck {
 
-// hash kernel key
+// Hash implementation for KernelKey
 uint32_t KernelKey::Hash::operator()(const KernelKey& kernel_key) const
 {
     // |----31-20------|---19-12---|---11-8----|---7-0---|
     // | For extension | DataType | DataLayout | source  |
-
     uint32_t hash_value = 0;
     hash_value |= (static_cast<uint8_t>(kernel_key.GetSource()) << KernelKey::kSourceBitLength);
     hash_value |= (static_cast<uint8_t>(kernel_key.GetLayout()) << KernelKey::kLayoutBitLength);
@@ -20,15 +19,14 @@ uint32_t KernelKey::Hash::operator()(const KernelKey& kernel_key) const
     return hash_value;
 }
 
-/*------------------------------------------kernel factory-----------------------------------------------*/
-// Get kernel instance
+// Kernel factory singleton
 KernelFactory& KernelFactory::Instance()
 {
     static KernelFactory g_op_kernel_factory;
     return g_op_kernel_factory;
 }
 
-// check if kernel is registered, return true
+// Check if kernel is registered
 bool KernelFactory::HasRegisteredKernel(const std::string& kernel_name, const KernelKey& kernel_key)
 {
     auto kernel_map_iter = kernel_map_.find(kernel_name);
@@ -36,6 +34,7 @@ bool KernelFactory::HasRegisteredKernel(const std::string& kernel_name, const Ke
         FC_THROW(NotFound("The kernel {} is not registered", kernel_name));
         return false;
     }
+
     auto kernel_key_iter = kernel_map_iter->second.find(kernel_key);
     if (kernel_key_iter == kernel_map_iter->second.end()) {
         FC_THROW(NotFound("The kernel {} is not registered", kernel_name));
@@ -44,7 +43,7 @@ bool KernelFactory::HasRegisteredKernel(const std::string& kernel_name, const Ke
     return true;
 }
 
-// Get kernel instance according to kernel name and kernel key
+// Get kernel instance by name and key
 std::shared_ptr<Kernel> KernelFactory::SelectKernel(const std::string& kernel_name, const KernelKey& kernel_key)
 {
     auto iter = kernel_map_.find(kernel_name);

@@ -10,16 +10,14 @@ LayerNormKernel::CodeGenForTuning(const std::string&                            
                                   const std::map<std::string, std::unique_ptr<void>>& instance_map,
                                   const std::string&                                  folder_name)
 {
-    return CommonCodeGenForTuning(model_name,
-                                  kind_name,
-                                  instance_map,
-                                  {g_layer_norm_dtype_config_utils_tpl,
-                                   g_layer_norm_dtype_decl_tpl,
-                                   g_layer_norm_func_signature_tpl,
-                                   g_layer_norm_make_args_tpl,
-                                   g_layer_norm_tensor_decl_tpl,
-                                   g_layer_norm_func_call_tpl},
-                                  folder_name);
+    static const std::vector<std::string> templates = {g_layer_norm_dtype_config_utils_tpl,
+                                                       g_layer_norm_dtype_decl_tpl,
+                                                       g_layer_norm_func_signature_tpl,
+                                                       g_layer_norm_make_args_tpl,
+                                                       g_layer_norm_tensor_decl_tpl,
+                                                       g_layer_norm_func_call_tpl};
+
+    return CommonCodeGenForTuning(model_name, kind_name, instance_map, templates, folder_name);
 }
 
 std::string LayerNormKernel::CodeGenForRunning(const std::string&                                  func_name,
@@ -28,25 +26,23 @@ std::string LayerNormKernel::CodeGenForRunning(const std::string&               
                                                const std::map<std::string, std::unique_ptr<void>>& kernel_instance_map,
                                                const std::string&                                  folder_name)
 {
-    return CommonCodeGenForRunning(func_name,
-                                   model_name,
-                                   running_items,
-                                   kernel_instance_map,
-                                   {g_layer_norm_dtype_config_utils_tpl,
-                                    g_layer_norm_dtype_decl_tpl,
-                                    g_layer_norm_func_signature_tpl,
-                                    g_layer_norm_make_args_tpl},
-                                   folder_name);
+    static const std::vector<std::string> templates = {g_layer_norm_dtype_config_utils_tpl,
+                                                       g_layer_norm_dtype_decl_tpl,
+                                                       g_layer_norm_func_signature_tpl,
+                                                       g_layer_norm_make_args_tpl};
+
+    return CommonCodeGenForRunning(func_name, model_name, running_items, kernel_instance_map, templates, folder_name);
 }
 
 void LayerNormKernel::KernelLauncher(const std::string& kernel_func_name, const KernelArgs& args)
 {
-    auto kernel_args = std::get<NormKernelArgs>(args);
+    const auto& kernel_args = std::get<NormKernelArgs>(args);
 
+    // Load kernel function
     decltype(&LayerNorm) kernel_func = nullptr;
-
     LOAD_SYMBOL(kernel_func, kernel_func_name);
 
+    // Execute kernel with all arguments
     kernel_func(kernel_args.x_ptr_,
                 kernel_args.x_residual_ptr_,
                 kernel_args.smooth_scale_ptr_,
@@ -65,7 +61,7 @@ void LayerNormKernel::KernelLauncher(const std::string& kernel_func_name, const 
                 kernel_args.yr_stride_,
                 kernel_args.stream_);
 
-    VLOG(1) << kernel_func_name << " kernel launch success";
+    VLOG(1) << kernel_func_name << " kernel launched successfully";
 }
 
 }  // namespace flashck

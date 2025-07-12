@@ -1,6 +1,8 @@
 
 #pragma once
 
+#include <hip/hip_runtime.h>
+
 namespace flashck {
 
 struct NormKernelArgs {
