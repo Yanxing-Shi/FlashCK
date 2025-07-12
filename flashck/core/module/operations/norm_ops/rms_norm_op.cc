@@ -250,8 +250,8 @@ void RMSNormOp<T>::ExtractExecPath(const ProfilingStrategy& dynamic_profiling_st
             {"n", {n}},
         };
 
-        std::shared_ptr<ExecItem> exec_item_ptr =
-            std::make_shared<ExecItem>(GenExecKey(max_values), GenExecKey(shape_values_map), "");
+        std::shared_ptr<RunningItem> exec_item_ptr =
+            std::make_shared<RunningItem>(GenExecKey(max_values), GenExecKey(shape_values_map), "");
 
         exec_path_[exec_item_ptr->profiling_key_] = exec_item_ptr;
     }
@@ -261,8 +261,8 @@ void RMSNormOp<T>::ExtractExecPath(const ProfilingStrategy& dynamic_profiling_st
             {"n", {n}},
         };
 
-        std::shared_ptr<ExecItem> exec_item_ptr =
-            std::make_shared<ExecItem>(GenExecKey(min_values), GenExecKey(shape_values_map), "");
+        std::shared_ptr<RunningItem> exec_item_ptr =
+            std::make_shared<RunningItem>(GenExecKey(min_values), GenExecKey(shape_values_map), "");
 
         exec_path_[exec_item_ptr->profiling_key_] = exec_item_ptr;
     }
@@ -286,8 +286,8 @@ void RMSNormOp<T>::ExtractExecPath(const ProfilingStrategy& dynamic_profiling_st
         }
 
         for (const auto& iter_value : iter_values_vec) {
-            std::shared_ptr<ExecItem> exec_item_ptr =
-                std::make_shared<ExecItem>(GenExecKey(iter_value), GenExecKey(iter_value), "");
+            std::shared_ptr<RunningItem> exec_item_ptr =
+                std::make_shared<RunningItem>(GenExecKey(iter_value), GenExecKey(iter_value), "");
 
             exec_path_[exec_item_ptr->profiling_key_] = exec_item_ptr;
         }

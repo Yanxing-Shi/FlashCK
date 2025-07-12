@@ -3,7 +3,7 @@
 namespace flash_ck {
 
 // This structure is used to store the execution items for profiling
-class ExecItem {
+class RunningItem {
 public:
     std::string profiling_key_;
 

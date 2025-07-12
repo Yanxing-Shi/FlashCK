@@ -11,6 +11,6 @@ namespace flashck {
         FC_THROW(Unavailable("Kernel symbol not found {}", name_str));                                                 \
     }                                                                                                                  \
     kernel_func =                                                                                                      \
-        ProfilingEngine::GetInstance()->GetKernelLibrary()->get_function<decltype(kernel_func)>(kernel_func_name);
+        *(ProfilingEngine::GetInstance()->GetKernelLibrary()->get_function<decltype(kernel_func)>(kernel_func_name));
 
 }  // namespace flashck

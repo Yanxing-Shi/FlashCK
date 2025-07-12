@@ -264,15 +264,17 @@ class LayerNormKernel: public NormCommonKernel {
 public:
     std::vector<std::tuple<std::filesystem::path, std::filesystem::path>>
     CodeGenForTuning(const std::string&                                  model_name,
-                     const Problem&                                      problem,
+                     const std::string&                                  kind_name,
                      const std::map<std::string, std::unique_ptr<void>>& instance_map,
                      const std::string&                                  folder_name = "kernel_profile") override;
 
-    // std::string GenKernelFunction(const std::string&                               func_name,
-    //                               const std::string&                               model_name,
-    //                               const std::unordered_map<std::string, std::any>& kernel_func_map) override;
+    std::string CodeGenForRunning(const std::string&                                  func_name,
+                                  const std::string&                                  model_name,
+                                  const std::vector<RunningItem>&                     running_items,
+                                  const std::map<std::string, std::unique_ptr<void>>& kernel_instance_map,
+                                  const std::string& folder_name = "kernel_profile") override;
 
-    // void KernelLauncher(const std::string& kernel_func_name, const KernelArgs& args) override;
+    void KernelLauncher(const std::string& kernel_func_name, const KernelArgs& args) override;
 };
 }  // namespace flashck
 

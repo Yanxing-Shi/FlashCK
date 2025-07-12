@@ -183,8 +183,8 @@ public:
             VLOG(1) << "profiling_key: " << GenExecKey(max_values);
             VLOG(1) << "exec_cond: " << GenExecKey(shape_values_map);
 
-            std::shared_ptr<ExecItem> exec_item_ptr =
-                std::make_shared<ExecItem>(GenExecKey(max_values), GenExecKey(shape_values_map), "");
+            std::shared_ptr<RunningItem> exec_item_ptr =
+                std::make_shared<RunningItem>(GenExecKey(max_values), GenExecKey(shape_values_map), "");
 
             exec_path_[exec_item_ptr->profiling_key_] = exec_item_ptr;
         }
@@ -195,8 +195,8 @@ public:
                 min_values[name]         = {min_shape_values};
             }
 
-            std::shared_ptr<ExecItem> exec_item_ptr =
-                std::make_shared<ExecItem>(GenExecKey(min_values), GenExecKey(shape_values_map), "");
+            std::shared_ptr<RunningItem> exec_item_ptr =
+                std::make_shared<RunningItem>(GenExecKey(min_values), GenExecKey(shape_values_map), "");
             exec_path_[exec_item_ptr->profiling_key_] = exec_item_ptr;
         }
         else if (dynamic_profiling_strategy == ProfilingStrategy::kIteration) {
@@ -237,8 +237,8 @@ public:
                 VLOG(1) << "profiling_key: " << GenExecKey(iter_value);
                 VLOG(1) << "exec_cond: " << GenExecKey(iter_value);
 
-                std::shared_ptr<ExecItem> exec_item_ptr =
-                    std::make_shared<ExecItem>(GenExecKey(iter_value), GenExecKey(iter_value), "");
+                std::shared_ptr<RunningItem> exec_item_ptr =
+                    std::make_shared<RunningItem>(GenExecKey(iter_value), GenExecKey(iter_value), "");
                 exec_path_[exec_item_ptr->profiling_key_] = exec_item_ptr;
             }
         }
@@ -554,8 +554,8 @@ public:
     float   scale_         = 1.0f;
     Shape   permute_shape_;
 
-    std::map<std::string, std::shared_ptr<ExecItem>> exec_path_;
-    std::vector<std::string>                         exec_key_;
+    std::map<std::string, std::shared_ptr<RunningItem>> exec_path_;
+    std::vector<std::string>                            exec_key_;
 
     std::shared_ptr<Kernel> register_kernel_ptr_;
 

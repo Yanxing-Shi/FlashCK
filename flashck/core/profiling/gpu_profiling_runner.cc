@@ -41,7 +41,7 @@ void Postprocesser::PostProcessResults()
 
         // for (const auto& instance : group) {
         //     auto& exec_item =
-        //         std::any_cast<std::map<std::string, ExecItem>>(instance.op_attrs.at("exec_path"))[exec_cond];
+        //         std::any_cast<std::map<std::string, RunningItem>>(instance.op_attrs.at("exec_path"))[exec_cond];
         //     exec_item.instance_name_        = best_instance.instance_name_;
         //     exec_item.perf_result_.split_k_ = best_instance.perf_result_.split_k_;
         // }

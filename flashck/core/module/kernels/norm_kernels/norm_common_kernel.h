@@ -3,7 +3,7 @@
 #include "flashck/core/module/kernels/kernel.h"
 #include "flashck/core/module/kernels/kernel_registry.h"
 
-static const std::string g_norm_exec_cond_tpl = R"(
+static const std::string g_norm_running_cond_tpl = R"(
     if ({{cond}}) {
         {{program}}
     }
@@ -46,7 +46,7 @@ static const std::string g_norm_instance_tpl = R"(
 using {{instance_alias_name}} = {{config_name}};
 )";
 
-static const std::string g_norm_exec_tpl = R"(
+static const std::string g_norm_running_tpl = R"(
     {{make_args}}
 
     const dim3                 grids       = {{instance_alias_name}}::GridSize(args);
@@ -144,14 +144,16 @@ class NormCommonKernel: public Kernel {
 public:
     std::vector<std::tuple<std::filesystem::path, std::filesystem::path>>
     CommonCodeGenForTuning(const std::string&                                  model_name,
-                           const Problem&                                      problem,
+                           const std::string&                                  kind_name,
                            const std::map<std::string, std::unique_ptr<void>>& instance_map,
                            const TuningTpl&                                    tuning_tpl,
                            const std::string&                                  folder_name = "kernel_profile");
 
-    // std::string CommonCodeGenForRunning(const std::string&                               func_name,
-    //                                     const std::string&                               model_name,
-    //                                     const std::unordered_map<std::string, std::any>& kernel_func_map,
-    //                                     const RunningTpl&                                running_tpl);
+    std::string CommonCodeGenForRunning(const std::string&                                  func_name,
+                                        const std::string&                                  model_name,
+                                        const std::vector<RunningItem>&                     running_items,
+                                        const std::map<std::string, std::unique_ptr<void>>& kernel_instance_map,
+                                        const RunningTpl&                                   running_tpl,
+                                        const std::string& folder_name = "kernel_profile");
 };
 }  // namespace flashck

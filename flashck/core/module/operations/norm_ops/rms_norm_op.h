@@ -103,8 +103,8 @@ public:
     int64_t y_stride_  = -1;
     int64_t yr_stride_ = -1;
 
-    std::map<std::string, std::shared_ptr<ExecItem>> exec_path_;
-    std::vector<std::string>                         exec_key_;
+    std::map<std::string, std::shared_ptr<RunningItem>> exec_path_;
+    std::vector<std::string>                            exec_key_;
 
     std::shared_ptr<Kernel> register_kernel_ptr_;
 

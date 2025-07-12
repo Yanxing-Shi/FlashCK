@@ -170,9 +170,10 @@ FmhaCommonKernel::GenFmhaCommonKernelFunction(const std::string&                
     auto kernel_name = std::any_cast<std::string>(kernel_func_map.at("op_name"));
     auto kernel_instance_map =
         std::any_cast<std::map<std::string, std::shared_ptr<void>>>(kernel_func_map.at("kernel_instance_map"));
-    auto exec_path = std::any_cast<std::map<std::string, std::shared_ptr<ExecItem>>>(kernel_func_map.at("exec_path"));
-    auto op_mode   = std::any_cast<FmhaOperationMode>(kernel_func_map.at("op_mode"));
-    auto bias_enum = std::any_cast<BiasEnum>(kernel_func_map.at("bias_enum"));
+    auto exec_path =
+        std::any_cast<std::map<std::string, std::shared_ptr<RunningItem>>>(kernel_func_map.at("exec_path"));
+    auto op_mode          = std::any_cast<FmhaOperationMode>(kernel_func_map.at("op_mode"));
+    auto bias_enum        = std::any_cast<BiasEnum>(kernel_func_map.at("bias_enum"));
     auto bias_rank_info   = std::any_cast<int64_t>(kernel_func_map.at("bias_rank_info"));
     auto dtype            = std::any_cast<DataType>(kernel_func_map.at("dtype"));
     auto paged_block_size = std::any_cast<int64_t>(kernel_func_map.at("paged_block_size"));

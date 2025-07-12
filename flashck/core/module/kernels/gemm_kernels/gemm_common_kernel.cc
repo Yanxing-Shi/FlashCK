@@ -336,8 +336,9 @@ GemmCommonKernel::GenGemmCommonKernelFunction(const std::string&                
 {
     auto kernel_instance_map =
         std::any_cast<std::map<std::string, std::shared_ptr<void>>>(kernel_func_map.at("kernel_instance_map"));
-    auto num_tpls  = std::any_cast<int>(kernel_func_map.at("num_tpls"));
-    auto exec_path = std::any_cast<std::map<std::string, std::shared_ptr<ExecItem>>>(kernel_func_map.at("exec_path"));
+    auto num_tpls = std::any_cast<int>(kernel_func_map.at("num_tpls"));
+    auto exec_path =
+        std::any_cast<std::map<std::string, std::shared_ptr<RunningItem>>>(kernel_func_map.at("exec_path"));
     auto dim_info_map =
         std::any_cast<std::map<std::string, std::vector<std::shared_ptr<DimInfo>>>>(kernel_func_map.at("dim_info_map"));
     auto permute_shape = std::any_cast<Shape>(kernel_func_map.at("permute_shape"));

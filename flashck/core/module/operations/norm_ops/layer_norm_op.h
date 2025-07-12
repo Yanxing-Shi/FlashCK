@@ -105,7 +105,7 @@ public:
     int64_t y_stride_  = -1;
     int64_t yr_stride_ = -1;
 
-    std::vector<ExecItem> exec_items_;
+    std::vector<RunningItem> exec_items_;
 
     std::shared_ptr<Kernel> register_kernel_ptr_;
 

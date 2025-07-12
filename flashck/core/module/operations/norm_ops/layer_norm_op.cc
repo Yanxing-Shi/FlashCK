@@ -222,7 +222,7 @@ void LayerNormOp<T>::ExtractExecPath(const ProfilingStrategy& profiling_strategy
             {"n", {n}},
         };
 
-        exec_items_.push_back(ExecItem{
+        exec_items_.push_back(RunningItem{
             .profiling_key_ = GenExecKey(max_values),
             .exec_cond_     = GenExecKey(shape_values_map),
             .instance_name_ = "",
@@ -235,7 +235,7 @@ void LayerNormOp<T>::ExtractExecPath(const ProfilingStrategy& profiling_strategy
             {"n", {n}},
         };
 
-        exec_items_.push_back(ExecItem{
+        exec_items_.push_back(RunningItem{
             .profiling_key_ = GenExecKey(min_values),
             .exec_cond_     = GenExecKey(shape_values_map),
             .instance_name_ = "",
@@ -262,7 +262,7 @@ void LayerNormOp<T>::ExtractExecPath(const ProfilingStrategy& profiling_strategy
         }
 
         for (const auto& iter_value : iter_values_vec) {
-            exec_items_.push_back(ExecItem{
+            exec_items_.push_back(RunningItem{
                 .profiling_key_ = GenExecKey(iter_value),
                 .exec_cond_     = GenExecKey(iter_value),
                 .instance_name_ = "",
