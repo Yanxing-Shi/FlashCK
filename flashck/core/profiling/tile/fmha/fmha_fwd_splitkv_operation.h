@@ -39,7 +39,7 @@ struct FmhaFwdSplitKVOperation {
 
     std::string GetPipelineConfigName();
 
-    std::string GetConfigName();
+    std::string GetInstanceName();
 
     std::string Emit();
 };

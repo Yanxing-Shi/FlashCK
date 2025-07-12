@@ -7,7 +7,7 @@ namespace flashck {
 
 class GemmTileDesc: public TileDescBase {
 public:
-    std::string GetConfigName() const override;
+    std::string GetInstanceName() const override;
 
     std::string Emit() const override;
 
@@ -20,7 +20,7 @@ public:
 
 class BlockTransferDesc: public TileDescBase {
 public:
-    std::string GetConfigName();
+    std::string GetInstanceName();
 
     std::string Emit();
 
@@ -35,7 +35,7 @@ public:
 
 class CBlockTransferDesc: public TileDescBase {
 public:
-    std::string GetConfigName();
+    std::string GetInstanceName();
 
     std::string Emit();
 
@@ -48,7 +48,7 @@ public:
 
 class GemmCodegen: public CodegenBase {
 public:
-    std::string GetConfigName() const override;
+    std::string GetInstanceName() const override;
 
     std::string Emit() const override;
 

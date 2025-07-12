@@ -63,7 +63,7 @@ message(STATUS "HIP Compiler Version: ${CMAKE_HIP_COMPILER_VERSION}")
 # Add path
 # --------------------------------------------------
 include_directories(
-    ${PROJECT_SOURCE_DIR}
+    ${PROJECT_tpl_DIR}
 )
 
 add_subdirectory(flashck)

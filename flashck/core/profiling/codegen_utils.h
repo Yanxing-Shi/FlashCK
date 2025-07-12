@@ -190,14 +190,4 @@ public:
     PerfResult                perf_result_;
 };
 
-// This structure is used to store the execution items for profiling
-class ExecItem {
-public:
-    std::string profiling_key_;
-
-    std::string exec_cond_;
-    std::string instance_name_;
-    PerfResult  perf_result_;
-};
-
 }  // namespace flashck

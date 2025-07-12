@@ -104,7 +104,7 @@ void GemmRCROp<T>::ForwardImpl()
     auto a        = this->GetParentNode(0);
     auto b        = this->GetParentNode(1);
     auto bias_ptr = this->input_var_.size() > 2 ? (T*)this->GetParentNode(2)->GetValue() : nullptr;
-    auto d0_ptr   = this->num_sources_ >= 1 ? (T*)this->GetParentNode(3)->GetValue() : nullptr;
+    auto d0_ptr   = this->num_tpls_ >= 1 ? (T*)this->GetParentNode(3)->GetValue() : nullptr;
     auto c        = this->GetChildNode(0);
 
     T* in_ptr     = (T*)a->GetValue();

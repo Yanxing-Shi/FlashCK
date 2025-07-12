@@ -44,7 +44,7 @@ class EmbeddingProfilingCache: public ProfilingCacheBase<EmbeddingProfilingCache
 
     void CreateTable()
     {
-        auto sql = TemplateLoadAndRender(g_embedding_init_source, {{"dev", device_name_}});
+        auto sql = TemplateLoadAndRender(g_embedding_init_tpl, {{"dev", device_name_}});
         FC_CHECK_SQLITE(sqlite3_exec(cache_db_, sql.c_str(), nullptr, nullptr, nullptr), cache_db_);
     }
 
@@ -68,7 +68,7 @@ class EmbeddingProfilingCache: public ProfilingCacheBase<EmbeddingProfilingCache
                                                     {"device", device_name_},
                                                     {"exec_entry_sha1", query.exec_entry_sha1_}};
 
-        auto sql = TemplateLoadAndRender(g_embedding_query_source, embedding_query_value_map);
+        auto sql = TemplateLoadAndRender(g_embedding_query_tpl, embedding_query_value_map);
         VLOG(1) << "EmbeddingProfilingCache query sql command: " << sql;
         return QueryCache(sql);
     }
@@ -95,8 +95,8 @@ class EmbeddingProfilingCache: public ProfilingCacheBase<EmbeddingProfilingCache
 
         jinja2::ValuesMap embedding_insert_value_map{{"dev", device_name_}};
 
-        auto query_sql  = TemplateLoadAndRender(g_embedding_query_source, embedding_query_value_map);
-        auto insert_sql = TemplateLoadAndRender(g_embedding_insert_source, embedding_insert_value_map);
+        auto query_sql  = TemplateLoadAndRender(g_embedding_query_tpl, embedding_query_value_map);
+        auto insert_sql = TemplateLoadAndRender(g_embedding_insert_tpl, embedding_insert_value_map);
 
         const int64_t n_query_result = CheckIfInsert(query_sql);
 

@@ -4,7 +4,7 @@
 
 namespace flashck {
 
-std::string FmhaTileDesc::GetConfigName()
+std::string FmhaTileDesc::GetInstanceName()
 {
     return "b" + std::to_string(bm0_) + "x" + std::to_string(bn0_) + "x" + std::to_string(bk0_) + "_"
            + std::to_string(bn1_) + "x" + std::to_string(bk1_) + "x" + std::to_string(bk0_max_) + "_r"
@@ -62,11 +62,11 @@ std::string FmhaFwdCodeGen::GetPipelineConfigName()
     return oss.str();
 }
 
-std::string FmhaFwdCodeGen::GetConfigName()
+std::string FmhaFwdCodeGen::GetInstanceName()
 {
     std::ostringstream oss;
     oss << "fmha" << "_" << DataTypeToShortString(dtype_) << "_" << g_fmha_operation_mode_name_map.at(operation_mode_)
-        << "_" << tile_desc_.GetConfigName() << "_" << GetPipelineConfigName() << "_"
+        << "_" << tile_desc_.GetInstanceName() << "_" << GetPipelineConfigName() << "_"
         << g_generic_attention_mask_short_names_map.at(mask_type_);
     return oss.str();
 }
@@ -109,7 +109,7 @@ using {{name}}  =
     static int  idx    = 0;
 
     jinja2::ValuesMap value_map = {
-        {"name", GetConfigName()},
+        {"name", GetInstanceName()},
         {"idx", idx++},
         {"shape", tile_desc_.Emit()},
         {"mode", operation_mode_ == FmhaOperationMode::Batch ? "false" : "true"},

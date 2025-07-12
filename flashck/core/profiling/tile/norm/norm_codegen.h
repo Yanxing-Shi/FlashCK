@@ -42,7 +42,7 @@ public:
      * @brief Generates configuration name string for this tile descriptor
      * @return String representation of the tile configuration
      */
-    std::string GetConfigName() const;
+    std::string GetInstanceName() const;
 
     /**
      * @brief Emits the tile descriptor code template
@@ -153,7 +153,7 @@ public:
      * @brief Generates unique configuration name for this norm operation
      * @return String identifier for the configuration
      */
-    std::string GetConfigName() const;
+    std::string GetInstanceName() const;
 
     /**
      * @brief Emits the complete code for the norm operation

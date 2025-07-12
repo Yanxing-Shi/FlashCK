@@ -4,7 +4,7 @@
 
 #include "flashck/core/module/kernels/kernel_registry.h"
 
-static const std::string g_fmha_fwd_create_args_source = R"(
+static const std::string g_fmha_fwd_create_args_tpl = R"(
 auto create_args(int argc, char* argv[])
 {
     ck_tile::ArgParser arg_parser;
@@ -37,7 +37,7 @@ auto create_args(int argc, char* argv[])
 }
 )";
 
-static const std::string g_fmha_fwd_args_parser_source = R"(
+static const std::string g_fmha_fwd_args_parser_tpl = R"(
     ck_tile::index_t batch   = arg_parser.get_int("b");
     ck_tile::index_t seqlen_q = arg_parser.get_int("s");
     ck_tile::index_t seqlen_k = arg_parser.get_int("s_k");
@@ -66,7 +66,7 @@ static const std::string g_fmha_fwd_args_parser_source = R"(
 
 )";
 
-static const std::string g_fmha_fwd_args_decl_source = R"(
+static const std::string g_fmha_fwd_args_decl_tpl = R"(
 
 // runtime args, some will passed to karg, some will used to compute grids/blocks
 struct FmhaFwdArgs
@@ -127,8 +127,8 @@ struct FmhaFwdArgs
 
 )";
 
-static const std::string g_fmha_fwd_func_signature_source = R"(
-{% if is_execute %} {{c_flag}} FC_EXPORT {% endif %} void {{function_name}}(
+static const std::string g_fmha_fwd_func_signature_tpl = R"(
+{% if is_running %} {{c_flag}} FC_EXPORT {% endif %} void {{function_name}}(
     void* q_buf_ptr,
     void* k_buf_ptr,
     void* v_buf_ptr,
@@ -152,7 +152,7 @@ static const std::string g_fmha_fwd_func_signature_source = R"(
 )
 )";
 
-static const std::string g_fmha_fwd_func_call_source = R"(
+static const std::string g_fmha_fwd_func_call_tpl = R"(
     {{function_name}}(
         q_buf.GetDeviceBuffer(),
         k_buf.GetDeviceBuffer(),
@@ -189,7 +189,7 @@ static const std::string g_fmha_fwd_func_call_source = R"(
     );
 )";
 
-static const std::string g_fmha_fwd_prepare_args_source = R"(
+static const std::string g_fmha_fwd_prepare_args_tpl = R"(
    const auto init_args = [&](auto& args){  
 
     const ck_tile::index_t shape_batch = {% if mode_str == "batch" %} batch; {% else %} 1; {% endif %}
@@ -308,7 +308,7 @@ static const std::string g_fmha_fwd_prepare_args_source = R"(
     };
 )";
 
-static const std::string g_fmha_fwd_make_args_source = R"(
+static const std::string g_fmha_fwd_make_args_tpl = R"(
     FmhaFwdArgs fmha_fwd_args;
     init_args(fmha_fwd_args);
     
@@ -399,7 +399,7 @@ static const std::string g_fmha_fwd_make_args_source = R"(
 {% endif %}
 )";
 
-static const std::string g_fmha_fwd_tensor_decl_source = R"(
+static const std::string g_fmha_fwd_tensor_decl_tpl = R"(
     ck_tile::HostTensor<QDataType> q_host(
         {shape_batch, shape_seqlen_q, nhead_q, hdim_q});
     ck_tile::HostTensor<KDataType> k_host(
@@ -431,7 +431,7 @@ static const std::string g_fmha_fwd_tensor_decl_source = R"(
 
 )";
 
-const static std::string g_fmha_fwd_tensor_generate_source = R"(
+const static std::string g_fmha_fwd_tensor_generate_tpl = R"(
 {% if init_method_str == "uri" %}
     ck_tile::FillUniformDistributionIntegerValue<QDataType>{-3.f, 3.f, {{seed}}}(q_host);
     ck_tile::FillUniformDistributionIntegerValue<KDataType>{-3.f, 3.f, {{seed}}}(k_host);

@@ -2,7 +2,6 @@
 
 #include "flashck/core/utils/debug_utils.h"
 #include "flashck/core/utils/enforce.h"
-#include "flashck/core/utils/file_utils.h"
 #include "flashck/core/utils/flags.h"
 #include "flashck/core/utils/log.h"
 
@@ -472,7 +471,7 @@ void RMSNormOp<T>::Profile(const std::shared_ptr<GPUProfilingRunner>& profiler_r
 {
 
     std::filesystem::path profiler_prefix =
-        std::filesystem::path(FLAGS_FC_HOME_PATH) / folder_name / context_ptr_->GetName() / "profiler" / op_name_;
+        std::filesystem::path(FLAGS_FC_HOME_PATH) / folder_name / context_ptr_->GetName() / "profiling" / op_name_;
 
     for (const auto& workload : exec_key_) {
         if (exec_path_[workload]->algo_ == "") {

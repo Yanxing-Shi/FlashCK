@@ -4,7 +4,7 @@
 
 namespace flashck {
 
-std::string FmhaAppendKVTileDesc::GetConfigName()
+std::string FmhaAppendKVTileDesc::GetInstanceName()
 {
     return "b" + std::to_string(bs_) + "x" + std::to_string(bsk_) + "x" + std::to_string(bd_) + "x"
            + std::to_string(bdv_);
@@ -26,11 +26,11 @@ std::string FmhaFwdAppendKVOperation::GetPipelineConfigName()
     return oss.str();
 }
 
-std::string FmhaFwdAppendKVOperation::GetConfigName()
+std::string FmhaFwdAppendKVOperation::GetInstanceName()
 {
     std::ostringstream oss;
     oss << "fmha_fwd_appendkv" << "_" << DataTypeToShortString(dtype_) << "_"
-        << g_fmha_operation_mode_name_map.at(operation_mode_) << "_" << tile_desc_.GetConfigName() << "_"
+        << g_fmha_operation_mode_name_map.at(operation_mode_) << "_" << tile_desc_.GetInstanceName() << "_"
         << GetPipelineConfigName();
     return oss.str();
 }
@@ -61,7 +61,7 @@ using {{name}} =
 )";
     static int  idx    = 0;
 
-    jinja2::ValuesMap value_map = {{"name", GetConfigName()},
+    jinja2::ValuesMap value_map = {{"name", GetInstanceName()},
                                    {"idx", idx++},
                                    {"bs", tile_desc_.bs_},
                                    {"bsk", tile_desc_.bsk_},

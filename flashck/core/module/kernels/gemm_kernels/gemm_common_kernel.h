@@ -17,7 +17,7 @@
 #include "flashck/core/profiling/base.h"
 #include "flashck/core/profiling/library.h"
 
-static const std::string g_exec_cond_source = R"(
+static const std::string g_exec_cond_tpl = R"(
 {{indent}}if ({{cond}}) {
 {{indent}}  {{program}}
 {{indent}} } else {
@@ -26,12 +26,12 @@ static const std::string g_exec_cond_source = R"(
 {{indent}} }
 )";
 
-static const std::string g_inline_utils_source = R"(
+static const std::string g_inline_utils_tpl = R"(
 #include "host_tensor.cpp"
 #include "device_memory.cpp"
 )";
 
-static const std::string g_extra_header_source = R"(
+static const std::string g_extra_header_tpl = R"(
 {% if gemm_flag == "" %}
 #include "ck/tensor_operation/gpu/device/impl/device_gemm_xdl_cshuffle.hpp"
 {% elif gemm_flag == "permute_m2n3" %}
@@ -46,7 +46,7 @@ static const std::string g_extra_header_source = R"(
 {% endif %}
 )";
 
-static const std::string g_macro_decl_source = R"(
+static const std::string g_macro_decl_tpl = R"(
 // We compile all models with -fvisibility=hidden. Any symbols that need to be
 // exposed in the final shared library must be declared with FC_EXPORT to make
 // them visible.
@@ -61,7 +61,7 @@ static const std::string g_macro_decl_source = R"(
 #endif
 )";
 
-static const std::string g_profiler_header_source = R"(
+static const std::string g_profiler_header_tpl = R"(
 #include "ck/library/utility/device_memory.hpp"
 #include "ck/library/utility/host_common_util.hpp"
 #include "ck/library/utility/host_tensor.hpp"
@@ -70,7 +70,7 @@ static const std::string g_profiler_header_source = R"(
 #include "ck/library/utility/literals.hpp"
 )";
 
-static const std::string g_dtype_decl_source = R"(
+static const std::string g_dtype_decl_tpl = R"(
 using ADataType               = {{a_ck_dtype}};
 using BDataType               = {{b_ck_dtype}};
 using CDataType               = {{c_ck_dtype}};
@@ -83,7 +83,7 @@ using ScaleBElementType = {{scale_b_ck_dtype}};
 {% endif %}
 )";
 
-static const std::string g_layout_decl_source = R"(
+static const std::string g_layout_decl_tpl = R"(
 using ALayout  = {{a_layout}};
 using BLayout  = {{b_layout}};
 using CLayout  = {{c_layout}};
@@ -92,12 +92,12 @@ using BiasLayout = {{bias_layout}};
 {% endif %}
 )";
 
-static const std::string g_instance_source = R"(
+static const std::string g_instance_tpl = R"(
 {{config}}
 using {{name}} = {{config_name}};
 )";
 
-static const std::string g_exec_source = R"(
+static const std::string g_exec_tpl = R"(
 {{indent}}auto device_instance =  {{instance}}{};
 {{indent}}auto argument = device_instance.MakeArgument(
 {{problem_args}}
@@ -110,7 +110,7 @@ static const std::string g_exec_source = R"(
 {{indent}}
 )";
 
-static const std::string g_problem_args_source = R"(
+static const std::string g_problem_args_tpl = R"(
 {{indent}}                                static_cast<ADataType*>(in_ptr),
 {{indent}}                                static_cast<BDataType*>(weight_ptr),
 {% if gemm_flag == "bias_permute" %}
@@ -140,7 +140,7 @@ static const std::string g_problem_args_source = R"(
 {{indent}}                                N,
 {{indent}}                                K,
 {% if "split_k" in gemm_flag %}
-{% if is_execute %}
+{% if is_running %}
 {{indent}}                                {{split_k}},
 {% else %}
 {{indent}}                                split_k,
@@ -208,13 +208,13 @@ static const std::string g_problem_args_source = R"(
 {% endif %}
 )";
 
-static const std::string g_extra_shape_source = R"(
+static const std::string g_extra_shape_tpl = R"(
 {{indent}}ck::index_t stride_a = a_dim1;
 {{indent}}ck::index_t stride_b = b_dim1;
 {{indent}}ck::index_t stride_c = c_dim1;
 )";
 
-static const std::string g_src_source = R"(
+static const std::string g_src_tpl = R"(
 #include "ck/ck.hpp"
 
 #include "ck/tensor_operation/gpu/device/gemm_specialization.hpp"
@@ -236,7 +236,7 @@ static const std::string g_src_source = R"(
 
 {{structs_def}}
 
-{% if is_execute %} {{c_flag}} FC_EXPORT {% endif %} void {{function_name}}(
+{% if is_running %} {{c_flag}} FC_EXPORT {% endif %} void {{function_name}}(
     void* in_ptr,
     void* weight_ptr,
     void* out_ptr,
@@ -267,7 +267,7 @@ static const std::string g_src_source = R"(
 {% for idx in range(p_dims) %}
     int64_t p_dim{{idx}},
 {% endfor %}
-{% if "split_k" in gemm_flag and is_execute == False %}
+{% if "split_k" in gemm_flag and is_running == False %}
     int64_t split_k,
 {% endif %}
     hipStream_t stream
@@ -288,7 +288,7 @@ static const std::string g_src_source = R"(
 
 )";
 
-static const std::string g_structs_source = R"(
+static const std::string g_structs_tpl = R"(
 constexpr int error_exit_code = -1;
 
 #define HIP_CHECK(condition)                                                                                           \
@@ -332,7 +332,7 @@ public:
 };
 )";
 
-const static std::string g_func_call_source = R"(
+const static std::string g_func_call_tpl = R"(
 {{indent}}{{func_name}}(
 {{indent}}    in_dev_buff_ptr,
 {{indent}}    weight_dev_buff_ptr,
@@ -364,14 +364,14 @@ const static std::string g_func_call_source = R"(
 {% for dim in p_dims %}
 {{indent}}    {{dim}},
 {% endfor %}
-{% if "split_k" in gemm_flag and is_execute == False %}
+{% if "split_k" in gemm_flag and is_running == False %}
 {{indent}}    split_k,
 {% endif %}
 {{indent}}    stream
 {{indent}});
 )";
 
-static const std::string g_tensor_decl_source = R"(
+static const std::string g_tensor_decl_tpl = R"(
 {% if is_batched %}
     using strides_t = std::array<int32_t, 3>;
     auto get_strides = [](int32_t batch_stride, int32_t leading_dimension, auto layout) constexpr -> strides_t {
@@ -461,7 +461,7 @@ static const std::string g_tensor_decl_source = R"(
     {% endif %}
 )";
 
-static const std::string g_profiler_source = R"(
+static const std::string g_profiler_tpl = R"(
 {{op_func}}
 
 {{structs_def}}
@@ -502,7 +502,7 @@ int main(int argc, char** argv) {
 }
 )";
 
-const static std::string g_shape_eval_source = R"(
+const static std::string g_shape_eval_tpl = R"(
 {{indent}}{{dtype}} {{name}} = {{dim_calculator}};
 )";
 
@@ -529,10 +529,10 @@ public:
                                 const std::string&                               gemm_flag  = "",
                                 const std::string&                               extra_code = "",
                                 const int                                        ndims      = 2,
-                                const std::string& extra_shape_template                     = g_extra_shape_source,
-                                const std::string& problem_args_template                    = g_problem_args_source,
-                                const std::string& extra_header_template                    = g_extra_header_source,
-                                const std::string& tensor_decl_template                     = g_tensor_decl_source,
+                                const std::string& extra_shape_template                     = g_extra_shape_tpl,
+                                const std::string& problem_args_template                    = g_problem_args_tpl,
+                                const std::string& extra_header_template                    = g_extra_header_tpl,
+                                const std::string& tensor_decl_template                     = g_tensor_decl_tpl,
                                 const std::string& inverse_shape                            = "",
                                 const std::string& input_addr_calculator                    = "",
                                 const std::string& output_addr_calculator                   = "",
@@ -543,9 +543,9 @@ public:
                                             const std::string&                               gemm_flag  = "",
                                             const std::string&                               extra_code = "",
                                             const int                                        ndims      = 2,
-                                            const std::string& extra_shape_template  = g_extra_shape_source,
-                                            const std::string& problem_args_template = g_problem_args_source,
-                                            const std::string& extra_header_template = g_extra_header_source,
+                                            const std::string& extra_shape_template  = g_extra_shape_tpl,
+                                            const std::string& problem_args_template = g_problem_args_tpl,
+                                            const std::string& extra_header_template = g_extra_header_tpl,
                                             const std::string& inverse_shape         = "");
 
     void FilterInstance() {}

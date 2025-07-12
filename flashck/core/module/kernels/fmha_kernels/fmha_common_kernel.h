@@ -6,7 +6,7 @@
 #include "flashck/core/module/kernels/kernel.h"
 #include "flashck/core/module/kernels/kernel_registry.h"
 
-static const std::string g_fmha_exec_cond_source = R"(
+static const std::string g_fmha_exec_cond_tpl = R"(
     if ({{cond}}) {
         {{program}}
     }
@@ -27,7 +27,7 @@ static const std::string g_fmha_macro_decl = R"(
 #endif
 )";
 
-static const std::string g_fmha_dtype_decl_source = R"(
+static const std::string g_fmha_dtype_decl_tpl = R"(
 using TypeConfig = FmhaFwdTypeConfig<{{DataType}}>;
 
 using QDataType             = typename TypeConfig::QDataType;
@@ -43,17 +43,17 @@ using OaccDataType          = typename TypeConfig::OaccDataType;
 using ODataType             = typename TypeConfig::ODataType;
 )";
 
-static const std::string g_fmha_instance_source = R"(
+static const std::string g_fmha_instance_tpl = R"(
 {{config}}
 using {{kernel_name}} = {{config_name}};
 )";
 
-static const std::string g_fmha_execute_source = R"(
+static const std::string g_fmha_execute_tpl = R"(
     {{prepare_args}}
 
     constexpr dim3 blocks             = {{kernel_name}}::BlockSize();
     constexpr ck_tile::index_t kBlockPerCu = {{kernel_name}}::kBlockPerCu;
-    auto                       s           = ck_tile::stream_config{stream, {{is_profile_kernel}}, 0, 5/*warmup*/, 20/*repeat*/};
+    auto                       s           = ck_tile::stream_config{stream, {{is_profiling}}, 0, 5/*warmup*/, 20/*repeat*/};
 
     {{make_args}}
 
@@ -63,7 +63,7 @@ static const std::string g_fmha_execute_source = R"(
         std::cerr << {{kernel_name}}::GetName()<< " not supported !" << std::endl << std::flush;
     }
 
-{% if not is_execute %}
+{% if not is_running %}
     // float tflops = static_cast<float>(flop) / 1.E9 / ave_time;
     // float gb_per_sec = num_byte / 1.E6 / ave_time;
     // std::cout << "KERNEL:" << {{kernel_name}}::GetName() << ",";
@@ -98,7 +98,7 @@ static const std::string g_fmha_kernel_func = R"(
 }
 )";
 
-const static std::string g_fmha_tenosr_decl_source = R"(
+const static std::string g_fmha_tenosr_decl_tpl = R"(
    // host memory for storing all the tensor elements
     auto [seqlen_qs, seqlen_ks, seqlen_kpads] =
         decode_seqlen({% if mode_str == "batch" %} mode_enum::batch,
@@ -143,10 +143,10 @@ const static std::string g_fmha_tenosr_decl_source = R"(
     const ck_tile::index_t shape_seqlen_q = {% if mode_str == "batch" %} seqlen_qs[0]; {% else %} seqstart_q_host.back(); {% endif %}
     const ck_tile::index_t shape_seqlen_k = {% if mode_str == "batch" %} seqlen_ks[0]; {% else %} seqlen_kpads[0] < 0 ?  seqstart_k_host.back(): seqstart_k_with_padding_host.back(); {% endif %}
 
-    {{decl_source}}
+    {{decl_tpl}}
 )";
 
-static const std::string g_fmha_profiler_source = R"(
+static const std::string g_fmha_profiler_tpl = R"(
 {{kernel_func}}
 
 {{create_args}}
@@ -181,25 +181,25 @@ public:
     std::vector<std::tuple<std::filesystem::path, std::filesystem::path>>
     GenFmhaCommonKernelProfiler(const std::string&                               model_name,
                                 const std::unordered_map<std::string, std::any>& kernel_func_map,
-                                const std::string&                               create_args_source,
-                                const std::string&                               args_parser_source,
-                                const std::string&                               args_decl_source,
-                                const std::string&                               func_signature_source,
-                                const std::string&                               tensor_decl_source,
-                                const std::string&                               tensor_generate_source,
-                                const std::string&                               func_call_source,
-                                const std::string&                               prepare_args_source,
-                                const std::string&                               make_args_source,
+                                const std::string&                               create_args_tpl,
+                                const std::string&                               args_parser_tpl,
+                                const std::string&                               args_decl_tpl,
+                                const std::string&                               func_signature_tpl,
+                                const std::string&                               tensor_decl_tpl,
+                                const std::string&                               tensor_generate_tpl,
+                                const std::string&                               func_call_tpl,
+                                const std::string&                               prepare_args_tpl,
+                                const std::string&                               make_args_tpl,
                                 const std::string&                               fmha_flag,
                                 const std::string&                               folder_name = "kernel_profile");
 
     std::string GenFmhaCommonKernelFunction(const std::string&                               func_name,
                                             const std::string&                               model_name,
                                             const std::unordered_map<std::string, std::any>& kernel_func_map,
-                                            const std::string&                               args_decl_source,
-                                            const std::string&                               func_signature_source,
-                                            const std::string&                               prepare_args_source,
-                                            const std::string&                               make_args_source,
+                                            const std::string&                               args_decl_tpl,
+                                            const std::string&                               func_signature_tpl,
+                                            const std::string&                               prepare_args_tpl,
+                                            const std::string&                               make_args_tpl,
                                             const std::string&                               fmha_flag,
                                             const std::string& folder_name = "kernel_profile");
 };

@@ -7,7 +7,7 @@ GemmRCRBiasAddOp<T>::GemmRCRBiasAddOp(std::string op_name): GemmRCRBiasBroadcast
 {
     this->op_name_     = "gemm_rcr_bias_add";
     this->op_kind_     = GemmOperationKind::Gemm;
-    this->num_sources_ = 1;
+    this->num_tpls_    = 1;
     this->epilogue_op_ = TensorOperation::AddAdd;
 }
 

@@ -10,7 +10,7 @@ int NormCodeGen::instance_counter_ = 0;
 
 // ==================== NormTileDesc Implementation ====================
 
-std::string NormTileDesc::GetConfigName() const
+std::string NormTileDesc::GetInstanceName() const
 {
     return fmt::format("{}_{}_{}_{}_{}", repeat_m_, repeat_n_, thread_per_block_m_, thread_per_block_n_, vector_n_);
 }
@@ -103,7 +103,7 @@ std::string NormTileDesc::Emit() const
 
 // ==================== NormCodeGen Implementation ====================
 
-std::string NormCodeGen::GetConfigName() const
+std::string NormCodeGen::GetInstanceName() const
 {
     return fmt::format("{}_{}_{}_{}_{}_{}_{}_{}_{}",
                        GetNormKindName(kind_),
@@ -111,8 +111,8 @@ std::string NormCodeGen::GetConfigName() const
                        DataTypeToString(y_dtype_),
                        DataTypeToString(smooth_scale_dtype_),
                        DataTypeToString(y_scale_dtype_),
-                       tile_desc_.GetConfigName(),
-                       GetBiasName(is_add_bias_),
+                       tile_desc_.GetInstanceName(),
+                       GetNormBiasName(is_add_bias_),
                        GetFusedAddName(fused_add_),
                        GetFusedQuantName(fused_quant_));
 }
@@ -128,7 +128,7 @@ std::string NormCodeGen::ToString() const
                        DataTypeToString(smooth_scale_dtype_),
                        DataTypeToString(y_scale_dtype_),
                        tile_desc_.ToString(),
-                       GetBiasName(is_add_bias_),
+                       GetNormBiasName(is_add_bias_),
                        GetFusedAddName(fused_add_),
                        GetFusedQuantName(fused_quant_));
 }
@@ -250,17 +250,16 @@ using {{name}} = ck_tile::{{norm_fwd}}<
 
 jinja2::ValuesMap NormCodeGen::GenerateValueMap() const
 {
-    const auto& norm_info       = norm_map.at(kind_);
-    const bool  is_smooth_quant = (fused_quant_ == FusedQuantEnum::SMOOTH_DYNAMIC_QUANT);
-    const bool  is_two_pass     = (kind_ == NormKind::LayerNorm);
+    const bool is_smooth_quant = (fused_quant_ == FusedQuantEnum::SMOOTH_DYNAMIC_QUANT);
+    const bool is_two_pass     = (kind_ == NormKind::LayerNorm);
 
-    return jinja2::ValuesMap{{"name", GetConfigName()},
+    return jinja2::ValuesMap{{"name", GetInstanceName()},
                              {"idx", instance_counter_++},
-                             {"norm_kind", norm_info.name},
-                             {"norm_problem", norm_info.problem_tag},
-                             {"norm_traits", norm_info.trait_tag},
-                             {"norm_fwd", norm_info.fwd_tag},
-                             {"norm_pass", norm_info.pass_tag},
+                             {"norm_kind", GetNormKindName(kind_)},
+                             {"norm_problem", GetNormKindProblemTag(kind_)},
+                             {"norm_traits", GetNormKindTraitTag(kind_)},
+                             {"norm_fwd", GetNormKindFwdTag(kind_)},
+                             {"norm_pass", GetNormKindPassTag(kind_)},
                              {"shape", tile_desc_.Emit()},
                              {"is_pad_n", true},
                              {"is_fast_div", true},
@@ -278,11 +277,11 @@ std::string NormCodeGen::Emit() const
         FC_THROW(std::invalid_argument("Invalid norm code generation configuration: " + ToString()));
     }
 
-    const std::string       template_source = GetTemplateSource();
-    const jinja2::ValuesMap value_map       = GenerateValueMap();
+    const std::string       template_tpl = GetTemplateSource();
+    const jinja2::ValuesMap value_map    = GenerateValueMap();
 
     try {
-        return TemplateLoadAndRender(template_source, value_map);
+        return TemplateLoadAndRender(template_tpl, value_map);
     }
     catch (const std::exception& e) {
         FC_THROW(std::runtime_error("Template rendering failed: " + std::string(e.what())));

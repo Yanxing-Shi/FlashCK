@@ -1,7 +1,6 @@
 #include "flashck/core/module/kernels/gemm_kernels/bmm_epilogue_kernels/bmm_common_kernel.h"
 
 #include "flashck/core/utils/dylib_utils.h"
-#include "flashck/core/utils/file_utils.h"
 #include "flashck/core/utils/flags.h"
 #include "flashck/core/utils/log.h"
 

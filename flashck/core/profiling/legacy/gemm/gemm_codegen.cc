@@ -2,7 +2,7 @@
 
 namespace flashck {
 
-std::string GemmTileDesc::GetConfigName()
+std::string GemmTileDesc::GetInstanceName()
 {
     return Sprintf("{block_size}_{m_per_block}_{}_{}_{}_{}_{}_{}_{}_{}",
                    block_size_,
@@ -74,7 +74,7 @@ AttnTileDesc::AttnTileDesc(int64_t block_size,
 {
 }
 
-std::string AttnTileDesc::GetConfigName()
+std::string AttnTileDesc::GetInstanceName()
 {
     std::string config_name = Sprintf("{}_{}_{}_{}_{}_{}_{}_{}_{}_{}_{}_{}_{}_{}",
                                       block_size_,
@@ -162,7 +162,7 @@ BlockTransferDesc::BlockTransferDesc(std::vector<int64_t> thread_cluster_length,
                    [](const int64_t num) { return std::to_string(num); });
 }
 
-std::string BlockTransferDesc::GetConfigName()
+std::string BlockTransferDesc::GetInstanceName()
 {
 
     jinja2::ValuesMap value_map{{{"thread_cluster_length", jinja2::Reflect(thread_cluster_length_vec_)},
@@ -233,7 +233,7 @@ CBlockTransferDesc::CBlockTransferDesc(int64_t              m_xdl_per_wave,
                    [](const int64_t num) { return std::to_string(num); });
 }
 
-std::string CBlockTransferDesc::GetConfigName()
+std::string CBlockTransferDesc::GetInstanceName()
 {
 
     jinja2::ValuesMap value_map{{
@@ -273,7 +273,7 @@ std::string CBlockTransferDesc::Emit()
     return TemplateLoadAndRender(source, value_map);
 }
 
-std::string GemmOperation::GetConfigName()
+std::string GemmOperation::GetInstanceName()
 {
     std::string io_name = Sprintf("{}_{}{}{}{}_{}{}{}_{}",
                                   g_gemm_operation_kind_names.find(kind_)->second,
@@ -306,8 +306,8 @@ std::string GemmOperation::GetConfigName()
     }
 
     std::string tile_name = kind_ == GemmOperationKind::BatchGemmSoftmaxGemmPermute ?
-                                attn_tile_desc_.GetConfigName() + extra_tile :
-                                tile_desc_.GetConfigName() + extra_tile;
+                                attn_tile_desc_.GetInstanceName() + extra_tile :
+                                tile_desc_.GetInstanceName() + extra_tile;
 
     std::string casual_name =
         kind_ == GemmOperationKind::BatchGemmSoftmaxGemmPermute ?

@@ -11,7 +11,7 @@ struct FmhaSplitKVCompbineTileDesc {
     int64_t bm0_;
     int64_t bn1_;  // tile size along v head_dim
 
-    std::string GetConfigName();
+    std::string GetInstanceName();
 };
 
 struct FmhaFwdSplitKVCombineOperation {
@@ -35,7 +35,7 @@ struct FmhaFwdSplitKVCombineOperation {
 
     std::string GetPipelineConfigName();
 
-    std::string GetConfigName();
+    std::string GetInstanceName();
 
     std::string Emit();
 };

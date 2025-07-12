@@ -4,7 +4,7 @@
 
 #include "flashck/core/module/kernels/kernel_registry.h"
 
-static const std::string g_fmha_fwd_splitkv_combine_create_args_source = R"(
+static const std::string g_fmha_fwd_splitkv_combine_create_args_tpl = R"(
 auto create_args(int argc, char* argv[])
 {
     ck_tile::ArgParser arg_parser;
@@ -26,7 +26,7 @@ auto create_args(int argc, char* argv[])
 }
 )";
 
-static const std::string g_fmha_fwd_splitkv_combine_args_parser_source = R"(
+static const std::string g_fmha_fwd_splitkv_combine_args_parser_tpl = R"(
     ck_tile::index_t batch   = arg_parser.get_int("b");
     ck_tile::index_t seqlen_q = arg_parser.get_int("s");
     ck_tile::index_t nhead_q = arg_parser.get_int("h");
@@ -36,7 +36,7 @@ static const std::string g_fmha_fwd_splitkv_combine_args_parser_source = R"(
 
 )";
 
-static const std::string g_fmha_fwd_splitkv_combine_args_decl_source = R"(
+static const std::string g_fmha_fwd_splitkv_combine_args_decl_tpl = R"(
 struct FmhaFwdSplitKVCombineArgs
 {
     void* lse_acc_ptr;
@@ -77,8 +77,8 @@ struct FmhaFwdSplitKVCombineArgs
 
 )";
 
-static const std::string g_fmha_fwd_splitkv_combine_func_signature_source = R"(
-    {% if is_execute %} {{c_flag}} FC_EXPORT {% endif %} void {{function_name}}(
+static const std::string g_fmha_fwd_splitkv_combine_func_signature_tpl = R"(
+    {% if is_running %} {{c_flag}} FC_EXPORT {% endif %} void {{function_name}}(
         void* lse_acc_buf_ptr,
         void* o_acc_buf_ptr,
         void* o_buf_ptr,
@@ -93,7 +93,7 @@ static const std::string g_fmha_fwd_splitkv_combine_func_signature_source = R"(
     )
 )";
 
-static const std::string g_fmha_fwd_splitkv_combine_func_call_source = R"(
+static const std::string g_fmha_fwd_splitkv_combine_func_call_tpl = R"(
     {{function_name}}(
         lse_acc_buf.GetDeviceBuffer(),
         o_acc_buf.GetDeviceBuffer(),
@@ -113,7 +113,7 @@ static const std::string g_fmha_fwd_splitkv_combine_func_call_source = R"(
     );
 )";
 
-static const std::string g_fmha_fwd_splitkv_combine_prepare_args_source = R"(
+static const std::string g_fmha_fwd_splitkv_combine_prepare_args_tpl = R"(
 
     const auto init_args = [&](auto& args){  
     /// NOTE: we broadcast bias from [1, 1, seqlen_q, seqlen_k] to [batch, nhead, seqlen_q,
@@ -168,7 +168,7 @@ static const std::string g_fmha_fwd_splitkv_combine_prepare_args_source = R"(
     };
 )";
 
-static const std::string g_fmha_fwd_splitkv_combine_make_args_source = R"(
+static const std::string g_fmha_fwd_splitkv_combine_make_args_tpl = R"(
     FmhaFwdSplitKVCombineArgs fmha_fwd_splitkv_combine_args;
     init_args(fmha_fwd_splitkv_combine_args);
     
@@ -217,7 +217,7 @@ static const std::string g_fmha_fwd_splitkv_combine_make_args_source = R"(
     dim3 grids = {{kernel_name}}::GridSize(fmha_fwd_splitkv_combine_args.batch, fmha_fwd_splitkv_combine_args.nhead_q, fmha_fwd_splitkv_combine_args.max_seqlen_q, fmha_fwd_splitkv_combine_args.hdim_v);
 )";
 
-static const std::string g_fmha_fwd_splitkv_combine_tensor_decl_source = R"(
+static const std::string g_fmha_fwd_splitkv_combine_tensor_decl_tpl = R"(
 {% if num_splits > 1 %}
     ck_tile::HostTensor<LSEDataType> lse_acc_host(std::array<ck_tile::index_t, 4>{shape_batch, nhead_q, num_splits, shape_seqlen_q});
 {% endif %}
@@ -227,7 +227,7 @@ static const std::string g_fmha_fwd_splitkv_combine_tensor_decl_source = R"(
         {shape_batch, shape_seqlen_q, nhead_q, hdim_v});
 )";
 
-const static std::string g_fmha_fwd_splitkv_combine_tensor_generate_source = R"(
+const static std::string g_fmha_fwd_splitkv_combine_tensor_generate_tpl = R"(
 {% if init_method_str == "uri" %}
 {% if num_splits > 1 %}
     ck_tile::FillUniformDistributionIntegerValue<LSEDataType>{-3.f, 3.f, {{seed}}}(lse_acc_host);

@@ -2,7 +2,7 @@
 
 #include <string>
 
-static const std::string g_fmha_dtype_config_utils_source = R"(
+static const std::string g_fmha_dtype_config_utils_tpl = R"(
 
 template <typename DataType>
 struct FmhaFwdTypeConfig;
@@ -73,7 +73,7 @@ struct FmhaFwdTypeConfig<ck_tile::bf8_t>
 
 )";
 
-static const std::string g_fmha_rotary_utils_source = R"(
+static const std::string g_fmha_rotary_utils_tpl = R"(
 template <typename DataType>
 std::tuple<ck_tile::HostTensor<DataType>, ck_tile::HostTensor<DataType>>
 generate_rotary_cos_sin(ck_tile::index_t seqlen,
@@ -113,7 +113,7 @@ generate_rotary_cos_sin(ck_tile::index_t seqlen,
 
 )";
 
-static const std::string g_fmha_seq_utils_source = R"(
+static const std::string g_fmha_seq_utils_tpl = R"(
 #pragma once
 
 #include <algorithm>
@@ -356,7 +356,7 @@ std::enable_if_t<std::is_integral_v<Int>> iota_shuffle(RandomAccessIterator firs
 
 )";
 
-static const std::string g_fmha_utils_source = R"(
+static const std::string g_fmha_utils_tpl = R"(
 
 #pragma once
 

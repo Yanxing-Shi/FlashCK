@@ -417,7 +417,7 @@ public:
                  const std::string&                         folder_name) override
     {
         std::filesystem::path profiler_prefix =
-            std::filesystem::path(FLAGS_FC_HOME_PATH) / folder_name / context_ptr_->GetName() / "profiler" / op_name_;
+            std::filesystem::path(FLAGS_FC_HOME_PATH) / folder_name / context_ptr_->GetName() / "profiling" / op_name_;
 
         for (const auto& workload : exec_key_) {
             if (exec_path_[workload]->algo_ == "") {

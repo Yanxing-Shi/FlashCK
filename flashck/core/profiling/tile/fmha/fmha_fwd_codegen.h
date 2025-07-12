@@ -25,7 +25,7 @@ struct FmhaTileDesc {
     int64_t wn1_;  // gemm1 warp size along n
     int64_t wk1_;  // gemm1 warp size along k
 
-    std::string GetConfigName();
+    std::string GetInstanceName();
 
     std::string Emit();
 };
@@ -36,7 +36,7 @@ public:
 
     std::string GetPipelineConfigName();
 
-    std::string GetConfigName();
+    std::string GetInstanceName();
 
     std::string Emit();
 

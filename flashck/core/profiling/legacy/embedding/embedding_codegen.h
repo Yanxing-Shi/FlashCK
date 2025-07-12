@@ -6,7 +6,7 @@ namespace flashck {
 
 class EmbeddingTileDesc: public TileDescBase {
 public:
-    std::string GetConfigName() const override;
+    std::string GetInstanceName() const override;
 
     std::string Emit() const override;
 
@@ -21,7 +21,7 @@ public:
 
 class EmbeddingCodegen: public CodegenBase {
 public:
-    std::string GetConfigName() const override;
+    std::string GetInstanceName() const override;
 
     std::string Emit() const override;
 

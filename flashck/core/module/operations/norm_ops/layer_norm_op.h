@@ -63,10 +63,6 @@ public:
                          Shape       normalized_shape,
                          const float eps = 1e-5);
 
-    std::vector<int64_t> InvertExecKey(const std::string& key);
-
-    std::string GenExecKey(const std::map<std::string, std::vector<int64_t>>& name_value_mapping);
-
     void ExtractExecPath(const ProfilingStrategy& dynamic_profiling_strategy = ProfilingStrategy::kMax,
                          const int                step_value                 = 1);
 
@@ -93,13 +89,10 @@ public:
 
     void Forward() override;
 
-    std::string op_name_ = "layer_norm";
-
     NormKind        op_kind_     = NormKind::LayerNorm;
     TensorOperation epilogue_op_ = TensorOperation::PassThrough;
 
     Shape normalized_shape_;
-    Shape default_normalized_shape_;
 
     NormBiasEnum   is_add_bias_ = NormBiasEnum::NO_BIAS;
     FusedAddEnum   fused_add_   = FusedAddEnum::NO_ADD;
@@ -112,12 +105,9 @@ public:
     int64_t y_stride_  = -1;
     int64_t yr_stride_ = -1;
 
-    std::map<std::string, std::shared_ptr<ExecItem>> exec_path_;
-    std::vector<std::string>                         exec_key_;
+    std::vector<ExecItem> exec_items_;
 
     std::shared_ptr<Kernel> register_kernel_ptr_;
-
-    std::map<std::string, std::shared_ptr<void>> kernel_instance_map_;
 
     std::vector<Variable*> input_var_;
     std::vector<Variable*> output_var_;

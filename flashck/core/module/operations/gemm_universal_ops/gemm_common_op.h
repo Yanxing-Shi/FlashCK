@@ -8,7 +8,6 @@
 
 #include "flashck/core/utils/dtype.h"
 #include "flashck/core/utils/enforce.h"
-#include "flashck/core/utils/file_utils.h"
 #include "flashck/core/utils/flags.h"
 #include "flashck/core/utils/layout.h"
 #include "flashck/core/utils/log.h"
@@ -498,7 +497,7 @@ public:
                  const std::string&                         folder_name = "kernel_profile") override
     {
         std::filesystem::path profiler_prefix =
-            std::filesystem::path(FLAGS_FC_HOME_PATH) / folder_name / context_ptr_->GetName() / "profiler" / op_name_;
+            std::filesystem::path(FLAGS_FC_HOME_PATH) / folder_name / context_ptr_->GetName() / "profiling" / op_name_;
 
         for (const auto& workload : exec_key_) {
             if (exec_path_[workload]->algo_ == "") {
@@ -535,7 +534,7 @@ public:
                                                                {"acc_dtype", DataType::FLOAT32},
                                                                {"layout", layout_},
                                                                {"epilogue_op", epilogue_op_},
-                                                               {"num_sources", num_sources_},
+                                                               {"num_tpls", num_tpls_},
                                                                {"scale", scale_},
                                                                {"permute_shape", permute_shape_},
                                                                {"exec_path", exec_path_}};
@@ -551,7 +550,7 @@ public:
 
     int64_t split_k_       = 1;
     int64_t split_k_hints_ = 4;
-    int     num_sources_   = 0;
+    int     num_tpls_      = 0;
     float   scale_         = 1.0f;
     Shape   permute_shape_;
 

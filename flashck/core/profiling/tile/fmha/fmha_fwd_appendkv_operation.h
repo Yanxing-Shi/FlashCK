@@ -11,7 +11,7 @@ struct FmhaAppendKVTileDesc {
     int64_t bd_;   // tile size along qk gemm unroll
     int64_t bdv_;  // tile size along kv gemm unroll
 
-    std::string GetConfigName();
+    std::string GetInstanceName();
 };
 
 struct FmhaFwdAppendKVOperation {
@@ -36,7 +36,7 @@ struct FmhaFwdAppendKVOperation {
 
     std::string GetPipelineConfigName();
 
-    std::string GetConfigName();
+    std::string GetInstanceName();
 
     std::string Emit();
 };

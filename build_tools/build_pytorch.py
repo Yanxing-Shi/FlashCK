@@ -8,7 +8,7 @@ import setuptools
 from torch.utils.cpp_extension import CUDAExtension
 
 def setup_pytorch_extension(
-    csrc_source_files,
+    csrc_tpl_files,
     csrc_header_files,
     common_header_files,
 ) -> setuptools.Extension:

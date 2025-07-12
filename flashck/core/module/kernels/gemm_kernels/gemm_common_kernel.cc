@@ -3,6 +3,7 @@
 #include <memory>
 #include <unordered_set>
 
+#include "flashck/core/utils/file_manager.h"
 #include "flashck/core/utils/file_utils.h"
 #include "flashck/core/utils/flags.h"
 #include "flashck/core/utils/jinjia2_utils.h"
@@ -123,7 +124,7 @@ GemmCommonKernel::GenShapeEvalCode(const std::string&                           
                                                {"name", name},
                                                {"dim_calculator", GenDimCalculator(dim_info, is_ptr)}};
 
-        shape_eval_vec.emplace_back(TemplateLoadAndRender(g_shape_eval_source, shape_eval_value_map));
+        shape_eval_vec.emplace_back(TemplateLoadAndRender(g_shape_eval_tpl, shape_eval_value_map));
     }
 
     return JoinStrings(shape_eval_vec, "\n");
@@ -173,7 +174,7 @@ GemmCommonKernel::GenGemmCommonKernelProfiler(const std::string&                
     auto kernel_name = std::any_cast<std::string>(kernel_func_map.at("op_name"));
     auto kernel_instance_map =
         std::any_cast<std::map<std::string, std::shared_ptr<void>>>(kernel_func_map.at("kernel_instance_map"));
-    auto num_sources = std::any_cast<int>(kernel_func_map.at("num_sources"));
+    auto num_tpls = std::any_cast<int>(kernel_func_map.at("num_tpls"));
     auto dim_info_map =
         std::any_cast<std::map<std::string, std::vector<std::shared_ptr<DimInfo>>>>(kernel_func_map.at("dim_info_map"));
     auto permute_shape = std::any_cast<Shape>(kernel_func_map.at("permute_shape"));
@@ -208,48 +209,48 @@ GemmCommonKernel::GenGemmCommonKernelProfiler(const std::string&                
     jinja2::ValuesMap extra_shape_value_map{{"indent", "    "}};
     std::string       extra_shape_func = TemplateLoadAndRender(extra_shape_template, extra_shape_value_map);
 
-    bool has_d0_flag = num_sources >= 1 ? true : false;
-    bool has_d1_flag = num_sources >= 2 ? true : false;
+    bool has_d0_flag = num_tpls >= 1 ? true : false;
+    bool has_d1_flag = num_tpls >= 2 ? true : false;
 
     std::vector<std::tuple<std::filesystem::path, std::filesystem::path>> file_tuples;
 
     for (const auto& [kernel_config_name, kernel_instance] : kernel_instance_map) {
         auto        gemm_kernel_instance = std::static_pointer_cast<GemmOperation>(kernel_instance);
         std::string config               = gemm_kernel_instance->Emit();
-        std::string config_name          = gemm_kernel_instance->GetConfigName();
+        std::string config_name          = gemm_kernel_instance->GetInstanceName();
 
         jinja2::ValuesMap extra_header_value_map{{"gemm_flag", gemm_flag}, {"has_d0", has_d0_flag}};
         std::string       extra_header = TemplateLoadAndRender(extra_header_template, extra_header_value_map);
 
-        std::string profiler_header = TemplateLoadAndRender(g_profiler_header_source, {{}});
+        std::string profiler_header = TemplateLoadAndRender(g_profiler_header_tpl, {{}});
 
         jinja2::ValuesMap dtype_decl_value_map{
             {"a_dtype", DataTypeToString(gemm_kernel_instance->a_tensor_desc_.element_)},
             {"b_dtype", DataTypeToString(gemm_kernel_instance->b_tensor_desc_.element_)},
             {"c_dtype", DataTypeToString(gemm_kernel_instance->c_tensor_desc_.element_)},
         };
-        std::string dtype_decl = TemplateLoadAndRender(g_dtype_decl_source, dtype_decl_value_map);
+        std::string dtype_decl = TemplateLoadAndRender(g_dtype_decl_tpl, dtype_decl_value_map);
 
         jinja2::ValuesMap layout_decl_value_map{
             {"a_layout", g_layout_tag.find(gemm_kernel_instance->a_tensor_desc_.layout_)->second},
             {"b_layout", g_layout_tag.find(gemm_kernel_instance->b_tensor_desc_.layout_)->second},
             {"c_layout", g_layout_tag.find(gemm_kernel_instance->c_tensor_desc_.layout_)->second}};
-        std::string layout_decl = TemplateLoadAndRender(g_layout_decl_source, layout_decl_value_map);
+        std::string layout_decl = TemplateLoadAndRender(g_layout_decl_tpl, layout_decl_value_map);
 
         jinja2::ValuesMap instance_value_map{
             {"name", "DeviceGemmInstance"}, {"config_name", config_name}, {"config", config}};
-        std::string instance = TemplateLoadAndRender(g_instance_source, instance_value_map);
+        std::string instance = TemplateLoadAndRender(g_instance_tpl, instance_value_map);
 
         jinja2::ValuesMap problem_args_value_map{{"indent", "    "},
                                                  {"gemm_flag", gemm_flag},
                                                  {"has_d0", has_d0_flag},
                                                  {"has_d1", has_d1_flag},
-                                                 {"is_execute", false}};
+                                                 {"is_running", false}};
         std::string       problem_args = TemplateLoadAndRender(problem_args_template, problem_args_value_map);
 
         jinja2::ValuesMap exec_value_map{
             {"indent", "    "}, {"instance", "DeviceGemmInstance"}, {"problem_args", problem_args}};
-        std::string exec_program = TemplateLoadAndRender(g_exec_source, exec_value_map);
+        std::string exec_program = TemplateLoadAndRender(g_exec_tpl, exec_value_map);
 
         jinja2::ValuesMap src_value_map{{"instances", instance},
                                         {"function_name", "gemm"},
@@ -269,10 +270,10 @@ GemmCommonKernel::GenGemmCommonKernelProfiler(const std::string&                
                                         {"dtype_decl", dtype_decl},
                                         {"layout_decl", layout_decl},
                                         {"extra_header", extra_header},
-                                        {"is_execute", false}};
-        std::string       op_func = TemplateLoadAndRender(g_src_source, src_value_map);
+                                        {"is_running", false}};
+        std::string       op_func = TemplateLoadAndRender(g_src_tpl, src_value_map);
 
-        std::string structs_def = TemplateLoadAndRender(g_structs_source, {{}});
+        std::string structs_def = TemplateLoadAndRender(g_structs_tpl, {{}});
 
         jinja2::ValuesMap tensor_decl_value_map{
             {"gemm_flag", gemm_flag}, {"has_d0", has_d0_flag}, {"has_d1", has_d1_flag}};
@@ -289,20 +290,20 @@ GemmCommonKernel::GenGemmCommonKernelProfiler(const std::string&                
                                               {"c_dims", jinja2::Reflect(c_dims)},
                                               {"p_dims", p_dims_value},
                                               {"gemm_flag", gemm_flag},
-                                              {"is_execute", false}};
-        std::string       func_call = TemplateLoadAndRender(g_func_call_source, func_call_value_map);
+                                              {"is_running", false}};
+        std::string       func_call = TemplateLoadAndRender(g_func_call_tpl, func_call_value_map);
 
-        jinja2::ValuesMap profiler_value_map{{"structs_def", structs_def},
-                                             {"op_func", op_func},
-                                             {"args_parse", arg_parse},
-                                             {"extra_shape", extra_shape_func},
-                                             {"tensor_decl", tensor_decl},
-                                             {"func_call", func_call},
-                                             {"kernel_config_name", kernel_config_name}};
-        std::string       code = TemplateLoadAndRender(g_profiler_source, profiler_value_map);
+        jinja2::ValuesMap profiling_value_map{{"structs_def", structs_def},
+                                              {"op_func", op_func},
+                                              {"args_parse", arg_parse},
+                                              {"extra_shape", extra_shape_func},
+                                              {"tensor_decl", tensor_decl},
+                                              {"func_call", func_call},
+                                              {"kernel_config_name", kernel_config_name}};
+        std::string       code = TemplateLoadAndRender(g_profiler_tpl, profiling_value_map);
 
         std::filesystem::path prefix_path =
-            std::filesystem::path(FLAGS_FC_HOME_PATH) / folder_name / model_name / "profiler" / kernel_name;
+            std::filesystem::path(FLAGS_FC_HOME_PATH) / folder_name / model_name / "profiling" / kernel_name;
         if (!std::filesystem::exists(prefix_path)) {
             std::filesystem::create_directories(prefix_path);
         }
@@ -313,14 +314,7 @@ GemmCommonKernel::GenGemmCommonKernelProfiler(const std::string&                
             continue;
         }
 
-        std::ofstream src_file(src_path.c_str());
-        if (src_file.is_open()) {
-            src_file << code;
-            src_file.close();
-        }
-        else {
-            FC_THROW(Unavailable("unable to open file {}", ToString(src_path)));
-        }
+        FileManager::WriteFile(src_path, code);
 
         file_tuples.push_back(std::make_tuple(src_path, obj_path));
     }
@@ -342,16 +336,16 @@ GemmCommonKernel::GenGemmCommonKernelFunction(const std::string&                
 {
     auto kernel_instance_map =
         std::any_cast<std::map<std::string, std::shared_ptr<void>>>(kernel_func_map.at("kernel_instance_map"));
-    auto num_sources = std::any_cast<int>(kernel_func_map.at("num_sources"));
-    auto exec_path   = std::any_cast<std::map<std::string, std::shared_ptr<ExecItem>>>(kernel_func_map.at("exec_path"));
+    auto num_tpls  = std::any_cast<int>(kernel_func_map.at("num_tpls"));
+    auto exec_path = std::any_cast<std::map<std::string, std::shared_ptr<ExecItem>>>(kernel_func_map.at("exec_path"));
     auto dim_info_map =
         std::any_cast<std::map<std::string, std::vector<std::shared_ptr<DimInfo>>>>(kernel_func_map.at("dim_info_map"));
     auto permute_shape = std::any_cast<Shape>(kernel_func_map.at("permute_shape"));
 
     std::string shape_eval_func = GenShapeEvalCode("ck::index_t", dim_info_map, false);
 
-    bool has_d0_flag = num_sources >= 1 ? true : false;
-    bool has_d1_flag = num_sources >= 2 ? true : false;
+    bool has_d0_flag = num_tpls >= 1 ? true : false;
+    bool has_d1_flag = num_tpls >= 2 ? true : false;
 
     std::string                                             instance_decl;
     std::unordered_set<std::string>                         instance_def_flag;
@@ -368,7 +362,7 @@ GemmCommonKernel::GenGemmCommonKernelFunction(const std::string&                
             auto kernel_instance      = kernel_instance_map.at(algo);
             auto gemm_kernel_instance = std::static_pointer_cast<GemmOperation>(kernel_instance);
             config                    = gemm_kernel_instance->Emit();
-            config_name               = gemm_kernel_instance->GetConfigName();
+            config_name               = gemm_kernel_instance->GetInstanceName();
             instance_def_flag.insert(instance_name);
         }
         else {
@@ -377,7 +371,7 @@ GemmCommonKernel::GenGemmCommonKernelFunction(const std::string&                
         }
 
         jinja2::ValuesMap instance_value_map{{"name", instance_name}, {"config_name", config_name}, {"config", config}};
-        std::string       instance = TemplateLoadAndRender(g_instance_source, instance_value_map);
+        std::string       instance                        = TemplateLoadAndRender(g_instance_tpl, instance_value_map);
         std::get<1>(exec_instance_map[value->exec_cond_]) = instance;
         std::get<0>(exec_instance_map[value->exec_cond_]) = split_k;
         instance_decl += instance;
@@ -393,13 +387,13 @@ GemmCommonKernel::GenGemmCommonKernelFunction(const std::string&                
                                                  {"gemm_flag", gemm_flag},
                                                  {"has_d0", has_d0_flag},
                                                  {"has_d1", has_d1_flag},
-                                                 {"is_execute", true},
+                                                 {"is_running", true},
                                                  {"split_k", std::get<0>(profile_result)}};
         std::string       problem_args = TemplateLoadAndRender(problem_args_template, problem_args_value_map);
 
         jinja2::ValuesMap exec_value_map{
             {"indent", "    "}, {"instance", instance_name}, {"problem_args", problem_args}};
-        std::string exec_program = TemplateLoadAndRender(g_exec_source, exec_value_map);
+        std::string exec_program = TemplateLoadAndRender(g_exec_tpl, exec_value_map);
 
         jinja2::ValuesMap exec_instance_value_map{{"indent", "    "}, {"cond", exec_cond}, {"program", exec_program}};
         std::string       exec_instance = TemplateLoadAndRender(exec_cond_template, exec_instance_value_map);
@@ -407,7 +401,7 @@ GemmCommonKernel::GenGemmCommonKernelFunction(const std::string&                
         exec_paths += exec_instance;
     }
 
-    std::string macro_decl = TemplateLoadAndRender(g_macro_decl_source, {{}});
+    std::string macro_decl = TemplateLoadAndRender(g_macro_decl_tpl, {{}});
 
     jinja2::ValuesMap extra_header_value_map{{"gemm_flag", gemm_flag}, {"has_d0", has_d0_flag}};
     std::string       extra_header = TemplateLoadAndRender(extra_header_template, extra_header_value_map);
@@ -419,13 +413,13 @@ GemmCommonKernel::GenGemmCommonKernelFunction(const std::string&                
         {"b_dtype", DataTypeToString(tmp_gemm_kernel_instance->b_tensor_desc_.element_)},
         {"c_dtype", DataTypeToString(tmp_gemm_kernel_instance->c_tensor_desc_.element_)},
     };
-    std::string dtype_decl = TemplateLoadAndRender(g_dtype_decl_source, dtype_decl_value_map);
+    std::string dtype_decl = TemplateLoadAndRender(g_dtype_decl_tpl, dtype_decl_value_map);
 
     jinja2::ValuesMap layout_decl_value_map{
         {"a_layout", g_layout_tag.find(tmp_gemm_kernel_instance->a_tensor_desc_.layout_)->second},
         {"b_layout", g_layout_tag.find(tmp_gemm_kernel_instance->b_tensor_desc_.layout_)->second},
         {"c_layout", g_layout_tag.find(tmp_gemm_kernel_instance->c_tensor_desc_.layout_)->second}};
-    std::string layout_decl = TemplateLoadAndRender(g_layout_decl_source, layout_decl_value_map);
+    std::string layout_decl = TemplateLoadAndRender(g_layout_decl_tpl, layout_decl_value_map);
 
     jinja2::ValuesMap extra_shape_value_map{{"indent", "    "}};
     std::string       extra_shape_func = TemplateLoadAndRender(extra_shape_template, extra_shape_value_map);
@@ -447,9 +441,9 @@ GemmCommonKernel::GenGemmCommonKernelFunction(const std::string&                
                                     {"dtype_decl", dtype_decl},
                                     {"layout_decl", layout_decl},
                                     {"extra_header", extra_header},
-                                    {"is_execute", true}};
+                                    {"is_running", true}};
 
-    return TemplateLoadAndRender(g_src_source, src_value_map);
+    return TemplateLoadAndRender(g_src_tpl, src_value_map);
 }
 
 // void GemmCommonKernel::GemmCommonKernelLauncher(const std::string&        kernel_func_name,

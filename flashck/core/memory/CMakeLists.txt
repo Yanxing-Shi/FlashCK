@@ -5,9 +5,7 @@ set(MemmoryFile
     memory_manager.cc)
 
 add_library(memory STATIC ${MemmoryFile})
-set_property(TARGET memory PROPERTY POSITION_INDEPENDENT_CODE  ON)
+target_include_directories(memory PUBLIC
+    ${CMAKE_SOURCE_DIR}
+)
 target_link_libraries(memory PUBLIC utils)
-
-
-
-

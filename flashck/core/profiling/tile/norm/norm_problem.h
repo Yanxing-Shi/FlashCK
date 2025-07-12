@@ -24,10 +24,10 @@ public:
             << "\"y_scale_dtype\": \"" << DataTypeToString(y_scale_dtype_) << "\", "
             << "\"m\": " << m_ << ", "
             << "\"n\": " << n_ << ", "
-            << "\"kind\": \"" << norm_map.at(kind_).name << "\", "
-            << "\"is_add_bias\": \"" << norm_bias_map.at(is_add_bias_).name << "\", "
-            << "\"fused_add\": \"" << fused_add_map.at(fused_add_).name << "\", "
-            << "\"fused_quant\": \"" << fused_quant_map.at(fused_quant_).name << "\""
+            << "\"kind\": \"" << g_norm_map.at(kind_).name << "\", "
+            << "\"is_add_bias\": \"" << g_norm_bias_map.at(is_add_bias_).name << "\", "
+            << "\"fused_add\": \"" << g_fused_add_map.at(fused_add_).name << "\", "
+            << "\"fused_quant\": \"" << g_fused_quant_map.at(fused_quant_).name << "\""
             << "}";
         return oss.str();
     }

@@ -4,7 +4,7 @@
 
 #include "flashck/core/module/kernels/kernel_registry.h"
 
-static const std::string g_fmha_fwd_splitkv_create_args_source = R"(
+static const std::string g_fmha_fwd_splitkv_create_args_tpl = R"(
 auto create_args(int argc, char* argv[])
 {
     ck_tile::ArgParser arg_parser;
@@ -40,7 +40,7 @@ auto create_args(int argc, char* argv[])
 }
 )";
 
-static const std::string g_fmha_fwd_splitkv_args_parser_source = R"(
+static const std::string g_fmha_fwd_splitkv_args_parser_tpl = R"(
     ck_tile::index_t batch   = arg_parser.get_int("b");
     ck_tile::index_t seqlen_q = arg_parser.get_int("s");
     ck_tile::index_t seqlen_k = arg_parser.get_int("s_k");
@@ -73,7 +73,7 @@ static const std::string g_fmha_fwd_splitkv_args_parser_source = R"(
 
 )";
 
-static const std::string g_fmha_fwd_splitkv_args_decl_source = R"(
+static const std::string g_fmha_fwd_splitkv_args_decl_tpl = R"(
 struct FmhaFwdSplitKVArgs
 {
     const void* q_ptr;
@@ -150,8 +150,8 @@ struct FmhaFwdSplitKVArgs
 
 )";
 
-static const std::string g_fmha_fwd_splitkv_func_signature_source = R"(
-    {% if is_execute %} {{c_flag}} FC_EXPORT {% endif %} void {{function_name}}(
+static const std::string g_fmha_fwd_splitkv_func_signature_tpl = R"(
+    {% if is_running %} {{c_flag}} FC_EXPORT {% endif %} void {{function_name}}(
         void* q_buf_ptr,
         void* k_buf_ptr,
         void* v_buf_ptr,
@@ -171,7 +171,7 @@ static const std::string g_fmha_fwd_splitkv_func_signature_source = R"(
         int64_t hdim_q,
         int64_t hdim_v,
         int64_t max_seqlen_q,
-    {% if not is_execute %}
+    {% if not is_running %}
         int64_t num_splits,
     {% endif %}
         int64_t max_num_page_blocks,
@@ -183,7 +183,7 @@ static const std::string g_fmha_fwd_splitkv_func_signature_source = R"(
     )
 )";
 
-static const std::string g_fmha_fwd_splitkv_func_call_source = R"(
+static const std::string g_fmha_fwd_splitkv_func_call_tpl = R"(
     {{function_name}}(
         q_buf.GetDeviceBuffer(),
         k_buf.GetDeviceBuffer(),
@@ -238,7 +238,7 @@ static const std::string g_fmha_fwd_splitkv_func_call_source = R"(
     );
 )";
 
-static const std::string g_fmha_fwd_splitkv_prepare_args_source = R"(
+static const std::string g_fmha_fwd_splitkv_prepare_args_tpl = R"(
    const auto init_args = [&](auto& args){  
  
     auto max_seqlen_k = std::numeric_limits<int32_t>::min();
@@ -255,7 +255,7 @@ static const std::string g_fmha_fwd_splitkv_prepare_args_source = R"(
     const ck_tile::index_t shape_seqlen_k =
 {% if mode_str == "batch" %} seqlen_k; {% else %} seqstart_k_ptr[sizeof(seqstart_q_ptr)/sizeof(seqstart_q_ptr[0]) - 1]; {% endif %}
     
-    args.num_splits = {% if not is_execute %} num_splits; {% else %} {{num_splits}}; {% endif %}
+    args.num_splits = {% if not is_running %} num_splits; {% else %} {{num_splits}}; {% endif %}
 
     // setup stride_* arguments
     const ck_tile::index_t stride_q = nhead_q * hdim_q;
@@ -408,7 +408,7 @@ static const std::string g_fmha_fwd_splitkv_prepare_args_source = R"(
     };
 )";
 
-static const std::string g_fmha_fwd_splitkv_make_args_source = R"(
+static const std::string g_fmha_fwd_splitkv_make_args_tpl = R"(
     FmhaFwdSplitKVArgs fmha_fwd_splitkv_args;
     init_args(fmha_fwd_splitkv_args);
 
@@ -503,7 +503,7 @@ static const std::string g_fmha_fwd_splitkv_make_args_source = R"(
         fmha_fwd_splitkv_args.batch, fmha_fwd_splitkv_args.nhead_q, fmha_fwd_splitkv_args.nhead_k, fmha_fwd_splitkv_args.max_seqlen_q, fmha_fwd_splitkv_args.hdim_v, fmha_fwd_splitkv_args.num_splits);
 )";
 
-static const std::string g_fmha_fwd_splitkv_tensor_decl_source = R"(
+static const std::string g_fmha_fwd_splitkv_tensor_decl_tpl = R"(
     const ck_tile::index_t max_num_page_blocks = paged_block_size > 0 ? batch * std::max(1, ck_tile::integer_divide_ceil(max_seqlen_k, paged_block_size)) : 0;
     
     ck_tile::HostTensor<QDataType> q_host(
@@ -558,7 +558,7 @@ static const std::string g_fmha_fwd_splitkv_tensor_decl_source = R"(
 
 )";
 
-const static std::string g_fmha_fwd_splitkv_tensor_generate_source = R"(
+const static std::string g_fmha_fwd_splitkv_tensor_generate_tpl = R"(
 
 {% if init_method_str == "uri" %}
     ck_tile::FillUniformDistributionIntegerValue<QDataType>{-3.f, 3.f, {{seed}}}(q_host);

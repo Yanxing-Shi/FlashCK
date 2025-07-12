@@ -9,7 +9,7 @@ This is used for `torch.nn.functional.linear + tanh`
 When used for `linear`, need to set A->Data, B->Weight, C->Bias
 */
 
-static const std::string g_extra_code_source = R"(
+static const std::string g_extra_code_tpl = R"(
 #include "ck/utility/data_type.hpp"
 
 namespace ck {
@@ -70,7 +70,7 @@ GemmRCRBiasTanhKernel::GenKernelProfiler(const std::string&                     
     RCRLayout rcr_layout;
 
     jinja2::ValuesMap extra_code_value_map{{}};
-    std::string       extra_code = TemplateLoadAndRender(g_extra_code_source, extra_code_value_map);
+    std::string       extra_code = TemplateLoadAndRender(g_extra_code_tpl, extra_code_value_map);
 
     return GenGemmCommonKernelProfiler(
         model_name, kernel_func_map, rcr_layout.GetGemmArgsParse(), "bias_tanh", extra_code);
@@ -81,7 +81,7 @@ std::string GemmRCRBiasTanhKernel::GenKernelFunction(const std::string&         
                                                      const std::unordered_map<std::string, std::any>& kernel_func_map)
 {
     jinja2::ValuesMap extra_code_value_map{{}};
-    std::string       extra_code = TemplateLoadAndRender(g_extra_code_source, extra_code_value_map);
+    std::string       extra_code = TemplateLoadAndRender(g_extra_code_tpl, extra_code_value_map);
     return GenGemmCommonKernelFunction(func_name, kernel_func_map, "bias_tanh", extra_code);
 }
 

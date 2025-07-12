@@ -1,7 +1,5 @@
 #pragma once
 
-#include "hip/hip_runtime.h"
-
 #include "flashck/core/utils/hip_raii.h"
 #include "flashck/core/utils/macros.h"
 

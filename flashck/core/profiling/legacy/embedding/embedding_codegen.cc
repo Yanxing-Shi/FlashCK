@@ -2,7 +2,7 @@
 
 namespace flashck {
 
-std::string EmbeddingTileDesc::GetConfigName() const
+std::string EmbeddingTileDesc::GetInstanceName() const
 {
     return Sprintf(
         "{block_size}_{dim_cluster_size}_{row_cluster_size}_{dim_per_block}_{row_per_block}_{dim_thread_size}_{row_vector_size}",
@@ -36,7 +36,7 @@ std::string EmbeddingTileDesc::Emit() const
     return TemplateLoadAndRender(source, value_map);
 }
 
-std::string EmbeddingCodegen::GetConfigName() const
+std::string EmbeddingCodegen::GetInstanceName() const
 {
 
     return Sprintf(
@@ -46,7 +46,7 @@ std::string EmbeddingCodegen::GetConfigName() const
         fmt::arg(vocab_size, vocab_size_),
         fmt::arg(type_vocab_size, type_vocab_size_),
         fmt::arg(max_position_embeddings, max_position_embeddings_),
-        fmt::arg(tile_desc, tile_desc_.GetConfigName()),
+        fmt::arg(tile_desc, tile_desc_.GetInstanceName()),
         fmt::arg(embedding_dims, embedding_dims_),
         fmt::arg(emb_dtype, DataTypeToShortString(emb_dtype_)),
         fmt::arg(index_dtype, DataTypeToShortString(index_dtype_)),
@@ -72,7 +72,7 @@ using {{name}} = <>
     >;
     )";
 
-    jinja2::ValuesMap value_map{{"name", GetConfigName()},
+    jinja2::ValuesMap value_map{{"name", GetInstanceName()},
                                 {"EmbType", DataTypeToString(emb_dtype_)},
                                 {"IndexType", DataTypeToString(index_dtype_)},
                                 {"GammaDataType", DataTypeToString(gamma_dtype_)},

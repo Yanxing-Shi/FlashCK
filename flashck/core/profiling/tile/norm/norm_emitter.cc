@@ -177,7 +177,7 @@ std::map<std::string, std::unique_ptr<NormCodeGen>> NormEmitter::GenerateInstanc
     for (const auto& tile_desc : selected_tile_desc) {
         NormCodeGen norm = CreateNormCodeGen(norm_problem, tile_desc);
 
-        std::string config_name               = norm.GetConfigName();
+        std::string config_name               = norm.GetInstanceName();
         instance_map_[norm.kind][config_name] = std::make_unique<NormCodeGen>(std::move(norm));
         num_instances_++;
 

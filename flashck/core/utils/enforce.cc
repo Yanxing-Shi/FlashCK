@@ -46,9 +46,9 @@ std::string GetCurrentTraceBackString(bool for_signal)
     // avoid misleading users and developers
     int end_idx = for_signal ? 2 : 0;
     for (int i = size - 1; i >= end_idx; --i) {
-        if (dladdr(call_stack[i], &info) && info.dFC_sname) {
-            auto        demangled = info.dFC_sname;
-            std::string path(info.dFC_fname);
+        if (dladdr(call_stack[i], &info) && info.dli_sname) {
+            auto        demangled = info.dli_sname;
+            std::string path(info.dli_fname);
             // C++ traceback info are from core.so
             if (path.substr(path.length() - 3).compare(".so") == 0) {
                 sout << fmt::format("{} {}\n", idx++, demangled);

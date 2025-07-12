@@ -1,5 +1,10 @@
 #include "flashck/core/utils/debug_utils.h"
 
+#include <algorithm>
+#include <memory>
+#include <sstream>
+
+#include "flashck/core/utils/enforce.h"
 #include "flashck/core/utils/macros.h"
 
 namespace flashck {
@@ -70,17 +75,20 @@ void ResultChecker(const T* tensor, int64_t elem_cnt, const std::string& tensor_
     const int grid_dim  = (elem_cnt + block_dim * kElementsPerThread - 1) / (block_dim * kElementsPerThread);
 
     // Kernel launch
-    HIP_ERROR_CHECK(hipLaunchKernelGGL(tensor_validator_kernel<T>,
-                                       grid_dim,
-                                       block_dim,
-                                       0,
-                                       stream,
-                                       tensor,
-                                       elem_cnt,
-                                       tensor_name.c_str(),
-                                       d_nan,
-                                       d_pos_inf,
-                                       d_neg_inf));
+    hipLaunchKernelGGL(tensor_validator_kernel<T>,
+                       dim3(grid_dim),
+                       dim3(block_dim),
+                       0,
+                       stream,
+                       tensor,
+                       elem_cnt,
+                       tensor_name.c_str(),
+                       d_nan,
+                       d_pos_inf,
+                       d_neg_inf);
+
+    // Check for kernel launch errors
+    HIP_ERROR_CHECK(hipGetLastError());
 
     // Copy results back
     int nan_count = 0, pos_inf_count = 0, neg_inf_count = 0;
@@ -130,7 +138,6 @@ void PrintToFile(const T* result, const int size, const char* file, hipStream_t 
 
     // Buffered output generation
     std::ostringstream file_buffer;
-    file_buffer.reserve(size * 15);  // Pre-allocate buffer
 
     for (int i = 0; i < size; ++i) {
         file_buffer << static_cast<float>(host_buffer[i]) << '\n';
@@ -163,16 +170,17 @@ void CheckMaxVal(const T* result, const int size, hipStream_t stream)
     HIP_ERROR_CHECK(hipMemcpyAsync(host_buffer.get(), result, sizeof(T) * size, hipMemcpyDeviceToHost, stream));
     HIP_ERROR_CHECK(hipStreamSynchronize(stream));
 
-    // Parallel max reduction with type conversion
-    auto begin = static_cast<float*>(static_cast<void*>(host_buffer.get()));
-    auto end   = begin + size;
+    // Find maximum value with proper type conversion
+    float max_val = static_cast<float>(host_buffer[0]);
+    for (int i = 1; i < size; ++i) {
+        float current_val = static_cast<float>(host_buffer[i]);
+        if (current_val > max_val) {
+            max_val = current_val;
+        }
+    }
 
-    float max_val =
-        *std::max_element(begin, end, [](float a, float b) { return static_cast<float>(a) < static_cast<float>(b); });
-
-    // Diagnostic output with performance metrics
-    LOG(INFO) << "[HIP] addr " << result << " Max: " << max_val << " CopyTime: " << copy_ms << "ms"
-              << " ComputeTime: " << compute_ms << "ms";
+    // Diagnostic output
+    LOG(INFO) << "[HIP] addr " << result << " Max: " << max_val;
 }
 
 }  // namespace flashck

@@ -8,7 +8,7 @@
 Common template for bmm kernels
 */
 
-static const std::string g_bmm_extra_shape_source = R"(
+static const std::string g_bmm_extra_shape_tpl = R"(
 {{indent}}ck::index_t stride_a = a_dim2;
 {{indent}}ck::index_t stride_b = b_dim2;
 {{indent}}ck::index_t stride_c = c_dim2;
@@ -18,7 +18,7 @@ static const std::string g_bmm_extra_shape_source = R"(
 {{indent}}ck::index_t batch_stride_c = c_dim1 * stride_c;
 )";
 
-static const std::string g_bmm_extra_header_source = R"(
+static const std::string g_bmm_extra_header_tpl = R"(
 {% if gemm_flag == "" %}
 #include "ck/tensor_operation/gpu/device/impl/device_batched_gemm_multi_d_xdl.hpp"
 {% elif gemm_flag == "permute_m2n3" %}
@@ -28,7 +28,7 @@ static const std::string g_bmm_extra_header_source = R"(
 {% endif %}
 )";
 
-static const std::string g_bmm_problem_args_source = R"(
+static const std::string g_bmm_problem_args_tpl = R"(
 {{indent}}                                static_cast<ck::half_t *>(in_ptr),
 {{indent}}                                static_cast<ck::half_t *>(weight_ptr),
 {% if "bias" in gemm_flag or gemm_flag == "add" %}
@@ -74,7 +74,7 @@ static const std::string g_bmm_problem_args_source = R"(
 {% endif %}
 )";
 
-static const std::string g_bmm_tensor_decl_source = R"(
+static const std::string g_bmm_tensor_decl_tpl = R"(
     auto f_host_tensor_descriptor = [](std::size_t batch_count,
                                        std::size_t row,
                                        std::size_t col,
@@ -175,16 +175,16 @@ public:
                                const std::string&                               arg_parse,
                                const std::string&                               gemm_flag  = "",
                                const std::string&                               extra_code = "",
-                               const std::string& extra_shape_template                     = g_bmm_extra_shape_source,
-                               const std::string& problem_args_template                    = g_bmm_problem_args_source,
-                               const std::string& extra_header_template                    = g_bmm_extra_header_source,
-                               const std::string& tensor_decl_template                     = g_bmm_tensor_decl_source);
+                               const std::string& extra_shape_template                     = g_bmm_extra_shape_tpl,
+                               const std::string& problem_args_template                    = g_bmm_problem_args_tpl,
+                               const std::string& extra_header_template                    = g_bmm_extra_header_tpl,
+                               const std::string& tensor_decl_template                     = g_bmm_tensor_decl_tpl);
 
     std::string GenBmmKernelFunction(const std::string&                               func_name,
                                      const std::unordered_map<std::string, std::any>& kernel_func_map,
                                      const std::string&                               gemm_flag  = "",
                                      const std::string&                               extra_code = "",
-                                     const std::string& extra_shape_template  = g_bmm_extra_shape_source,
+                                     const std::string& extra_shape_template  = g_bmm_extra_shape_tpl,
                                      const std::string& problem_args_template = "",
                                      const std::string& extra_header_template = "");
 };

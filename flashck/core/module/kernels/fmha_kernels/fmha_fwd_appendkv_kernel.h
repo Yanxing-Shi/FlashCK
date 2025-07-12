@@ -4,7 +4,7 @@
 
 #include "flashck/core/module/kernels/kernel_registry.h"
 
-static const std::string g_fmha_fwd_appendkv_create_args_source = R"(
+static const std::string g_fmha_fwd_appendkv_create_args_tpl = R"(
 auto create_args(int argc, char* argv[])
 {
     ck_tile::ArgParser arg_parser;
@@ -37,7 +37,7 @@ auto create_args(int argc, char* argv[])
 }
 )";
 
-static const std::string g_fmha_fwd_appendkv_args_parser_source = R"(
+static const std::string g_fmha_fwd_appendkv_args_parser_tpl = R"(
     ck_tile::index_t batch   = arg_parser.get_int("b");
     ck_tile::index_t seqlen_q = arg_parser.get_int("s");
     ck_tile::index_t seqlen_k = arg_parser.get_int("s_k");
@@ -72,7 +72,7 @@ static const std::string g_fmha_fwd_appendkv_args_parser_source = R"(
 
 )";
 
-static const std::string g_fmha_fwd_appendkv_args_decl_source = R"(
+static const std::string g_fmha_fwd_appendkv_args_decl_tpl = R"(
 
 struct FmhaFwdAppendKVArgs
 {
@@ -122,8 +122,8 @@ struct FmhaFwdAppendKVArgs
 
 )";
 
-static const std::string g_fmha_fwd_appendkv_func_signature_source = R"(
-    {% if is_execute %} {{c_flag}} FC_EXPORT {% endif %} void {{function_name}}(
+static const std::string g_fmha_fwd_appendkv_func_signature_tpl = R"(
+    {% if is_running %} {{c_flag}} FC_EXPORT {% endif %} void {{function_name}}(
         void* q_buf_ptr,
         void* k_buf_ptr,
         void* v_buf_ptr,
@@ -150,7 +150,7 @@ static const std::string g_fmha_fwd_appendkv_func_signature_source = R"(
     )
 )";
 
-static const std::string g_fmha_fwd_appendkv_func_call_source = R"(
+static const std::string g_fmha_fwd_appendkv_func_call_tpl = R"(
     {{function_name}}(
         q_buf.GetDeviceBuffer(),
         k_buf.GetDeviceBuffer(),
@@ -190,7 +190,7 @@ static const std::string g_fmha_fwd_appendkv_func_call_source = R"(
     );
 )";
 
-static const std::string g_fmha_fwd_appendkv_prepare_args_source = R"(
+static const std::string g_fmha_fwd_appendkv_prepare_args_tpl = R"(
    const auto init_args = [&](auto& args){  
     /// NOTE: we broadcast bias from [1, 1, seqlen_q, seqlen_k] to [batch, nhead, seqlen_q,
     ///       seqlen_k] in this example, hence both the 'batch_stride_bias' &
@@ -273,7 +273,7 @@ static const std::string g_fmha_fwd_appendkv_prepare_args_source = R"(
     };
 )";
 
-static const std::string g_fmha_fwd_appendkv_make_args_source = R"(
+static const std::string g_fmha_fwd_appendkv_make_args_tpl = R"(
     FmhaFwdAppendKVArgs fmha_fwd_appendkv_args;
     init_args(fmha_fwd_appendkv_args);
     
@@ -316,7 +316,7 @@ static const std::string g_fmha_fwd_appendkv_make_args_source = R"(
 
 )";
 
-static const std::string g_fmha_fwd_appendkv_tensor_decl_source = R"(
+static const std::string g_fmha_fwd_appendkv_tensor_decl_tpl = R"(
     auto cache_seqlen_ks = seqlen_ks;
     std::transform(cache_seqlen_ks.begin(),
                    cache_seqlen_ks.end(),
@@ -358,7 +358,7 @@ static const std::string g_fmha_fwd_appendkv_tensor_decl_source = R"(
 
 )";
 
-const static std::string g_fmha_fwd_appendkv_tensor_generate_source = R"(
+const static std::string g_fmha_fwd_appendkv_tensor_generate_tpl = R"(
     auto [rotary_cos_host, rotary_sin_host] = generate_rotary_cos_sin<KDataType>(
         std::max(shape_seqlen_q, shape_seqlen_k), {{rotary_dim}}, {{seed}});
 

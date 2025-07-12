@@ -78,7 +78,6 @@ std::string HashToHexString(const std::string& input_str);
 std::string CombinedHashToHexString(const std::string& input_str);
 
 void ReplaceAll(std::string& s, const std::string& search, const std::string& replacement);
-
 template<typename InputIterator, typename KeyFunc>
 class GroupBy {
 public:

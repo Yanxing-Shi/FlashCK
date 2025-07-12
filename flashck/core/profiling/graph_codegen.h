@@ -5,7 +5,7 @@
 
 #include "flashck/core/graph/node.h"
 #include "flashck/core/profiling/profiling_strategy.h"
-#include "flashck/core/utils/flags.h"
+#include "flashck/core/utils/common.h"
 
 FC_DECLARE_string(FC_HOME_PATH);
 
@@ -87,13 +87,8 @@ GenFunctionResult GenFunctionSource(const std::vector<Operation*>& model_ops,
         }
 
         // Generate source code
-        std::ofstream src_file(src_path);
-        if (!src_file) {
-            FC_THROW(Unavailable("Failed to open source file: {}", src_path.string()));
-        }
-
         try {
-            src_file << op->GenOpFunction();
+            FileManager::WriteFile(src_path, op->GenOpFunction());
         }
         catch (const std::exception& e) {
             FC_THROW(Unavailable("Failed to write to {}: {}", src_path.string(), e.what()));

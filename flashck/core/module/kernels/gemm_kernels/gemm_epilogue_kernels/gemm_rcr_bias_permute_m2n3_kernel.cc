@@ -2,7 +2,7 @@
 
 #include "flashck/core/profiling/library.h"
 
-static const std::string g_args_parser_source_m2n3 = R"(
+static const std::string g_args_parser_tpl_m2n3 = R"(
   ck::index_t K = std::stoi(argv[1]);
   ck::index_t M = std::stoi(argv[2]);
   ck::index_t N = std::stoi(argv[3]);
@@ -21,13 +21,13 @@ static const std::string g_args_parser_source_m2n3 = R"(
   ck::index_t p_dim2 = G3;
 )";
 
-static const std::string g_inverse_shape_source_m2n3 = R"(
+static const std::string g_inverse_shape_tpl_m2n3 = R"(
     ck::index_t G1 = p_dim0; // G1
     ck::index_t G2 = p_dim1; // G2
     ck::index_t G3 = p_dim2; // G3
 )";
 
-static const std::string g_extra_shape_source_m2n3 = R"(
+static const std::string g_extra_shape_tpl_m2n3 = R"(
     ck::index_t M0 = M / G1;
     ck::index_t M1 = G1;
     ck::index_t N0 = G2;
@@ -68,7 +68,7 @@ static const std::string g_extra_shape_source_m2n3 = R"(
                                                1};
 )";
 
-static const std::string g_tensor_decl_source_m2n3 = R"(
+static const std::string g_tensor_decl_tpl_m2n3 = R"(
     Tensor<ADataType> a_ms_ks(a_ms_ks_lengths, a_ms_ks_strides);
     Tensor<BDataType> b_ns_ks(b_ns_ks_lengths, b_ns_ks_strides);
     Tensor<BDataType> d_ms_ns(d_ms_ns_lengths, d_ms_ns_strides);
@@ -109,9 +109,9 @@ GemmRCRBiasPermuteM2N3Kernel::GenKernelProfiler(const std::string&              
                                                 const std::string&                               folder_name)
 {
 
-    std::string args_parser = TemplateLoadAndRender(g_args_parser_source_m2n3, {{}});
+    std::string args_parser = TemplateLoadAndRender(g_args_parser_tpl_m2n3, {{}});
 
-    std::string inverse_shape = TemplateLoadAndRender(g_inverse_shape_source_m2n3, {{}});
+    std::string inverse_shape = TemplateLoadAndRender(g_inverse_shape_tpl_m2n3, {{}});
 
     return GenGemmCommonKernelProfiler(model_name,
                                        kernel_func_map,
@@ -119,10 +119,10 @@ GemmRCRBiasPermuteM2N3Kernel::GenKernelProfiler(const std::string&              
                                        "bias_permute_m2n3",
                                        "",
                                        2,
-                                       g_extra_shape_source_m2n3,
-                                       g_problem_args_source,
-                                       g_extra_header_source,
-                                       g_tensor_decl_source_m2n3,
+                                       g_extra_shape_tpl_m2n3,
+                                       g_problem_args_tpl,
+                                       g_extra_header_tpl,
+                                       g_tensor_decl_tpl_m2n3,
                                        inverse_shape);
 }
 
@@ -131,16 +131,16 @@ GemmRCRBiasPermuteM2N3Kernel::GenKernelFunction(const std::string&              
                                                 const std::string&                               model_name,
                                                 const std::unordered_map<std::string, std::any>& kernel_func_map)
 {
-    std::string inverse_shape = TemplateLoadAndRender(g_inverse_shape_source_m2n3, {{}});
+    std::string inverse_shape = TemplateLoadAndRender(g_inverse_shape_tpl_m2n3, {{}});
 
     return GenGemmCommonKernelFunction(func_name,
                                        kernel_func_map,
                                        "bias_permute_m2n3",
                                        "",
                                        2,
-                                       g_extra_shape_source_m2n3,
-                                       g_problem_args_source,
-                                       g_extra_header_source,
+                                       g_extra_shape_tpl_m2n3,
+                                       g_problem_args_tpl,
+                                       g_extra_header_tpl,
                                        inverse_shape);
 }
 

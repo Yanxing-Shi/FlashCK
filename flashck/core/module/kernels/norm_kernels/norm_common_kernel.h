@@ -3,7 +3,7 @@
 #include "flashck/core/module/kernels/kernel.h"
 #include "flashck/core/module/kernels/kernel_registry.h"
 
-static const std::string g_norm_exec_cond_source = R"(
+static const std::string g_norm_exec_cond_tpl = R"(
     if ({{cond}}) {
         {{program}}
     }
@@ -24,7 +24,7 @@ static const std::string g_norm_macro_decl = R"(
 #endif
 )";
 
-static const std::string g_norm_create_args_source = R"(
+static const std::string g_norm_create_args_tpl = R"(
 auto create_args(int argc, char* argv[])
 {
     ck_tile::ArgParser arg_parser;
@@ -41,42 +41,42 @@ auto create_args(int argc, char* argv[])
 }
 )";
 
-static const std::string g_norm_instance_source = R"(
-{{config}}
-using {{kernel_name}} = {{config_name}};
+static const std::string g_norm_instance_tpl = R"(
+{{instance_code}}
+using {{instance_alias_name}} = {{config_name}};
 )";
 
-static const std::string g_norm_execute_source = R"(
+static const std::string g_norm_exec_tpl = R"(
     {{make_args}}
 
-    const dim3                 grids       = {{kernel_name}}::GridSize(args);
-    constexpr dim3             blocks      = {{kernel_name}}::BlockSize();
+    const dim3                 grids       = {{instance_alias_name}}::GridSize(args);
+    constexpr dim3             blocks      = {{instance_alias_name}}::BlockSize();
     constexpr ck_tile::index_t kBlockPerCu = 1;
-    auto                       s           = ck_tile::stream_config{stream, {{is_profile_kernel}}, 0, 5/*warmup*/, 20/*repeat*/};
-    auto kargs = {{kernel_name}}::MakeKargs(args);
+    auto                       s           = ck_tile::stream_config{stream, {{is_profiling}}, 0, 5/*warmup*/, 20/*repeat*/};
+    auto kargs = {{instance_alias_name}}::MakeKargs(args);
     
     float ave_time =
-        ck_tile::launch_kernel(s, ck_tile::make_kernel<blocks.x, kBlockPerCu>({{kernel_name}}{}, grids, blocks, 0, kargs));
+        ck_tile::launch_kernel(s, ck_tile::make_kernel<blocks.x, kBlockPerCu>({{instance_alias_name}}{}, grids, blocks, 0, kargs));
 
     if(ave_time < 0)
     {
-        std::cerr << {{kernel_name}}::GetName()<< " not supported !" << std::endl << std::flush;
+        std::cerr << {{instance_alias_name}}::GetName()<< " not supported !" << std::endl << std::flush;
     }
 
-{% if not is_execute %}
+{% if not is_running %}
     std::size_t num_byte = sizeof(XDataType) * m * n + sizeof(GammaDataType) * n +
                            sizeof(BetaDataType) * n + sizeof(YDataType) * m * n;
 
     float gb_per_sec = num_byte / 1.E6 / ave_time;
 
-    // std::cout << "KERNEL:" << {{kernel_name}}::GetName() << ",";
+    // std::cout << "KERNEL:" << {{instance_alias_name}}::GetName() << ",";
     std::cout<< "KERNEL:" << "{{config_name}}" << ",";
     std::cout << "TIME:" << ave_time << "ms" << std::endl << std::flush;
     // std::cout << "GB_PER_SEC:" << gb_per_sec << "GB/s" << std::endl << std::flush;
 {% endif %}
 )";
 
-static const std::string g_norm_kernel_func = R"(
+static const std::string g_norm_kernel_func_tpl = R"(
 #include "ck_tile/core.hpp"
 #include "ck_tile/host/kernel_launch.hpp"
 #include "ck_tile/ops/layernorm2d.hpp"
@@ -95,12 +95,12 @@ static const std::string g_norm_kernel_func = R"(
 
 {{instances_decl}}
 
-{% if is_execute %} {{c_flag}} FC_EXPORT {% endif %} {{func_signature}} {
+{% if is_running %} {{c_flag}} FC_EXPORT {% endif %} {{func_signature}} {
     {{execute_func}}
 }
 )";
 
-static const std::string g_norm_profiler_source = R"(
+static const std::string g_norm_profiling_tpl = R"(
 {{kernel_func}}
 
 {{create_args}}
@@ -143,22 +143,15 @@ namespace flashck {
 class NormCommonKernel: public Kernel {
 public:
     std::vector<std::tuple<std::filesystem::path, std::filesystem::path>>
-    GenCommonKernelProfiler(const std::string&                               model_name,
-                            const std::unordered_map<std::string, std::any>& kernel_func_map,
-                            const std::string&                               dtype_config_source,
-                            const std::string&                               dtype_decl_source,
-                            const std::string&                               func_signature_source,
-                            const std::string&                               make_args_source,
-                            const std::string&                               tensor_decl_source,
-                            const std::string&                               func_call_source,
-                            const std::string&                               folder_name = "kernel_profile");
+    CommonCodeGenForTuning(const std::string&                                  model_name,
+                           const Problem&                                      problem,
+                           const std::map<std::string, std::unique_ptr<void>>& instance_map,
+                           const TuningTpl&                                    tuning_tpl,
+                           const std::string&                                  folder_name = "kernel_profile");
 
-    std::string GenCommonKernelFunction(const std::string&                               func_name,
-                                        const std::string&                               model_name,
-                                        const std::unordered_map<std::string, std::any>& kernel_func_map,
-                                        const std::string&                               dtype_config_source,
-                                        const std::string&                               dtype_decl_source,
-                                        const std::string&                               func_signature_source,
-                                        const std::string&                               make_args_source);
+    // std::string CommonCodeGenForRunning(const std::string&                               func_name,
+    //                                     const std::string&                               model_name,
+    //                                     const std::unordered_map<std::string, std::any>& kernel_func_map,
+    //                                     const RunningTpl&                                running_tpl);
 };
 }  // namespace flashck

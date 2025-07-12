@@ -2,7 +2,6 @@
 
 #include "flashck/core/utils/debug_utils.h"
 #include "flashck/core/utils/enforce.h"
-#include "flashck/core/utils/file_utils.h"
 #include "flashck/core/utils/flags.h"
 #include "flashck/core/utils/log.h"
 
@@ -16,11 +15,10 @@ template<typename T>
 LayerNormOp<T>::LayerNormOp(Shape          normalized_shape,
                             NormBiasEnum   is_add_bias,
                             FusedAddEnum   fused_add,
-                            FusedQuantEnum fused_quant,
-                            std::string    op_name):
-    Operation(op_name), is_add_bias_(is_add_bias), fused_add_(fused_add), fused_quant_(fused_quant)
+                            FusedQuantEnum fused_quant):
+    Operation("layer_norm"), is_add_bias_(is_add_bias), fused_add_(fused_add), fused_quant_(fused_quant)
 {
-    default_normalized_shape_ = normalized_shape;
+    normalized_shape_ = normalized_shape;
 }
 
 template<typename T>
@@ -161,25 +159,9 @@ Variable* LayerNormOp<T>::operator()(Variable*   x,
                                      Variable*   smooth_scale,
                                      Variable*   y_residual,
                                      Variable*   y_scale,
-                                     Shape       normalized_shape,
                                      const float eps)
 {
     SanityCheck(x, gamma, beta, x_bias, x_residual, smooth_scale, y_residual, y_scale);
-    if (is_add_bias_ != NormBiasEnum::NO_BIAS && x_bias == nullptr) {
-        FC_THROW(Unimplemented("bias add requires x_bias to be provided"));
-    }
-    if (fused_add_ != FusedAddEnum::NO_ADD && x_residual == nullptr) {
-        FC_THROW(Unimplemented("Fused add requires x_residual to be provided"));
-    }
-    if (fused_quant_ == FusedQuantEnum::SMOOTH_DYNAMIC_QUANT && smooth_scale == nullptr) {
-        FC_THROW(Unimplemented("Fused quant requires smooth_scale to be provided"));
-    }
-    if (fused_add_ == FusedAddEnum::PRE_ADD_STORE && y_residual == nullptr) {
-        FC_THROW(Unimplemented("Fused add requires y_residual to be provided"));
-    }
-    if (fused_quant_ != FusedQuantEnum::NO_SWEEP && y_scale == nullptr) {
-        FC_THROW(Unimplemented("Fused quant requires y_scale to be provided"));
-    }
 
     eps_                             = eps;
     std::vector<Variable*> input_var = {x, gamma, beta, x_bias, x_residual, smooth_scale, y_residual, y_scale};
@@ -189,11 +171,9 @@ Variable* LayerNormOp<T>::operator()(Variable*   x,
         }
     }
 
-    normalized_shape_ = normalized_shape.GetNumDim() ? normalized_shape : default_normalized_shape_;
-
     Shape output_shape    = InferShape(x);
     auto  max_output_size = std::get<1>(output_shape.GetElementSizeTuple());
-    output_var_ = {new Variable(op_name_ + std::string("_output"), max_output_size, CppTypeToDataType<T>::Type())};
+    output_var_           = {new Variable("layer_norm_output", max_output_size, CppTypeToDataType<T>::Type())};
     output_var_[0]->SetShape(output_shape);
 
     std::vector<Node*> parents_node;
@@ -208,47 +188,8 @@ Variable* LayerNormOp<T>::operator()(Variable*   x,
     return output_var_[0];
 }
 
-/*
-Invert execution key to get input arguments as integers.
-*/
 template<typename T>
-std::vector<int64_t> LayerNormOp<T>::InvertExecKey(const std::string& key)
-{
-    std::vector<int64_t> tmp;
-    std::regex           pattern("(\\d+)");
-    std::smatch          m;
-    std::string          s = key;
-    while (std::regex_search(s, m, pattern)) {
-        tmp.push_back(std::stoi(m[0]));
-        s = m.suffix().str();
-    }
-    return tmp;
-}
-
-/*
-Generate execution key from the name value mapping.
-*/
-template<typename T>
-std::string LayerNormOp<T>::GenExecKey(const std::map<std::string, std::vector<int64_t>>& name_value_mapping)
-{
-    std::vector<std::string> key_strs;
-    for (auto& [name, values] : name_value_mapping) {
-        if (values.size() == 1) {
-            key_strs.emplace_back(Sprintf("{} == {}", name, values[0]));
-        }
-        else if (values.size() > 1) {
-            key_strs.emplace_back(Sprintf("{} >= {} && {} <= {}", name, values[0], name, values.back()));
-        }
-        else {
-            FC_THROW(Unavailable("norm input has empty dim values: {}", values[0]));
-        }
-    }
-
-    return JoinStrings(key_strs, " && ");
-}
-
-template<typename T>
-void LayerNormOp<T>::ExtractExecPath(const ProfilingStrategy& dynamic_profiling_strategy, const int step_value)
+void LayerNormOp<T>::ExtractExecPath(const ProfilingStrategy& profiling_strategy, const int step_value)
 {
     FC_ENFORCE_EQ(
         normalized_shape_.GetNumDim(),
@@ -275,29 +216,33 @@ void LayerNormOp<T>::ExtractExecPath(const ProfilingStrategy& dynamic_profiling_
         {"n", {n}},
     };
 
-    if (dynamic_profiling_strategy == ProfilingStrategy::kMax) {
+    if (profiling_strategy == ProfilingStrategy::kMax) {
         std::map<std::string, std::vector<int64_t>> max_values = {
             {"m", {m_max}},
             {"n", {n}},
         };
 
-        std::shared_ptr<ExecItem> exec_item_ptr =
-            std::make_shared<ExecItem>(GenExecKey(max_values), GenExecKey(shape_values_map), "");
-
-        exec_path_[exec_item_ptr->profiling_key_] = exec_item_ptr;
+        exec_items_.push_back(ExecItem{
+            .profiling_key_ = GenExecKey(max_values),
+            .exec_cond_     = GenExecKey(shape_values_map),
+            .instance_name_ = "",
+            .perf_result_   = PerfResult(),
+        });
     }
-    else if (dynamic_profiling_strategy == ProfilingStrategy::kMin) {
+    else if (profiling_strategy == ProfilingStrategy::kMin) {
         std::map<std::string, std::vector<int64_t>> min_values = {
             {"m", {m_min}},
             {"n", {n}},
         };
 
-        std::shared_ptr<ExecItem> exec_item_ptr =
-            std::make_shared<ExecItem>(GenExecKey(min_values), GenExecKey(shape_values_map), "");
-
-        exec_path_[exec_item_ptr->profiling_key_] = exec_item_ptr;
+        exec_items_.push_back(ExecItem{
+            .profiling_key_ = GenExecKey(min_values),
+            .exec_cond_     = GenExecKey(shape_values_map),
+            .instance_name_ = "",
+            .perf_result_   = PerfResult(),
+        });
     }
-    else if (dynamic_profiling_strategy == ProfilingStrategy::kIteration) {
+    else if (profiling_strategy == ProfilingStrategy::kIteration) {
         std::map<std::string, std::vector<int64_t>> iter_values_map;
         for (int64_t m = m_min; m <= m_max; m += step_value) {
             iter_values_map["m"].push_back(m);
@@ -317,10 +262,12 @@ void LayerNormOp<T>::ExtractExecPath(const ProfilingStrategy& dynamic_profiling_
         }
 
         for (const auto& iter_value : iter_values_vec) {
-            std::shared_ptr<ExecItem> exec_item_ptr =
-                std::make_shared<ExecItem>(GenExecKey(iter_value), GenExecKey(iter_value), "");
-
-            exec_path_[exec_item_ptr->profiling_key_] = exec_item_ptr;
+            exec_items_.push_back(ExecItem{
+                .profiling_key_ = GenExecKey(iter_value),
+                .exec_cond_     = GenExecKey(iter_value),
+                .instance_name_ = "",
+                .perf_result_   = PerfResult(),
+            });
         }
     }
 
@@ -333,19 +280,18 @@ template<typename T>
 void LayerNormOp<T>::IfShouldBuildProfiler(const std::vector<std::string>& workloads)
 {
     for (const auto& workload : workloads) {
-        std::string exec_entry_sha1 = SHA1ToHexString(workload);
-        auto        query           = NormQueryEntry(DataTypeToShortString(CppTypeToDataType<T>::Type()),
-                                    DataTypeToShortString(CppTypeToDataType<T>::Type()),
-                                    DataTypeToShortString(DataType::FLOAT32),
-                                    DataTypeToShortString(DataType::FLOAT32),
-                                    g_norm_operation_kind_names_map.at(op_kind_),
-                                    Target::Instance()->GetTargetDeviceName(),
-                                    g_short_tensor_operation_names_map.at(epilogue_op_),
-                                    exec_entry_sha1,
-                                    g_fused_add_enum_str_map.at(fused_add_),
-                                    g_fused_quant_enum_str_map.at(fused_quant_));
+        auto instance_data = NormQueryEntry(DataTypeToShortString(CppTypeToDataType<T>::Type()),
+                                            DataTypeToShortString(CppTypeToDataType<T>::Type()),
+                                            DataTypeToShortString(DataType::FLOAT32),
+                                            DataTypeToShortString(DataType::FLOAT32),
+                                            g_norm_operation_kind_names_map.at(op_kind_),
+                                            Target::Instance()->GetTargetDeviceName(),
+                                            g_short_tensor_operation_names_map.at(epilogue_op_),
+                                            exec_entry_sha1,
+                                            g_fused_add_enum_str_map.at(fused_add_),
+                                            g_fused_quant_enum_str_map.at(fused_quant_));
 
-        auto cache_value = Target::Instance()->QueryProfileCache(CodeGenKind::Norm, query);
+        auto cache_value = ProfilingEngine::GetInstance()->Query(CodeGenKind::Norm, query);
 
         if (cache_value != std::make_tuple("null", -1) && !FLAGS_FC_FORCE_PROFILE) {
             std::string best_algo = std::get<0>(cache_value);
@@ -364,28 +310,25 @@ void LayerNormOp<T>::IfShouldBuildProfiler(const std::vector<std::string>& workl
 
 template<typename T>
 std::vector<std::tuple<std::filesystem::path, std::filesystem::path>>
-LayerNormOp<T>::GenOpProfiler(const ProfilingStrategy& dynamic_profiling_strategy)
+LayerNormOp<T>::GenOpProfiler(const ProfilingStrategy& profiling_strategy)
 {
-    KernelKey kernel_key(SourceType::CK_TILE, DataLayout::ALL_LAYOUT, CppTypeToDataType<T>::Type());
-    register_kernel_ptr_ =
-        KernelFactory::Instance().SelectKernel(g_norm_operation_kind_names_map.at(op_kind_), kernel_key);
+    KernelKey kernel_key(SourceType::TILE, DataLayout::ALL_LAYOUT, CppTypeToDataType<T>::Type());
+    register_kernel_ptr_ = KernelFactory::Instance().SelectKernel(g_norm_map.at(kind_).name, kernel_key);
 
-    // init exec path
-    ExtractExecPath(dynamic_profiling_strategy);
-
-    exec_key_ = GetKeyVector(exec_path_);
+    ExtractExecPath(profiling_strategy);
+    profiling_key_ = GetKeyVector(exec_path_);
 
     if (!FLAGS_FC_FORCE_PROFILER_CACHE) {
-        IfShouldBuildProfiler(exec_key_);
+        IfShouldBuildProfiler(profiling_key_);
     }
     else {
-        LOG(INFO) << "Forced to use cache, skip building profilers for " << op_name_;
+        LOG(INFO) << "Forced to use cache, skip building profiling engine for layernorm";
         return {};
     }
 
     std::vector<NormProblem> layernorm_problems;
-    layernorm_problems.reserve(exec_key_.size());
-    std::for_each(exec_key_.begin(), exec_key_.end(), [&](const std::string& key) {
+    layernorm_problems.reserve(profiling_key_.size());
+    std::for_each(profiling_key_.begin(), profiling_key_.end(), [&](const std::string& key) {
         std::vector<int64_t> inverse_res = InvertExecKey(key);
         NormProblem          layernorm_problem{CppTypeToDataType<T>::Type(),
                                       CppTypeToDataType<T>::Type(),
@@ -404,7 +347,7 @@ LayerNormOp<T>::GenOpProfiler(const ProfilingStrategy& dynamic_profiling_strateg
 
     std::vector<std::tuple<std::filesystem::path, std::filesystem::path>> generated_profilers;
 
-    for (int i = 0; i < exec_key_.size(); i++) {
+    for (int i = 0; i < profiling_key_.size(); i++) {
         Target::Instance()->GenerateKernel(CodeGenKind::Norm, layernorm_problems[i]);
 
         kernel_instance_map_ = register_kernel_ptr_->Init(op_kind_, epilogue_op_);
@@ -412,11 +355,12 @@ LayerNormOp<T>::GenOpProfiler(const ProfilingStrategy& dynamic_profiling_strateg
             FC_THROW(Fatal("No layernorm op instances were generated for {}", op_name_));
         }
 
-        if (exec_path_[exec_key_[i]]->algo_ == "") {
+        if (exec_path_[profiling_key_[i]]->algo_ == "") {
             generated_profilers = register_kernel_ptr_->GenKernelProfiler(context_ptr_->GetName(), GetAttrsMap());
         }
         else {
-            LOG(INFO) << "op_name: " << op_name_ << ", " << "workload: " << exec_key_[i] << " from cache, not profile";
+            LOG(INFO) << "op_name: " << op_name_ << ", " << "workload: " << profiling_key_[i]
+                      << " from cache, not profile";
         }
     }
 
@@ -499,9 +443,9 @@ void LayerNormOp<T>::Profile(const std::shared_ptr<GPUProfilingRunner>& profiler
 {
 
     std::filesystem::path profiler_prefix =
-        std::filesystem::path(FLAGS_FC_HOME_PATH) / folder_name / context_ptr_->GetName() / "profiler" / op_name_;
+        std::filesystem::path(FLAGS_FC_HOME_PATH) / folder_name / context_ptr_->GetName() / "profiling" / op_name_;
 
-    for (const auto& workload : exec_key_) {
+    for (const auto& workload : profiling_key_) {
         if (exec_path_[workload]->algo_ == "") {
             if (kernel_instance_map_.size() == 0) {
                 kernel_instance_map_ = register_kernel_ptr_->Init(op_kind_, epilogue_op_);
@@ -519,26 +463,6 @@ template<typename T>
 std::string LayerNormOp<T>::GenOpFunction()
 {
     return register_kernel_ptr_->GenKernelFunction(GetName(), context_ptr_->GetName(), GetAttrsMap());
-}
-
-template<typename T>
-std::unordered_map<std::string, std::any> LayerNormOp<T>::GetAttrsMap()
-{
-    std::unordered_map<std::string, std::any> op_attrs_map{{"op_name", op_name_},
-                                                           {"normalized_shape", normalized_shape_},
-                                                           {"x_dtype", CppTypeToDataType<T>::Type()},
-                                                           {"y_dtype", CppTypeToDataType<T>::Type()},
-                                                           {"smooth_scale_dtype", DataType::FLOAT32},
-                                                           {"y_scale_dtype", DataType::FLOAT32},
-                                                           {"eps", eps_},
-                                                           {"op_kind", op_kind_},
-                                                           {"epilogue_op", epilogue_op_},
-                                                           {"exec_path", exec_path_},
-                                                           {"kernel_instance_map", kernel_instance_map_},
-                                                           {"is_add_bias", is_add_bias_},
-                                                           {"fused_add", fused_add_},
-                                                           {"fused_quant", fused_quant_}};
-    return op_attrs_map;
 }
 
 template<typename T>

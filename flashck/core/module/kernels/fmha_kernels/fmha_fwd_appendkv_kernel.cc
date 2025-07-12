@@ -21,25 +21,25 @@ FmhaFwdAppendKVKernel::GenKernelProfiler(const std::string&                     
     auto rotary_dim          = std::any_cast<int64_t>(kernel_func_map.at("rotary_dim"));
     auto mask_enum           = std::any_cast<GenericAttentionMaskEnum>(kernel_func_map.at("mask_enum"));
 
-    jinja2::ValuesMap func_signature_value_map{{"function_name", "FmhaFwdAppendKV"}, {"is_execute", false}};
+    jinja2::ValuesMap func_signature_value_map{{"function_name", "FmhaFwdAppendKV"}, {"is_running", false}};
     std::string       func_signature =
-        TemplateLoadAndRender(g_fmha_fwd_appendkv_func_signature_source, func_signature_value_map);
+        TemplateLoadAndRender(g_fmha_fwd_appendkv_func_signature_tpl, func_signature_value_map);
 
     jinja2::ValuesMap func_call_value_map{{"function_name", "FmhaFwdAppendKV"},
                                           {"paged_block_size", paged_block_size},
                                           {"use_cache_batch_idx", use_cache_batch_idx},
                                           {"mask_str", g_generic_attention_mask_names_map.at(mask_enum)}};
-    std::string       func_call = TemplateLoadAndRender(g_fmha_fwd_appendkv_func_call_source, func_call_value_map);
+    std::string       func_call = TemplateLoadAndRender(g_fmha_fwd_appendkv_func_call_tpl, func_call_value_map);
 
     jinja2::ValuesMap prepare_args_value_map{{"mode_str", g_fmha_operation_mode_name_map.at(op_mode)}};
-    std::string prepare_args = TemplateLoadAndRender(g_fmha_fwd_appendkv_prepare_args_source, prepare_args_value_map);
+    std::string prepare_args = TemplateLoadAndRender(g_fmha_fwd_appendkv_prepare_args_tpl, prepare_args_value_map);
 
     jinja2::ValuesMap make_args_value_map{{"kernel_name", "FmhaInstance"}};
-    std::string       make_args = TemplateLoadAndRender(g_fmha_fwd_appendkv_make_args_source, make_args_value_map);
+    std::string       make_args = TemplateLoadAndRender(g_fmha_fwd_appendkv_make_args_tpl, make_args_value_map);
 
     jinja2::ValuesMap tensor_decl_value_map{{"paged_block_size", paged_block_size},
                                             {"use_cache_batch_idx", use_cache_batch_idx}};
-    std::string tensor_decl = TemplateLoadAndRender(g_fmha_fwd_appendkv_tensor_decl_source, tensor_decl_value_map);
+    std::string       tensor_decl = TemplateLoadAndRender(g_fmha_fwd_appendkv_tensor_decl_tpl, tensor_decl_value_map);
 
     jinja2::ValuesMap tensor_generate_value_map{{"init_method_str", "uf"},
                                                 {"mode_str", g_fmha_operation_mode_name_map.at(op_mode)},
@@ -48,13 +48,13 @@ FmhaFwdAppendKVKernel::GenKernelProfiler(const std::string&                     
                                                 {"use_cache_batch_idx", use_cache_batch_idx},
                                                 {"seed", 12456}};
     std::string       tenosr_generate =
-        TemplateLoadAndRender(g_fmha_fwd_appendkv_tensor_generate_source, tensor_generate_value_map);
+        TemplateLoadAndRender(g_fmha_fwd_appendkv_tensor_generate_tpl, tensor_generate_value_map);
 
     return GenFmhaCommonKernelProfiler(model_name,
                                        kernel_func_map,
-                                       g_fmha_fwd_appendkv_create_args_source,
-                                       g_fmha_fwd_appendkv_args_parser_source,
-                                       g_fmha_fwd_appendkv_args_decl_source,
+                                       g_fmha_fwd_appendkv_create_args_tpl,
+                                       g_fmha_fwd_appendkv_args_parser_tpl,
+                                       g_fmha_fwd_appendkv_args_decl_tpl,
                                        func_signature,
                                        tensor_decl,
                                        tenosr_generate,
@@ -71,10 +71,10 @@ std::string FmhaFwdAppendKVKernel::GenKernelFunction(const std::string&         
     return GenFmhaCommonKernelFunction(func_name,
                                        model_name,
                                        kernel_func_map,
-                                       g_fmha_fwd_appendkv_args_decl_source,
-                                       g_fmha_fwd_appendkv_func_signature_source,
-                                       g_fmha_fwd_appendkv_prepare_args_source,
-                                       g_fmha_fwd_appendkv_make_args_source,
+                                       g_fmha_fwd_appendkv_args_decl_tpl,
+                                       g_fmha_fwd_appendkv_func_signature_tpl,
+                                       g_fmha_fwd_appendkv_prepare_args_tpl,
+                                       g_fmha_fwd_appendkv_make_args_tpl,
                                        "fwd_appendkv");
 }
 

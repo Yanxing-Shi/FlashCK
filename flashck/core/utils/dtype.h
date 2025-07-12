@@ -4,7 +4,6 @@
 #include <string>
 #include <tuple>
 #include <type_traits>
-#include <ostream>
 
 namespace flashck {
 
@@ -58,6 +57,20 @@ constexpr DataType GetDataType()
     }
 }
 
+inline std::string DataTypeToTileString(const DataType& dtype)
+{
+    switch (dtype) {
+        case DataType::FLOAT32:
+            return "ck_tile::fp32_t";
+        case DataType::FLOAT16:
+            return "ck_tile::half_t";
+        case DataType::BFLOAT16:
+            return "ck_tile::bf16_t";
+        default:
+            throw std::runtime_error("Unsupported data type for tile string conversion");
+    }
+}
+
 const char* DataTypeToString(DataType type)
 {
     switch (type) {
@@ -86,12 +99,6 @@ const char* DataTypeToString(DataType type)
         default:
             return "unknown";
     }
-}
-
-// Stream operator for DataType enum
-inline std::ostream& operator<<(std::ostream& os, DataType type)
-{
-    return os << DataTypeToString(type);
 }
 
 inline size_t SizeOf(DataType data_type)

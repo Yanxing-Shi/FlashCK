@@ -47,7 +47,7 @@ struct NormTag {
 /**
  * @brief Mapping from norm types to their configuration tags
  */
-static const std::unordered_map<NormKind, NormTag> norm_map = {
+static const std::unordered_map<NormKind, NormTag> g_norm_map = {
     {NormKind::LayerNorm,
      {"layer_norm",
       "Layernorm2dFwdPipelineProblem",
@@ -87,7 +87,7 @@ struct NormBiasInfo {
 /**
  * @brief Mapping from bias modes to their information
  */
-static const std::unordered_map<NormBiasEnum, NormBiasInfo> norm_bias_map = {
+static const std::unordered_map<NormBiasEnum, NormBiasInfo> g_norm_bias_map = {
     {NormBiasEnum::NO_BIAS, {"no_bias", "nb"}},
     {NormBiasEnum::ADD_BIAS, {"add_bias", "ab"}},
 };
@@ -118,7 +118,7 @@ struct FusedAddInfo {
 /**
  * @brief Mapping from fused add modes to their information
  */
-static const std::unordered_map<FusedAddEnum, FusedAddInfo> fused_add_map = {
+static const std::unordered_map<FusedAddEnum, FusedAddInfo> g_fused_add_map = {
     {FusedAddEnum::NO_ADD, {"no_add", "na"}},
     {FusedAddEnum::PRE_ADD_STORE, {"pre_add_store", "pas"}},
     {FusedAddEnum::PRE_ADD, {"pre_add", "pa"}},
@@ -152,7 +152,7 @@ struct FusedQuantInfo {
 /**
  * @brief Mapping from fused quantization modes to their information
  */
-static const std::unordered_map<FusedQuantEnum, FusedQuantInfo> fused_quant_map = {
+static const std::unordered_map<FusedQuantEnum, FusedQuantInfo> g_fused_quant_map = {
     {FusedQuantEnum::NO_SWEEP, {"no_sweep", "ns"}},
     {FusedQuantEnum::SMOOTH_DYNAMIC_QUANT, {"smooth_dynamic_quant", "sdq"}},
     {FusedQuantEnum::DYNAMIC_QUANT, {"dynamic_quant", "dq"}},
@@ -167,8 +167,8 @@ static const std::unordered_map<FusedQuantEnum, FusedQuantInfo> fused_quant_map 
  */
 inline std::string GetNormKindName(NormKind kind)
 {
-    auto it = norm_map.find(kind);
-    return it != norm_map.end() ? it->second.name : "unknown";
+    auto it = g_norm_map.find(kind);
+    return it != g_norm_map.end() ? it->second.name : "unknown";
 }
 
 /**
@@ -176,10 +176,10 @@ inline std::string GetNormKindName(NormKind kind)
  * @param bias The bias enum to query
  * @return The name string, or "unknown" if not found
  */
-inline std::string GetBiasName(NormBiasEnum bias)
+inline std::string GetNormBiasName(NormBiasEnum bias)
 {
-    auto it = norm_bias_map.find(bias);
-    return it != norm_bias_map.end() ? it->second.name : "unknown";
+    auto it = g_norm_bias_map.find(bias);
+    return it != g_norm_bias_map.end() ? it->second.name : "unknown";
 }
 
 /**
@@ -189,8 +189,8 @@ inline std::string GetBiasName(NormBiasEnum bias)
  */
 inline std::string GetFusedAddName(FusedAddEnum add)
 {
-    auto it = fused_add_map.find(add);
-    return it != fused_add_map.end() ? it->second.name : "unknown";
+    auto it = g_fused_add_map.find(add);
+    return it != g_fused_add_map.end() ? it->second.name : "unknown";
 }
 
 /**
@@ -200,8 +200,56 @@ inline std::string GetFusedAddName(FusedAddEnum add)
  */
 inline std::string GetFusedQuantName(FusedQuantEnum quant)
 {
-    auto it = fused_quant_map.find(quant);
-    return it != fused_quant_map.end() ? it->second.name : "unknown";
+    auto it = g_fused_quant_map.find(quant);
+    return it != g_fused_quant_map.end() ? it->second.name : "unknown";
+}
+
+inline std::string GetFusedAddShortName(FusedAddEnum add)
+{
+    auto it = g_fused_add_map.find(add);
+    return it != g_fused_add_map.end() ? it->second.short_name : "unknown";
+}
+
+inline std::string GetFusedQuantShortName(FusedQuantEnum quant)
+{
+    auto it = g_fused_quant_map.find(quant);
+    return it != g_fused_quant_map.end() ? it->second.short_name : "unknown";
+}
+
+inline std::string GetNormBiasShortName(NormBiasEnum bias)
+{
+    auto it = g_norm_bias_map.find(bias);
+    return it != g_norm_bias_map.end() ? it->second.short_name : "unknown";
+}
+
+inline std::string GetNormKindShortName(NormKind kind)
+{
+    auto it = g_norm_map.find(kind);
+    return it != g_norm_map.end() ? it->second.name : "unknown";
+}
+
+inline std::string GetNormKindProblemTag(NormKind kind)
+{
+    auto it = g_norm_map.find(kind);
+    return it != g_norm_map.end() ? it->second.problem_tag : "unknown";
+}
+
+inline std::string GetNormKindTraitTag(NormKind kind)
+{
+    auto it = g_norm_map.find(kind);
+    return it != g_norm_map.end() ? it->second.trait_tag : "unknown";
+}
+
+inline std::string GetNormKindFwdTag(NormKind kind)
+{
+    auto it = g_norm_map.find(kind);
+    return it != g_norm_map.end() ? it->second.fwd_tag : "unknown";
+}
+
+inline std::string GetNormKindPassTag(NormKind kind)
+{
+    auto it = g_norm_map.find(kind);
+    return it != g_norm_map.end() ? it->second.pass_tag : "unknown";
 }
 
 /**
@@ -260,8 +308,8 @@ inline std::string GenerateConfigString(NormKind kind, NormBiasEnum bias, FusedA
     config += GetNormKindName(kind);
     config += "_";
 
-    auto bias_it = norm_bias_map.find(bias);
-    if (bias_it != norm_bias_map.end()) {
+    auto bias_it = g_norm_bias_map.find(bias);
+    if (bias_it != g_norm_bias_map.end()) {
         config += bias_it->second.short_name;
     }
     else {
@@ -269,8 +317,8 @@ inline std::string GenerateConfigString(NormKind kind, NormBiasEnum bias, FusedA
     }
     config += "_";
 
-    auto add_it = fused_add_map.find(add);
-    if (add_it != fused_add_map.end()) {
+    auto add_it = g_fused_add_map.find(add);
+    if (add_it != g_fused_add_map.end()) {
         config += add_it->second.short_name;
     }
     else {
@@ -278,8 +326,8 @@ inline std::string GenerateConfigString(NormKind kind, NormBiasEnum bias, FusedA
     }
     config += "_";
 
-    auto quant_it = fused_quant_map.find(quant);
-    if (quant_it != fused_quant_map.end()) {
+    auto quant_it = g_fused_quant_map.find(quant);
+    if (quant_it != g_fused_quant_map.end()) {
         config += quant_it->second.short_name;
     }
     else {

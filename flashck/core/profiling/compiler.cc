@@ -6,7 +6,7 @@ FC_DECLARE_string(FC_HOME_PATH);
 FC_DECLARE_string(FC_COMPILER_OPT_LEVEL);
 FC_DECLARE_bool(FC_DEBUG_KERNEL_INSTANCE);
 FC_DECLARE_bool(FC_SAVE_TEMP_FILE);
-FC_DECLARE_bool(FC_PRINT_KERNEL_SOURCE_USAGE);
+FC_DECLARE_bool(FC_PRINT_KERNEL_tpl_USAGE);
 FC_DECLARE_bool(FC_FLUSH_DENORMALS);
 FC_DECLARE_bool(FC_USE_FAST_MATH);
 
@@ -83,7 +83,7 @@ std::vector<std::string> Compiler::GetCompilerOptions()
     if (FLAGS_FC_SAVE_TEMP_FILE) {
         opts.push_back("--save-temps=obj");
     }
-    if (FLAGS_FC_PRINT_KERNEL_SOURCE_USAGE) {
+    if (FLAGS_FC_PRINT_KERNEL_tpl_USAGE) {
         opts.push_back("-Rpass-analysis=kernel-resource-usage");
     }
     if (FLAGS_FC_FLUSH_DENORMALS) {

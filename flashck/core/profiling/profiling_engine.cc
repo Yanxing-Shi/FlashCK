@@ -100,7 +100,7 @@ std::filesystem::path ProfilingEngine::GetProfilingDBPath()
     }
 
     // Ensure directory existence
-    if (!CheckWithRetries(default_path)) {
+    if (!FileManager::CheckWithRetries(default_path)) {
         LOG(WARNING) << "Failed to create primary database directory: " << default_path.string();
         return TryFallbackDBPath();
     }
@@ -118,9 +118,9 @@ std::filesystem::path ProfilingEngine::GetProfilingDBPath()
 
 std::filesystem::path ProfilingEngine::TryFallbackDBPath()
 {
-    const std::filesystem::path temp_dir = CreateTemporaryDirectory(".tmp_flash_ck");
+    const std::filesystem::path temp_dir = FileManager::CreateTemporaryDirectory(".tmp_flash_ck");
 
-    if (temp_dir.empty() || !CheckWithRetries(temp_dir)) {
+    if (temp_dir.empty() || !FileManager::CheckWithRetries(temp_dir)) {
         LOG(FATAL) << "Critical failure: Cannot create fallback cache directory";
         return {};
     }
