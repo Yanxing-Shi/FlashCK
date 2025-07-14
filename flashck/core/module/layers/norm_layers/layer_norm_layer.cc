@@ -15,19 +15,19 @@ LayerNormLayer<T>::LayerNormLayer(Shape          normalized_shape,
     gamma_var_->SetShape(normalized_shape);
     beta_var_->SetShape(normalized_shape);
 
-    layer_norm_op_ = std::make_unique<LayerNormOp<T>>(normalized_shape, is_add_bias_, fused_add_, fused_quant_);
+    layer_norm_op_ = std::make_unique<LayerNormOp<T>>(normalized_shape, is_add_bias, fused_add, fused_quant);
 
     this->context_ptr_->ExitLayer();
 }
 
 template<typename T>
 Variable* LayerNormLayer<T>::operator()(Variable* x,
+                                        float     eps,
                                         Variable* x_bias,
                                         Variable* x_residual,
                                         Variable* smooth_scale,
                                         Variable* y_residual,
-                                        Variable* y_scale,
-                                        float     eps = 1e-5)
+                                        Variable* y_scale)
 {
     SetInputs({x});
 

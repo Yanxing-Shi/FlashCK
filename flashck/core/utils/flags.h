@@ -70,23 +70,23 @@ struct FlagInfo {
 
 using ExportedFlagInfoMap = std::map<std::string, FlagInfo>;
 
-ExportedFlagInfoMap* GetMutableExportedFlagInfoMap()
+inline ExportedFlagInfoMap* GetMutableExportedFlagInfoMap()
 {
     static ExportedFlagInfoMap g_exported_flag_info_map;
     return &g_exported_flag_info_map;
 }
 
-const ExportedFlagInfoMap& GetExportedFlagInfoMap()
+inline const ExportedFlagInfoMap& GetExportedFlagInfoMap()
 {
     return *GetMutableExportedFlagInfoMap();
 }
 
-bool SetFlagValue(const char* name, const char* value)
+inline bool SetFlagValue(const char* name, const char* value)
 {
     return !gflags::SetCommandLineOption(name, value).empty();
 }
 
-bool FindFlag(const char* name)
+inline bool FindFlag(const char* name)
 {
     std::string dummy;
     return gflags::GetCommandLineOption(name, &dummy);

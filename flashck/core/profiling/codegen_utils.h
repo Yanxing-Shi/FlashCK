@@ -5,13 +5,13 @@
 #include "flashck/core/profiling/codegen_common.h"
 #include "flashck/core/utils/common.h"
 
-FC_DECLARE_int32(FC_N_WARMUP);
-FC_DECLARE_int32(FC_N_REPEAT);
-FC_DECLARE_bool(FC_IS_GPU_TIMER);
-FC_DECLARE_int32(FC_VERIFY);
-FC_DECLARE_bool(FC_LOG);
-FC_DECLARE_bool(FC_FLUSH_CACHE);
-FC_DECLARE_int32(FC_ROTATING_COUNT);
+FC_DECLARE_int32(FC_TUNING_WARM_UP);
+FC_DECLARE_int32(FC_TUNING_ITERATIONS);
+FC_DECLARE_bool(FC_TUNING_GPU_TIMER);
+FC_DECLARE_bool(FC_TUNING_VERIFY);
+FC_DECLARE_bool(FC_TUNING_LOG);
+FC_DECLARE_bool(FC_TUNING_FLUSH_CACHE);
+FC_DECLARE_int32(FC_TUNING_ROTATING_COUNT);
 
 namespace flashck {
 
@@ -79,13 +79,13 @@ public:
 class Setting {
 public:
     Setting():
-        n_warmup_(FLAGS_FC_N_WARMUP),
-        n_repeat_(FLAGS_FC_N_REPEAT),
-        is_gpu_timer_(FLAGS_FC_IS_GPU_TIMER),
-        verify_(FLAGS_FC_VERIFY),
-        log_(FLAGS_FC_LOG),
-        flush_cache_(FLAGS_FC_FLUSH_CACHE),
-        rotating_count_(FLAGS_FC_ROTATING_COUNT)
+        n_warmup_(FLAGS_FC_TUNING_WARM_UP),
+        n_repeat_(FLAGS_FC_TUNING_ITERATIONS),
+        is_gpu_timer_(FLAGS_FC_TUNING_GPU_TIMER),
+        verify_(FLAGS_FC_TUNING_VERIFY),
+        log_(FLAGS_FC_TUNING_LOG),
+        flush_cache_(FLAGS_FC_TUNING_FLUSH_CACHE),
+        rotating_count_(FLAGS_FC_TUNING_ROTATING_COUNT)
     {
     }
 
@@ -119,7 +119,7 @@ public:
     int  n_warmup_;
     int  n_repeat_;
     bool is_gpu_timer_;
-    int  verify_;
+    bool verify_;
     bool log_;
     bool flush_cache_;
     int  rotating_count_;
@@ -157,6 +157,11 @@ public:
             default:
                 throw std::invalid_argument("Unsupported metric type");
         }
+    }
+
+    bool IsValid() const
+    {
+        return split_k_ >= -1 && latency_ >= 0 && tflops_ >= 0 && bandwidth_ >= 0;
     }
 
     int64_t split_k_;
@@ -220,9 +225,10 @@ public:
         return std::visit(std::forward<Visitor>(vis), problem_);
     }
 
-    void SetProblem(auto&& prob)
+    template<typename Problem>
+    void SetProblem(Problem&& prob)
     {
-        problem_ = std::forward<decltype(prob)>(prob);
+        problem_ = std::forward<Problem>(prob);
     }
 
     Environment environment_;

@@ -195,7 +195,7 @@ public:
                                   block_table_var.get(),
                                   cache_seqlen_k_var.get());
 
-        context_ptr->CodegenAndProfileKernel();
+        context_ptr->CodeGenAndProfiling();
         context_ptr->BuildContext();
 
         auto          ceildiv = [](int64_t a, int64_t b) { return (a + b - 1) / b; };

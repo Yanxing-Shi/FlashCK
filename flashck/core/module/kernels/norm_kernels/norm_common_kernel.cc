@@ -5,11 +5,11 @@ FC_DECLARE_string(FC_HOME_PATH);
 namespace flashck {
 
 std::vector<std::tuple<std::filesystem::path, std::filesystem::path>>
-NormCommonKernel::CommonCodeGenForTuning(const std::string&                                  model_name,
-                                         const std::string&                                  kind_name,
-                                         const std::map<std::string, std::unique_ptr<void>>& instance_map,
-                                         const TuningTpl&                                    tuning_tpl,
-                                         const std::string&                                  folder_name)
+NormCommonKernel::CommonCodeGenForTuning(const std::string&    model_name,
+                                         const std::string&    kind_name,
+                                         const instance_map_t& instance_map,
+                                         const TuningTpl&      tuning_tpl,
+                                         const std::string&    folder_name)
 {
 
     std::vector<std::tuple<std::filesystem::path, std::filesystem::path>> file_tuples;
@@ -23,15 +23,16 @@ NormCommonKernel::CommonCodeGenForTuning(const std::string&                     
     std::filesystem::path common_header_path = prefix_path / "norm_common.h";
     FileManager::WriteFile(common_header_path, common_header);
 
-    for (const auto& [instance_name, instance] : instance_map) {
-        auto*       norm_kernel_instance = static_cast<NormCodeGen*>(instance.get());
-        std::string instance_code        = norm_kernel_instance->Emit();
+    auto norm_instance_map = std::get<norm_codegen_map_t>(instance_map);
+
+    for (const auto& [instance_name, instance] : norm_instance_map) {
+        std::string instance_code = instance.Emit();
 
         jinja2::ValuesMap dtype_decl_value_map{
-            {"x_dtype", DataTypeToTileString(norm_kernel_instance->x_dtype_)},
-            {"y_dtype", DataTypeToTileString(norm_kernel_instance->y_dtype_)},
-            {"smooth_scale_dtype", DataTypeToTileString(norm_kernel_instance->smooth_scale_dtype_)},
-            {"y_scale_dtype", DataTypeToTileString(norm_kernel_instance->y_scale_dtype_)}};
+            {"x_dtype", DataTypeToTileString(instance.x_dtype_)},
+            {"y_dtype", DataTypeToTileString(instance.y_dtype_)},
+            {"smooth_scale_dtype", DataTypeToTileString(instance.smooth_scale_dtype_)},
+            {"y_scale_dtype", DataTypeToTileString(instance.y_scale_dtype_)}};
         std::string dtype_decl = TemplateLoadAndRender(tuning_tpl.dtype_decl_tpl_, dtype_decl_value_map);
 
         std::string create_args = TemplateLoadAndRender(g_norm_create_args_tpl, {{}});
@@ -41,9 +42,9 @@ NormCommonKernel::CommonCodeGenForTuning(const std::string&                     
                                                   {"instance_code", instance_code}};
         std::string       instance_decl = TemplateLoadAndRender(g_norm_instance_tpl, instance_decl_value_map);
 
-        jinja2::ValuesMap make_args_value_map{{"is_add_bias", GetNormBiasName(norm_kernel_instance->is_add_bias_)},
-                                              {"fused_add", GetFusedAddName(norm_kernel_instance->fused_add_)},
-                                              {"fused_quant", GetFusedQuantName(norm_kernel_instance->fused_quant_)}};
+        jinja2::ValuesMap make_args_value_map{{"is_add_bias", GetNormBiasName(instance.is_add_bias_)},
+                                              {"fused_add", GetFusedAddName(instance.fused_add_)},
+                                              {"fused_quant", GetFusedQuantName(instance.fused_quant_)}};
         std::string       make_args = TemplateLoadAndRender(tuning_tpl.make_args_tpl_, make_args_value_map);
 
         jinja2::ValuesMap running_value_map{{"make_args", make_args},
@@ -64,14 +65,14 @@ NormCommonKernel::CommonCodeGenForTuning(const std::string&                     
         std::string       kernel_func = TemplateLoadAndRender(g_norm_kernel_func_tpl, func_value_map);
 
         jinja2::ValuesMap func_call_value_map{{"function_name", "Norm"},
-                                              {"is_add_bias", GetNormBiasName(norm_kernel_instance->is_add_bias_)},
-                                              {"fused_add", GetFusedAddName(norm_kernel_instance->fused_add_)},
-                                              {"fused_quant", GetFusedQuantName(norm_kernel_instance->fused_quant_)}};
+                                              {"is_add_bias", GetNormBiasName(instance.is_add_bias_)},
+                                              {"fused_add", GetFusedAddName(instance.fused_add_)},
+                                              {"fused_quant", GetFusedQuantName(instance.fused_quant_)}};
         std::string       func_call = TemplateLoadAndRender(tuning_tpl.func_call_tpl_, func_call_value_map);
 
-        jinja2::ValuesMap tensor_decl_value_map{{"is_add_bias", GetNormBiasName(norm_kernel_instance->is_add_bias_)},
-                                                {"fused_add", GetFusedAddName(norm_kernel_instance->fused_add_)},
-                                                {"fused_quant", GetFusedQuantName(norm_kernel_instance->fused_quant_)}};
+        jinja2::ValuesMap tensor_decl_value_map{{"is_add_bias", GetNormBiasName(instance.is_add_bias_)},
+                                                {"fused_add", GetFusedAddName(instance.fused_add_)},
+                                                {"fused_quant", GetFusedQuantName(instance.fused_quant_)}};
         std::string       tensor_decl = TemplateLoadAndRender(tuning_tpl.tensor_decl_tpl_, tensor_decl_value_map);
 
         jinja2::ValuesMap profiling_value_map{{"create_args", create_args},
@@ -98,13 +99,12 @@ NormCommonKernel::CommonCodeGenForTuning(const std::string&                     
     return file_tuples;
 }
 
-std::string
-NormCommonKernel::CommonCodeGenForRunning(const std::string&                                  func_name,
-                                          const std::string&                                  model_name,
-                                          const std::map<std::string, RunningItem>&           running_infos,
-                                          const std::map<std::string, std::unique_ptr<void>>& kernel_instance_map,
-                                          const RunningTpl&                                   running_tpl,
-                                          const std::string&                                  folder_name)
+std::string NormCommonKernel::CommonCodeGenForRunning(const std::string&                        func_name,
+                                                      const std::string&                        model_name,
+                                                      const std::map<std::string, RunningItem>& running_infos,
+                                                      const instance_map_t&                     instance_map,
+                                                      const RunningTpl&                         running_tpl,
+                                                      const std::string&                        folder_name)
 {
 
     std::filesystem::path prefix_path = std::filesystem::path(FLAGS_FC_HOME_PATH) / folder_name / model_name;
@@ -118,14 +118,15 @@ NormCommonKernel::CommonCodeGenForRunning(const std::string&                    
     std::string                        instance_decl;
     std::set<std::string>              instance_def_flag;
     std::map<std::string, std::string> running_instance_map;
+    auto                               norm_instance_map = std::get<norm_codegen_map_t>(instance_map);
     for (const auto& [_, running_item] : running_infos) {
         std::string hash_running_cond = "f" + HashToHexString(running_item.running_cond_);
         std::string instance_name     = running_item.instance_name_;
 
         std::string instance_code;
         if (instance_def_flag.find(instance_name) == instance_def_flag.end()) {
-            auto* norm_kernel_instance = static_cast<NormCodeGen*>(kernel_instance_map.at(instance_name).get());
-            instance_code              = norm_kernel_instance->Emit();
+            auto instance = norm_instance_map.at(instance_name);
+            instance_code = instance.Emit();
             instance_def_flag.insert(instance_name);
         }
 
@@ -137,14 +138,14 @@ NormCommonKernel::CommonCodeGenForRunning(const std::string&                    
         instance_decl += instance;
     }
 
-    auto*          norm_kernel_instance = static_cast<NormCodeGen*>(kernel_instance_map.begin()->second.get());
-    DataType       x_dtype              = norm_kernel_instance->x_dtype_;
-    DataType       y_dtype              = norm_kernel_instance->y_dtype_;
-    DataType       smooth_scale_dtype   = norm_kernel_instance->smooth_scale_dtype_;
-    DataType       y_scale_dtype        = norm_kernel_instance->y_scale_dtype_;
-    NormBiasEnum   is_add_bias          = norm_kernel_instance->is_add_bias_;
-    FusedAddEnum   fused_add            = norm_kernel_instance->fused_add_;
-    FusedQuantEnum fused_quant          = norm_kernel_instance->fused_quant_;
+    auto           instance           = norm_instance_map.begin()->second;
+    DataType       x_dtype            = instance.x_dtype_;
+    DataType       y_dtype            = instance.y_dtype_;
+    DataType       smooth_scale_dtype = instance.smooth_scale_dtype_;
+    DataType       y_scale_dtype      = instance.y_scale_dtype_;
+    NormBiasEnum   is_add_bias        = instance.is_add_bias_;
+    FusedAddEnum   fused_add          = instance.fused_add_;
+    FusedQuantEnum fused_quant        = instance.fused_quant_;
 
     std::string running_paths;
     for (const auto& [running_cond, _] : running_instance_map) {

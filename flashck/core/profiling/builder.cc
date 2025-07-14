@@ -5,7 +5,6 @@
 
 #include "flashck/core/profiling/profiling_engine.h"
 #include "flashck/core/utils/common.h"
-#include "flashck/core/utils/file_manager.h"
 
 FC_DECLARE_int32(FC_NUM_BUILDERS);
 FC_DECLARE_bool(FC_COMBINE_PROFILING_tplS);

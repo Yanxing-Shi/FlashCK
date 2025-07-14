@@ -263,19 +263,19 @@ namespace flashck {
 class LayerNormKernel: public NormCommonKernel {
 public:
     std::vector<std::tuple<std::filesystem::path, std::filesystem::path>>
-    CodeGenForTuning(const std::string&                                  model_name,
-                     const std::string&                                  kind_name,
-                     const std::map<std::string, std::unique_ptr<void>>& instance_map,
-                     const std::string&                                  folder_name = "kernel_profile") override;
+    CodeGenForTuning(const std::string&    model_name,
+                     const std::string&    kind_name,
+                     const instance_map_t& instance_map,
+                     const std::string&    folder_name = "kernel_profile") override;
 
-    std::string CodeGenForRunning(const std::string&                                  func_name,
-                                  const std::string&                                  model_name,
-                                  const std::map<std::string, RunningItem>&           running_infos,
-                                  const std::map<std::string, std::unique_ptr<void>>& kernel_instance_map,
-                                  const std::string& folder_name = "kernel_profile") override;
+    std::string CodeGenForRunning(const std::string&                        func_name,
+                                  const std::string&                        model_name,
+                                  const std::map<std::string, RunningItem>& running_infos,
+                                  const instance_map_t&                     instance_map,
+                                  const std::string&                        folder_name = "kernel_profile") override;
 
-    void KernelLauncher(const std::string& kernel_func_name, const KernelArgs& args) override;
+    void KernelLauncher(const std::string& kernel_func_name, const KernelArgs_t& args) override;
 };
 }  // namespace flashck
 
-FC_REGISTER_KERNEL(TILE, layer_norm, flashck::LayerNormKernel, ALL_LAYOUT, FP16, FP32);
+FC_REGISTER_KERNEL(TILE, layer_norm, flashck::LayerNormKernel, ALL_LAYOUT, FP16, FP32, BF16);

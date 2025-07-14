@@ -21,7 +21,7 @@
 #include "flashck/core/module/kernels/kernel_factory.h"
 #include "flashck/core/profiling/gemm_cache_entry.h"
 
-FC_DECLARE_bool(FC_FORCE_PROFILE);
+FC_DECLARE_bool(FC_FORCE_PROFILING);
 FC_DECLARE_bool(FC_FORCE_PROFILING_DB);
 FC_DECLARE_string(FC_HOME_PATH);
 
@@ -326,7 +326,7 @@ public:
         std::vector<std::tuple<std::filesystem::path, std::filesystem::path>> generated_profilers;
 
         for (int i = 0; i < exec_key_.size(); i++) {
-            Target::Instance()->GenerateInstances(CodeGenKind::Gemm, gemm_problems[i]);
+            Target::Instance()->GenerateKernel(CodeGenKind::Gemm, gemm_problems[i]);
 
             // init kernel instance map
             kernel_instance_map_ = register_kernel_ptr_->Init(op_kind_, epilogue_op_);

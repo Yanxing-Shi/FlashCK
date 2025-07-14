@@ -6,4 +6,4 @@ add_library(graph STATIC ${GraphFile})
 target_include_directories(graph PUBLIC
     ${CMAKE_SOURCE_DIR}
 )
-target_link_libraries(graph PUBLIC utils)
+target_link_libraries(graph PUBLIC utils memory)

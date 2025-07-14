@@ -6,19 +6,25 @@
 #include <iomanip>
 #include <iostream>
 #include <iterator>
+#include <map>
 #include <memory>
 #include <numeric>
+#include <regex>
 #include <sstream>
 #include <string>
 #include <type_traits>
 #include <utility>
 #include <vector>
 
+#include "flashck/core/utils/enforce.h"
+#include "flashck/core/utils/errors.h"
+#include "flashck/core/utils/printf.h"
+
 namespace flashck {
 
-bool StartsWith(std::string str, std::string prefix) noexcept;
+bool StartsWith(const std::string& str, const std::string& prefix);
 
-bool EndsWith(std::string str, std::string suffix) noexcept;
+bool EndsWith(const std::string& str, const std::string& suffix);
 
 template<typename T, typename = void>
 struct is_streamable: std::false_type {};
@@ -78,6 +84,11 @@ std::string HashToHexString(const std::string& input_str);
 std::string CombinedHashToHexString(const std::string& input_str);
 
 void ReplaceAll(std::string& s, const std::string& search, const std::string& replacement);
+
+std::map<std::string, int> ExtractWorkLoad(const std::string& key);
+
+std::string GenWorkLoad(const std::map<std::string, std::vector<int64_t>>& name_value_mapping);
+
 template<typename InputIterator, typename KeyFunc>
 class GroupBy {
 public:

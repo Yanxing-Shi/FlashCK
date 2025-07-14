@@ -3,9 +3,8 @@
 #include "flashck/core/utils/common.h"
 
 FC_DECLARE_string(FC_HOME_PATH);
-FC_DECLARE_string(FC_PROFILING_DB_DIR);
+FC_DECLARE_string(FC_TUNING_DB_DIR);
 FC_DECLARE_bool(FC_FLUSH_PROFILING_DB);
-FC_DECLARE_bool(FC_DELETE_PROFILING_FILE);
 
 namespace flashck {
 
@@ -24,8 +23,8 @@ ProfilingEngine::ProfilingEngine()
 ProfilingEngine::~ProfilingEngine()
 {
     // Early exit if profiling cleanup is disabled via feature flag
-    if (!FLAGS_FC_DELETE_PROFILING_FILE)
-        return;
+    // if (!FLAGS_FC_DELETE_PROFILING_FILE)
+    //     return;
 
     // // Skip cleanup for uninitialized paths
     // if (profiling_file_path_.empty()) {
@@ -55,18 +54,6 @@ ProfilingEngine* ProfilingEngine::GetInstance()
     return &instance;
 }
 
-// Generates kernel operations and populates instance maps
-void ProfilingEngine::GenerateInstances(const CodeGenKind& code_gen_kind, const std::variant<NormProblem>& problem)
-{
-    switch (code_gen_kind) {
-        case CodeGenKind::Norm:
-            norm_instance_map_ = NormEmitter::GetInstance()->GenerateInstances(std::get<NormProblem>(problem));
-            break;
-        default:
-            break;
-    }
-}
-
 // Loads profiling database for the target device
 void ProfilingEngine::LoadProfilingDB()
 {
@@ -89,15 +76,16 @@ void ProfilingEngine::LoadProfilingDB()
 std::filesystem::path ProfilingEngine::GetProfilingDBPath()
 {
     // Configure base paths
-    if (FLAGS_FC_PROFILING_DB_DIR.empty()) {
+    if (FLAGS_FC_TUNING_DB_DIR.empty()) {
         LOG(WARNING) << "profiling cache directory not set";
-        return TryFallbackDBPath();
     }
     const std::filesystem::path default_path = std::filesystem::path(FLAGS_FC_HOME_PATH) / ".flashck";
     if (default_path.empty()) {
         LOG(ERROR) << "No valid base path available for profiling database";
         return {};
     }
+
+    FileManager::CreateDirectories(default_path);
 
     // Ensure directory existence
     if (!FileManager::CheckWithRetries(default_path)) {
@@ -141,32 +129,32 @@ void ProfilingEngine::FlushExistingDB(const std::filesystem::path& path)
     LOG(WARNING) << "Cache flush failed for " << path.string() << ": " << (ec ? ec.message() : "Unknown error");
 }
 
-void ProfilingEngine::CodegenAndProfileKernel(const std::vector<Operation*>& model_ops,
-                                              const std::string&             context_name,
-                                              const ProfilingStrategy&       strategy)
-{
-    // step1: gen profiler
-    std::vector<std::vector<std::tuple<std::filesystem::path, std::filesystem::path>>> graph_generated_profilers =
-        GenProfiler(model_ops, strategy);
+// void ProfilingEngine::CodeGenAndProfiling(const std::vector<Operation*>& model_ops,
+//                                           const std::string&             context_name,
+//                                           const ProfilingStrategy&       strategy)
+// {
+//     // step1: gen profiler
+//     std::vector<std::vector<std::tuple<std::filesystem::path, std::filesystem::path>>> graph_generated_profilers =
+//         CodeGenForTuning(model_ops, strategy);
 
-    // // step.2 profile result
-    VLOG(1) << "Profiler generated " << graph_generated_profilers.size() << " model operations";
-    Builder builder;
-    builder.MakeTuning(graph_generated_profilers, context_name);
-    auto profiling_runner = GPUProfilingRunner{Postprocesser{}};
-    for (Operation* op_ptr : model_ops) {
-        op_ptr->Profile(profiling_runner);
-    }
-    profiling_runner.Join();
+//     // // // step.2 profile result
+//     // VLOG(1) << "Profiler generated " << graph_generated_profilers.size() << " model operations";
+//     // Builder builder;
+//     // builder.MakeTuning(graph_generated_profilers, context_name);
+//     // auto profiling_runner = GPUProfilingRunner{Postprocesser{}};
+//     // for (Operation* op_ptr : model_ops) {
+//     //     op_ptr->Profile(profiling_runner);
+//     // }
+//     // profiling_runner.Join();
 
-    // step3 gen kernel source function
-    std::vector<std::tuple<std::filesystem::path, std::filesystem::path>> file_tuples =
-        GenFunctionSource(model_ops, context_name);
-    builder.MakeRunning(file_tuples, "generated_kernel.so", context_name);
+//     // // step3 gen kernel source function
+//     // std::vector<std::tuple<std::filesystem::path, std::filesystem::path>> file_tuples =
+//     //     CodeGenForRunning(model_ops, context_name);
+//     // builder.MakeRunning(file_tuples, "generated_kernel.so", context_name);
 
-    // read dll and load function
-    ProfilingEngine::GetInstance()->LoadKernelLibrary("kernel_profile", context_name, "generated_kernel.so");
-}
+//     // // read dll and load function
+//     // ProfilingEngine::GetInstance()->LoadKernelLibrary("kernel_profile", context_name, "generated_kernel.so");
+// }
 
 void ProfilingEngine::LoadKernelLibrary(const std::string& folder_name,
                                         const std::string& context_name,

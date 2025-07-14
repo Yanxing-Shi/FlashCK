@@ -12,18 +12,18 @@ int NormCodeGen::instance_counter_ = 0;
 
 std::string NormTileDesc::GetInstanceName() const
 {
-    return fmt::format("{}_{}_{}_{}_{}", repeat_m_, repeat_n_, thread_per_block_m_, thread_per_block_n_, vector_n_);
+    return Sprintf("{}_{}_{}_{}_{}", repeat_m_, repeat_n_, thread_per_block_m_, thread_per_block_n_, vector_n_);
 }
 
 std::string NormTileDesc::ToString() const
 {
-    return fmt::format("NormTileDesc(repeat_m={}, repeat_n={}, "
-                       "thread_per_block_m={}, thread_per_block_n={}, vector_n={})",
-                       repeat_m_,
-                       repeat_n_,
-                       thread_per_block_m_,
-                       thread_per_block_n_,
-                       vector_n_);
+    return Sprintf("NormTileDesc(repeat_m={}, repeat_n={}, "
+                   "thread_per_block_m={}, thread_per_block_n={}, vector_n={})",
+                   repeat_m_,
+                   repeat_n_,
+                   thread_per_block_m_,
+                   thread_per_block_n_,
+                   vector_n_);
 }
 
 bool NormTileDesc::IsValid() const
@@ -62,12 +62,14 @@ std::pair<int64_t, int64_t> NormTileDesc::CalculateWarpDistribution() const
     int64_t block_warps_m, block_warps_n;
 
     if (is_warp_per_row) {
-        FC_ENFORCE_EQ(warpSize % thread_per_block_n_, 0, "thread_per_block_n_ must be divisor of warpSize");
+        FC_ENFORCE_EQ(
+            warpSize % thread_per_block_n_, 0, Unavailable("thread_per_block_n_ must be divisor of warpSize"));
         block_warps_m = total_warps * (warpSize / thread_per_block_n_);
         block_warps_n = 1;
     }
     else {
-        FC_ENFORCE_EQ(thread_per_block_n_ % warpSize, 0, "thread_per_block_n_ must be multiple of warpSize");
+        FC_ENFORCE_EQ(
+            thread_per_block_n_ % warpSize, 0, Unavailable("thread_per_block_n_ must be multiple of warpSize"));
         block_warps_m = total_warps / (thread_per_block_n_ / warpSize);
         block_warps_n = thread_per_block_n_ / warpSize;
     }
@@ -78,11 +80,11 @@ std::pair<int64_t, int64_t> NormTileDesc::CalculateWarpDistribution() const
 std::string NormTileDesc::Emit() const
 {
     if (!IsValid()) {
-        FC_THROW(std::invalid_argument("Invalid tile descriptor: " + ToString()));
+        FC_THROW(Unavailable("Invalid tile descriptor:{} ", ToString()));
     }
 
     constexpr int64_t warpSize = 32;
-    FC_ENFORCE_EQ(GetTotalThreads() % warpSize, 0, "Total threads must be multiple of warpSize");
+    FC_ENFORCE_EQ(GetTotalThreads() % warpSize, 0, Unavailable("Total threads must be multiple of warpSize"));
 
     auto [block_warps_m, block_warps_n] = CalculateWarpDistribution();
 
@@ -91,46 +93,56 @@ std::string NormTileDesc::Emit() const
     const int64_t warp_m  = thread_per_block_m_ / block_warps_m;
     const int64_t warp_n  = thread_per_block_n_ / block_warps_n * vector_n_;
 
-    const std::string tile_template = R"(
+    const std::string tile_tpl = R"(
     ck_tile::Generic2dBlockShape<ck_tile::sequence<{}, {}>,
                                 ck_tile::sequence<{}, {}>,
                                 ck_tile::sequence<{}, {}>, 
                                 ck_tile::sequence<1, {}>>,
 )";
 
-    return fmt::format(tile_template, block_m, block_n, block_warps_m, block_warps_n, warp_m, warp_n, vector_n_);
+    jinja2::ValuesMap value_map{
+        {"block_m", block_m},
+        {"block_n", block_n},
+        {"block_warps_m", block_warps_m},
+        {"block_warps_n", block_warps_n},
+        {"warp_m", warp_m},
+        {"warp_n", warp_n},
+        {"vector_n_", vector_n_},
+    };
+
+    return TemplateLoadAndRender(tile_tpl, value_map);
 }
 
 // ==================== NormCodeGen Implementation ====================
 
 std::string NormCodeGen::GetInstanceName() const
 {
-    return fmt::format("{}_{}_{}_{}_{}_{}_{}_{}_{}",
-                       GetNormKindName(kind_),
-                       DataTypeToString(x_dtype_),
-                       DataTypeToString(y_dtype_),
-                       DataTypeToString(smooth_scale_dtype_),
-                       DataTypeToString(y_scale_dtype_),
-                       tile_desc_.GetInstanceName(),
-                       GetNormBiasName(is_add_bias_),
-                       GetFusedAddName(fused_add_),
-                       GetFusedQuantName(fused_quant_));
+    return Sprintf("{}_{}_{}_{}_{}_{}_{}_{}_{}",
+                   GetNormKindName(kind_),
+                   DataTypeToString(x_dtype_),
+                   DataTypeToString(y_dtype_),
+                   DataTypeToString(smooth_scale_dtype_),
+                   DataTypeToString(y_scale_dtype_),
+                   tile_desc_.GetInstanceName(),
+                   GetNormBiasName(is_add_bias_),
+                   GetFusedAddName(fused_add_),
+                   GetFusedQuantName(fused_quant_));
 }
 
 std::string NormCodeGen::ToString() const
 {
-    return fmt::format("NormCodeGen(kind={}, x_dtype={}, y_dtype={}, "
-                       "smooth_scale_dtype={}, y_scale_dtype={}, "
-                       "tile_desc={}, is_add_bias={}, fused_add={}, fused_quant={})",
-                       GetNormKindName(kind_),
-                       DataTypeToString(x_dtype_),
-                       DataTypeToString(y_dtype_),
-                       DataTypeToString(smooth_scale_dtype_),
-                       DataTypeToString(y_scale_dtype_),
-                       tile_desc_.ToString(),
-                       GetNormBiasName(is_add_bias_),
-                       GetFusedAddName(fused_add_),
-                       GetFusedQuantName(fused_quant_));
+    return Sprintf("NormCodeGen(kind={}, x_dtype={}, y_dtype={}, "
+                   "smooth_scale_dtype={}, y_scale_dtype={}, "
+                   "tile_desc={}, is_add_bias={}, fused_add={}, fused_quant={})",
+                   GetNormKindName(kind_),
+                   DataTypeToString(x_dtype_),
+                   DataTypeToString(y_dtype_),
+                   DataTypeToString(smooth_scale_dtype_),
+                   DataTypeToString(y_scale_dtype_),
+                   tile_desc_.ToString(),
+                   GetNormBiasName(is_add_bias_),
+                   GetFusedAddName(fused_add_),
+                   GetFusedQuantName(fused_quant_));
 }
 
 bool NormCodeGen::IsValid() const
@@ -145,47 +157,6 @@ bool NormCodeGen::IsValid() const
     if (!tile_desc_.IsValid()) {
         return false;
     }
-
-    // Validate data types
-    if (!ValidateDataTypes()) {
-        return false;
-    }
-
-    // Validate fusion modes
-    if (!ValidateFusionModes()) {
-        return false;
-    }
-
-    return true;
-}
-
-bool NormCodeGen::ValidateDataTypes() const
-{
-    // Check if data types are supported
-    const std::vector<DataType> supported_types = {DataType::Float16, DataType::Float32, DataType::BFloat16};
-
-    auto is_supported = [&](DataType type) {
-        return std::find(supported_types.begin(), supported_types.end(), type) != supported_types.end();
-    };
-
-    return is_supported(x_dtype_) && is_supported(y_dtype_) && is_supported(smooth_scale_dtype_)
-           && is_supported(y_scale_dtype_);
-}
-
-bool NormCodeGen::ValidateFusionModes() const
-{
-    // RMSNorm doesn't support bias
-    if (kind_ == NormKind::RMSNorm && is_add_bias_ != NormBiasEnum::NO_BIAS) {
-        return false;
-    }
-
-    // Smooth quantization requires specific scale types
-    if (fused_quant_ == FusedQuantEnum::SMOOTH_DYNAMIC_QUANT) {
-        if (smooth_scale_dtype_ != DataType::Float32) {
-            return false;
-        }
-    }
-
     return true;
 }
 
@@ -274,7 +245,7 @@ jinja2::ValuesMap NormCodeGen::GenerateValueMap() const
 std::string NormCodeGen::Emit() const
 {
     if (!IsValid()) {
-        FC_THROW(std::invalid_argument("Invalid norm code generation configuration: " + ToString()));
+        FC_THROW(Unavailable("Invalid norm code generation configuration:{} ", ToString()));
     }
 
     const std::string       template_tpl = GetTemplateSource();
@@ -284,7 +255,7 @@ std::string NormCodeGen::Emit() const
         return TemplateLoadAndRender(template_tpl, value_map);
     }
     catch (const std::exception& e) {
-        FC_THROW(std::runtime_error("Template rendering failed: " + std::string(e.what())));
+        FC_THROW(Unavailable("Template rendering failed: {}", e.what()));
     }
 }
 

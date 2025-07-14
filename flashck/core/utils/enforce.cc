@@ -7,14 +7,14 @@
 
 #include "flashck/core/utils/flags.h"
 
-FC_DECLARE_int32(call_stack_level);
+FC_DECLARE_int32(FC_CALL_STACK_LEVEL);
 
 namespace flashck {
 
 // FLAGS_call_stack_level>1 means showing c++ call stack
 int GetCallStackLevel()
 {
-    return FLAGS_call_stack_level;
+    return FLAGS_FC_CALL_STACK_LEVEL;
 }
 
 // internal throw warning

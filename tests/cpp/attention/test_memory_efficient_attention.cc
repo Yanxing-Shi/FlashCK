@@ -99,7 +99,7 @@ public:
                                                                                       configs.mask_enum_,
                                                                                       false);
         ater_out_       = (*attn_layer)(q_var.get(), k_var.get(), v_var.get(), bias_var.get());
-        context_ptr->CodegenAndProfileKernel();
+        context_ptr->CodeGenAndProfiling();
         context_ptr->BuildContext();
 
         q_var->SetValue((char*)q_.data_ptr());

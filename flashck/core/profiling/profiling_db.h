@@ -74,7 +74,7 @@ private:
         CHECK_SQLITE3(sqlite3_exec(db_ptr_.get(), sql, nullptr, nullptr, nullptr), db_ptr_.get());
     }
 
-    std::unique_ptr<sqlite3, decltype(&sqlite3_close_v2)> db_ptr_;
+    std::unique_ptr<sqlite3, decltype(&sqlite3_close)> db_ptr_;
 
     std::filesystem::path path_;
 };

@@ -4,6 +4,8 @@
 #include "flashck/core/module/kernels/kernel_call_def.h"
 #include "flashck/core/utils/common.h"
 
+#include "flashck/core/profiling/tile/norm/norm_codegen.h"
+
 namespace flashck {
 
 // Template configuration for kernel tuning
@@ -48,9 +50,13 @@ struct RunningTpl {
     }
 };
 
-// Execution item for profiling
-struct RunningItem {
-    std::string profiling_workload_;
+class RunningItem {
+public:
+    bool IsInstanceExist() const
+    {
+        return !instance_name_.empty() && !running_cond_.empty() && perf_result_.IsValid();
+    }
+
     std::string running_cond_;
     std::string instance_name_;
     PerfResult  perf_result_;
@@ -59,30 +65,33 @@ struct RunningItem {
 // Base kernel class
 class Kernel {
 public:
-    using KernelArgs = std::variant<NormKernelArgs>;
+    using KernelArgs_t = std::variant<NormKernelArgs>;
+
+    using norm_codegen_map_t = std::map<std::string, NormCodeGen>;
+    using instance_map_t     = std::variant<norm_codegen_map_t>;
 
     Kernel()          = default;
     virtual ~Kernel() = default;
 
     virtual std::vector<std::tuple<std::filesystem::path, std::filesystem::path>>
-    CodeGenForTuning(const std::string&                                  model_name,
-                     const std::string&                                  kind_name,
-                     const std::map<std::string, std::unique_ptr<void>>& instance_map,
-                     const std::string&                                  folder_name = "kernel_profile")
+    CodeGenForTuning(const std::string&    model_name,
+                     const std::string&    kind_name,
+                     const instance_map_t& instance_map,
+                     const std::string&    folder_name = "kernel_profile")
     {
         FC_THROW(Unimplemented("Kernel base CodeGenForTuning is not implemented."));
     }
 
-    virtual std::string CodeGenForRunning(const std::string&                                  func_name,
-                                          const std::string&                                  model_name,
-                                          const std::map<std::string, RunningItem>&           running_infos,
-                                          const std::map<std::string, std::unique_ptr<void>>& kernel_instance_map,
-                                          const std::string& folder_name = "kernel_profile")
+    virtual std::string CodeGenForRunning(const std::string&                        func_name,
+                                          const std::string&                        model_name,
+                                          const std::map<std::string, RunningItem>& running_infos,
+                                          const instance_map_t&                     instance_map,
+                                          const std::string&                        folder_name = "kernel_profile")
     {
         FC_THROW(Unimplemented("Kernel base CodeGenForRunning is not implemented."));
     }
 
-    virtual void KernelLauncher(const std::string& kernel_func_name, const KernelArgs& args)
+    virtual void KernelLauncher(const std::string& kernel_func_name, const KernelArgs_t& args)
     {
         FC_THROW(Unimplemented("Kernel base KernelLauncher is not implemented."));
     }

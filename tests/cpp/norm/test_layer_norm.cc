@@ -1,7 +1,7 @@
 
-#include "tests/utils/benchmark_utils.h"
-#include "tests/utils/gtest_utils.h"
-#include "tests/utils/torch_utils.h"
+#include "tests/cpp/utils/benchmark_utils.h"
+#include "tests/cpp/utils/gtest_utils.h"
+#include "tests/cpp/utils/torch_utils.h"
 
 #include "flashck/core/module/layers/norm_layers/layer_norm_layer.h"
 
@@ -52,9 +52,8 @@ public:
                            bool                        is_benchmark,
                            const std::string&          test_name)
     {
-        std::string context_name =
-            test_name + "_" + flashck::DataTypeToShortString(flashck::CppTypeToDataType<T>::Type());
-        flashck::Context::CreateGlobalContext(context_name, flashck::Mode::Inference);
+        std::string context_name = test_name + "_" + flashck::DataTypeToString(flashck::CppTypeToDataType<T>::Type());
+        flashck::Context::CreateGlobalContext(context_name);
         auto context_ptr = flashck::Context::GetGlobalInstance();
 
         auto x = std::make_unique<flashck::Variable>("x_var", flashck::CppTypeToDataType<T>::Type());
@@ -66,11 +65,12 @@ public:
             x->SetShape({flashck::DDim({1, m_max[0]}), flashck::DDim({1, m_max[1]}), flashck::DDim(emb_dims)});
         }
 
-        auto layer_norm_layer =
-            std::make_unique<flashck::LayerNormLayer<T>>(flashck::Shape({flashck::DDim(emb_dims)}), epsilon);
-        y_out_ater_ = (*layer_norm_layer)(x.get());
-        context_ptr->CodegenAndProfileKernel();
+        auto layer_norm_layer = std::make_unique<flashck::LayerNormLayer<T>>(flashck::Shape({flashck::DDim(emb_dims)}));
+        y_out_ater_           = (*layer_norm_layer)(x.get(), epsilon);
         context_ptr->BuildContext();
+
+        flashck::ProfilingEngine::GetInstance()->GetGraphCodeGen()->CodeGenAndProfiling(context_ptr->GetModelOps(),
+                                                                                        context_name);
 
         layer_norm_layer->LoadParam(reinterpret_cast<T*>(gamma_pt_.data_ptr()),
                                     reinterpret_cast<T*>(beta_pt_.data_ptr()));

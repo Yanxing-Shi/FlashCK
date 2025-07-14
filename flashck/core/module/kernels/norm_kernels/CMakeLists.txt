@@ -6,4 +6,4 @@ add_library(norm_kernel STATIC ${NormFile})
 target_include_directories(norm_kernel PUBLIC
     ${CMAKE_SOURCE_DIR}
 )
-target_link_libraries(norm_kernel PUBLIC utils)
+target_link_libraries(norm_kernel PUBLIC utils profiling_engine kernel_factory)

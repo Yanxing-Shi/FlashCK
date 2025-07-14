@@ -1,12 +1,10 @@
 #include "flashck/core/utils/flags.h"
 
-FC_DEFINE_EXPORTED_string(FC_HOME_PATH,
-                          "/torch6.0_rocm6.0_yanxishi/flashck",
-                          "The home path to the root of the project");
+FC_DEFINE_EXPORTED_string(FC_HOME_PATH, "/test_ck_yanxishi/flash_ck", "The home path to the root of the project");
 
 FC_DEFINE_EXPORTED_string(FC_ROCM_PATH, "/opt/rocm", "rocm path");
 
-FC_DEFINE_EXPORTED_string(FC_PROFILING_DB_DIR, "", "profiler cache dir");
+FC_DEFINE_EXPORTED_string(FC_TUNING_DB_DIR, "", "profiler cache dir");
 
 FC_DEFINE_EXPORTED_string(FC_BUILD_CACHE_DIR, "", "build cache dir");
 
@@ -34,37 +32,28 @@ FC_DEFINE_EXPORTED_bool(FC_TIME_COMPILATION, false, "time each make command at c
 
 FC_DEFINE_EXPORTED_bool(FC_FORCE_PROFILING_DB, false, "force the profiler to use the cached results");
 
-FC_DEFINE_EXPORTED_bool(FC_FORCE_PROFILE, false, "force profiling");
+FC_DEFINE_EXPORTED_bool(FC_FORCE_PROFILING, false, "force profiling");
 
 FC_DEFINE_EXPORTED_bool(FC_FLUSH_PROFILING_DB,
                         false,
                         "if flush profile cache is enabled, the profiler will flush the profile database");
 
-FC_DEFINE_EXPORTED_int32(FC_BUILD_CACHE_SKIP_PERCENTAGE, 30, "build cache skip percentage");
+FC_DEFINE_EXPORTED_int32(FC_TUNING_MODE, 0, "Mode for norm operation: 0 - heuristic, 1 - autotuning, 2 - hybrid");
 
-FC_DEFINE_EXPORTED_int32(FC_PROFILING_METRICS, 0, "Profiling metrics level: 0=latency, 1=tflops, 2=bandwidth");
+FC_DEFINE_EXPORTED_int32(FC_TUNING_METRIC, 0, "Profiling metrics level: 0=latency, 1=tflops, 2=bandwidth");
 
-FC_DEFINE_EXPORTED_int32(FC_PROFILING_WARM_UP, 16, "Profiling warm-up iterations");
+FC_DEFINE_EXPORTED_int32(FC_TUNING_WARM_UP, 16, "Profiling warm-up iterations");
 
-FC_DEFINE_EXPORTED_int32(FC_PROFILING_ITERATIONS, 64, "Profiling iterations");
+FC_DEFINE_EXPORTED_int32(FC_TUNING_ITERATIONS, 64, "Profiling iterations");
 
-FC_DEFINE_EXPORTED_bool(FC_PROFILING_GPU_TIMER, true, "Enable GPU timer");
+FC_DEFINE_EXPORTED_bool(FC_TUNING_GPU_TIMER, true, "Enable GPU timer");
 
-FC_DEFINE_EXPORTED_bool(FC_PROFILING_VERIFY, false, "Disable profiling verification");
+FC_DEFINE_EXPORTED_bool(FC_TUNING_VERIFY, false, "Disable profiling verification");
 
-FC_DEFINE_EXPORTED_bool(FC_PROFILING_LOG, false, "Disable logging");
+FC_DEFINE_EXPORTED_bool(FC_TUNING_LOG, false, "Disable logging");
 
-FC_DEFINE_EXPORTED_bool(FC_PROFILING_FLUSH_CACHE, true, "Flush cache for profiling");
+FC_DEFINE_EXPORTED_bool(FC_TUNING_FLUSH_CACHE, true, "Flush cache for profiling");
 
-FC_DEFINE_EXPORTED_int32(FC_PROFILING_ROTATING_COUNT, 1, "Number of rotating ");
+FC_DEFINE_EXPORTED_int32(FC_TUNING_ROTATING_COUNT, 1, "Number of rotating ");
 
 FC_DEFINE_EXPORTED_int32(FC_CALL_STACK_LEVEL, 1, "Error stack level: 0=summary, 1=+Python, 2=+C++");
-
-FC_DEFINE_EXPORTED_string(FC_SELECTED_DEVICES,
-                          "0",
-                          "A list of device ids separated by comma, like: 0,1,2,3. "
-                          "This option is useful when doing profiling. If you want to use "
-                          "all visible devices, set this to an empty string."
-                          "If you want to use all devices, set this to an empty string. "
-                          "If you want to use a single device, set this to 0. "
-                          "If you want to use multiple devices, set this to 0,1,2,3.");

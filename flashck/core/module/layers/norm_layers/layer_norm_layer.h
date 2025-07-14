@@ -19,12 +19,12 @@ public:
     ~LayerNormLayer() = default;
 
     Variable* operator()(Variable* x,
+                         float     eps          = 1e-5,
                          Variable* x_bias       = nullptr,
                          Variable* x_residual   = nullptr,
                          Variable* smooth_scale = nullptr,
                          Variable* y_residual   = nullptr,
-                         Variable* y_scale      = nullptr,
-                         float     eps          = 1e-5);
+                         Variable* y_scale      = nullptr);
 
     void LoadParam(const T* gamma_ptr, const T* beta_ptr);
 

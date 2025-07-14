@@ -11,7 +11,7 @@ ProfilingDB::ProfilingDB(const std::filesystem::path& path):
                           raw_db_ptr);
             return raw_db_ptr;
         }(),
-        &sqlite3_close_v2),
+        &sqlite3_close),
     path_(path)
 {
     try {

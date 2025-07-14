@@ -31,15 +31,19 @@ public:
     void                           SetStream(hipStream_t stream);
 
     // Graph
-    int    GetNodeIdx() const;
-    void   UpdateNodeIdx();
-    void   AddOp(Operation* op);
-    void   AddNode(Node* node);
-    void   EnterLayer(Layer* cur_layer, bool is_initial);
-    void   ExitLayer();
-    Layer* GetLastLayer() const;
-    Node*  GetLastNode() const;
-    bool   CheckIfInit();
+    int                     GetNodeIdx() const;
+    void                    UpdateNodeIdx();
+    void                    AddOp(Operation* op);
+    void                    AddNode(Node* node);
+    void                    EnterLayer(Layer* cur_layer, bool is_initial);
+    void                    ExitLayer();
+    Layer*                  GetLastLayer() const;
+    Node*                   GetLastNode() const;
+    bool                    CheckIfInit();
+    std::vector<Operation*> GetModelOps() const
+    {
+        return model_ops_;
+    }
 
     // Context
     void BuildContext();

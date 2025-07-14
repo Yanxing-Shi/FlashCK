@@ -63,7 +63,7 @@ public:
             k_runtime, n_mul_res_, false, true, "permute", flashck::Shape({n_runtime[0], n_runtime[1]}));
 
         y_out_ater_ = (*linear_layer)(x.get());
-        context_ptr->CodegenAndProfileKernel();
+        context_ptr->CodeGenAndProfiling();
         context_ptr->BuildContext();
 
         linear_layer->LoadParam(reinterpret_cast<T*>(w_pt_.data_ptr()), reinterpret_cast<T*>(b_pt_.data_ptr()));

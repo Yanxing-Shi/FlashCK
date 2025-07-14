@@ -3,10 +3,9 @@
 #include <gtest/gtest.h>
 #include <hip/hip_fp16.h>
 
-#include "tests/utils/torch_utils.h"
+#include "tests/cpp/utils/torch_utils.h"
 
-#include "flashck/core/utils/log.h"
-#include "flashck/core/utils/memory_utils.h"
+#include "flashck/core/utils/common.h"
 
 #include "flashck/core/graph/context.h"
 
@@ -142,13 +141,13 @@ inline bool CheckResult(
     out_type* h_out = nullptr;
     if (device_out) {
         h_out = reinterpret_cast<out_type*>(malloc(sizeof(out_type) * size));
-        flashck::HipD2HCpy(h_out, out, size);
+        flashck::HipD2HCpyAsync(h_out, out, size);
         out = h_out;
     }
     ref_type* h_ref = nullptr;
     if (device_ref) {
         h_ref = reinterpret_cast<ref_type*>(malloc(sizeof(ref_type) * size));
-        flashck::HipD2HCpy(h_ref, ref, size);
+        flashck::HipD2HCpyAsync(h_ref, ref, size);
         ref = h_ref;
     }
 

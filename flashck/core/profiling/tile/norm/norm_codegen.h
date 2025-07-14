@@ -227,18 +227,6 @@ private:
      */
     std::string GetTemplateSource() const;
 
-    /**
-     * @brief Validates data type compatibility
-     * @return true if data types are compatible
-     */
-    bool ValidateDataTypes() const;
-
-    /**
-     * @brief Validates fusion mode compatibility
-     * @return true if fusion modes are compatible
-     */
-    bool ValidateFusionModes() const;
-
     static int instance_counter_;  ///< Counter for unique instance IDs
 };
 

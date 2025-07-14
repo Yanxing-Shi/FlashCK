@@ -71,7 +71,7 @@ inline std::string DataTypeToTileString(const DataType& dtype)
     }
 }
 
-const char* DataTypeToString(DataType type)
+inline const char* DataTypeToString(DataType type)
 {
     switch (type) {
         case DataType::BOOL:

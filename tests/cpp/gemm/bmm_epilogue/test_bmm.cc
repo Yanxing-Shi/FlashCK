@@ -48,7 +48,7 @@ public:
 
         auto bmm_layer = std::make_unique<flashck::BmmLayer<T>>(k_runtime, n_runtime, false);
         y_out_ater_    = (*bmm_layer)(x.get());
-        context_ptr->CodegenAndProfileKernel();
+        context_ptr->CodeGenAndProfiling();
         context_ptr->BuildContext();
 
         bmm_layer->LoadParam(reinterpret_cast<T*>(w_pt_.data_ptr()));

@@ -5,9 +5,9 @@
 
 #include "flashck/core/profiling/profiling_engine.h"
 
-FC_DECLARE_bool(FC_BUILDING_MAX_ATTEMPTS);
-FC_DECLARE_bool(FC_BUILDING_TIMEOUT);
-FC_DECLARE_int32(FC_PROFILING_METRIC);
+FC_DECLARE_int32(FC_BUILDING_MAX_ATTEMPTS);
+FC_DECLARE_int32(FC_BUILDING_TIMEOUT);
+FC_DECLARE_int32(FC_TUNING_METRIC);
 
 namespace flashck {
 
@@ -30,7 +30,7 @@ void Postprocesser::PostProcessResults()
     auto instance_groups = GroupByFunc(instances_.begin(), instances_.end(), ProfileResultGroupByKey{});
 
     for (const auto& group : instance_groups) {
-        auto metric        = static_cast<Metric>(FLAGS_FC_PROFILING_METRIC);
+        auto metric        = static_cast<Metric>(FLAGS_FC_TUNING_METRIC);
         auto best_instance = *std::max_element(group.begin(), group.end(), [metric](const auto& a, const auto& b) {
             return PerfResult::compare(b.perf_result_, a.perf_result_, metric);
         });

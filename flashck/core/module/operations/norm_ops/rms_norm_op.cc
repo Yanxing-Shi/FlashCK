@@ -5,8 +5,7 @@
 #include "flashck/core/utils/flags.h"
 #include "flashck/core/utils/log.h"
 
-FC_DECLARE_bool(FC_FORCE_PROFILE);
-FC_DECLARE_bool(FC_FORCE_PROFILING_DB);
+FC_DECLARE_bool(FC_FORCE_PROFILING);
 FC_DECLARE_string(FC_HOME_PATH);
 
 namespace flashck {

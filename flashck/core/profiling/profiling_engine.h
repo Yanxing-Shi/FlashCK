@@ -19,9 +19,6 @@ public:
 
     static ProfilingEngine* GetInstance();
 
-    // Generate kernel for the given operation kind and problem
-    void GenerateInstances(const CodeGenKind& code_gen_kind, const std::variant<NormProblem>& problem);
-
     // Constructs validated cache path following hierarchy:
     std::filesystem::path GetProfilingDBPath();
 
@@ -31,10 +28,6 @@ public:
     std::filesystem::path TryFallbackDBPath();
 
     void FlushExistingDB(const std::filesystem::path& path);
-
-    void CodegenAndProfileKernel(const std::vector<Operation*>& model_ops,
-                                 const std::string&             context_name,
-                                 const ProfilingStrategy&       strategy);
 
     // load kernel library
     void
@@ -58,14 +51,20 @@ public:
         return kernel_lib_.get();
     }
 
+    // get graph code generator
+    GraphCodeGen* GetGraphCodeGen()
+    {
+        return graph_codegen_.get();
+    }
+
 private:
     std::filesystem::path db_path_;
 
-    std::unique_ptr<Compiler>    compiler_;
-    std::unique_ptr<ProfilingDB> profiling_db_;
+    std::unique_ptr<Compiler>     compiler_;
+    std::unique_ptr<ProfilingDB>  profiling_db_;
+    std::unique_ptr<GraphCodeGen> graph_codegen_;
 
-    std::map<NormKind, std::map<std::string, std::unique_ptr<NormCodeGen>>> norm_instance_map_;
-    std::unique_ptr<dylib>                                                  kernel_lib_;
+    std::unique_ptr<dylib> kernel_lib_;
 };
 
 }  // namespace flashck

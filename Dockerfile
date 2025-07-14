@@ -46,6 +46,17 @@ RUN git clone https://github.com/jinja2cpp/Jinja2Cpp.git -b 1.2.1 && \
     cmake --build . --config Release --target install && \
     cd /tmp && rm -rf Jinja2Cpp
 
+
+# google test
+WORKDIR /tmp
+RUN git clone https://github.com/google/googletest.git -b v1.17.0 && \
+    cd googletest && \
+    mkdir build && cd build && \
+    cmake -DCMAKE_INSTALL_PREFIX=/usr/local .. && \
+    make -j$(nproc) && \
+    make install && \
+    cd /tmp && rm -rf googletest
+
 CMD ["/bin/bash"]
 
 

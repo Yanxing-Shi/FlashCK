@@ -10,8 +10,6 @@
 
 namespace flashck {
 
-const std::vector<int> GetSelectedDevices();
-
 int GetCurrentDeviceId();
 
 void SetDeviceAndGetPrevious(int target_device_id, int* previous_device_id = nullptr);

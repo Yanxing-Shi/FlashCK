@@ -123,9 +123,6 @@ public:
 
     void MallocMemory(const size_t size);
 
-    // auto regressive model
-    void UpdateRegressiveIdx();
-
     // debug
     void PrintVar();
 
@@ -160,19 +157,19 @@ public:
     Variable* GetChildNode(const int index);
     Variable* GetParentNode(const int index);
 
-    virtual void Profile(const GPUProfilingRunner& profiler_runner, const std::string& folder_name = "kernel_profile")
-    {
-    }
-
     virtual std::vector<std::tuple<std::filesystem::path, std::filesystem::path>>
-    GenOpProfiler(const ProfilingStrategy& dynamic_profiling_strategy)
+    CodeGenForTuning(const ProfilingStrategy& dynamic_profiling_strategy)
     {
         FC_THROW(Unimplemented("{}", "GenOpProfiler is not implemented."));
     }
 
-    virtual std::string GenOpFunction()
+    virtual std::string CodeGenForRunning()
     {
         FC_THROW(Unimplemented("{}", "GenOpFunction is not implemented."));
+    }
+
+    virtual void Profile(const GPUProfilingRunner& profiler_runner, const std::string& folder_name = "kernel_profile")
+    {
     }
 
     bool has_profiling_engine_ = true;

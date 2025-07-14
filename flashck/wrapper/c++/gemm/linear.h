@@ -17,7 +17,7 @@ public:
 
         auto      linear_layer = std::make_unique<flashck::LinearLayer<T>>(k_runtime, n_runtime, is_split_k, false);
         Variable* y_out_ater   = (*linear_layer)(x.get());
-        context_ptr->CodegenAndProfileKernel();
+        context_ptr->CodeGenAndProfiling();
         context_ptr->BuildContext();
     }
 

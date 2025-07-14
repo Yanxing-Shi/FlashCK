@@ -31,6 +31,13 @@ find_package(jinja2cpp REQUIRED)
 
 find_package(SQLite3 REQUIRED)
 
+# Enable testing and find Google Test
+enable_testing()
+find_package(GTest REQUIRED)
+
+# Find PyTorch for testing
+find_package(Torch REQUIRED)
+
 # --------------------------------------------------
 # Output Configuration
 # --------------------------------------------------
@@ -67,6 +74,5 @@ include_directories(
 )
 
 add_subdirectory(flashck)
-
 # add_subdirectory(examples)
-# add_subdirectory(tests)
+add_subdirectory(tests/cpp)

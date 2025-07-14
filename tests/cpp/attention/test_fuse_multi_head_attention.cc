@@ -40,7 +40,7 @@ public:
             configs.is_pre_layer_norm_ ? flashck::LayerNormType::PreLayerNorm : flashck::LayerNormType::PostLayerNorm,
             configs.epsilon_);
         y_out_ater_ = (*attn_layer)(x.get());
-        context_ptr->CodegenAndProfileKernel();
+        context_ptr->CodeGenAndProfiling();
         context_ptr->BuildContext();
 
         attn_layer->LoadParam(reinterpret_cast<T*>(gamma_.data_ptr()),

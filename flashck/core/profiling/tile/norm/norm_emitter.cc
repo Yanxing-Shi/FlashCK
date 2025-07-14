@@ -5,38 +5,40 @@
 
 #include "flashck/core/utils/common.h"
 
+FC_DECLARE_int32(FC_TUNING_MODE);  // Mode for norm operation: 0 - heuristic, 1 - autotuning, 2 - hybrid
+
 namespace flashck {
 
 bool NormEmitter::IsValidTile(const NormTileDesc& tile_desc, const NormProblem& norm_problem) const
 {
     // Validate tile descriptor parameters
-    if (tile_desc.repeat_m <= 0 || tile_desc.repeat_n <= 0 || tile_desc.thread_per_block_m <= 0
-        || tile_desc.thread_per_block_n <= 0 || tile_desc.vector_n <= 0) {
+    if (tile_desc.repeat_m_ <= 0 || tile_desc.repeat_n_ <= 0 || tile_desc.thread_per_block_m_ <= 0
+        || tile_desc.thread_per_block_n_ <= 0 || tile_desc.vector_n_ <= 0) {
         VLOG(3) << "Invalid tile descriptor: negative or zero values not allowed";
         return false;
     }
 
     // Validate thread block dimensions
-    const int total_threads = tile_desc.thread_per_block_m * tile_desc.thread_per_block_n;
+    const int total_threads = tile_desc.thread_per_block_m_ * tile_desc.thread_per_block_n_;
     if (total_threads > 1024) {  // Common GPU thread block limit
         VLOG(3) << "Invalid tile descriptor: thread block size " << total_threads << " exceeds limit (1024)";
         return false;
     }
 
     // Validate vector size alignment
-    if (tile_desc.vector_n > tile_desc.thread_per_block_n) {
-        VLOG(3) << "Invalid tile descriptor: vector_n (" << tile_desc.vector_n << ") cannot exceed thread_per_block_n ("
-                << tile_desc.thread_per_block_n << ")";
+    if (tile_desc.vector_n_ > tile_desc.thread_per_block_n_) {
+        VLOG(3) << "Invalid tile descriptor: vector_n (" << tile_desc.vector_n_
+                << ") cannot exceed thread_per_block_n (" << tile_desc.thread_per_block_n_ << ")";
         return false;
     }
 
     // Validate against problem dimensions
-    const int effective_m = tile_desc.repeat_m * tile_desc.thread_per_block_m;
-    const int effective_n = tile_desc.repeat_n * tile_desc.thread_per_block_n;
+    const int effective_m = tile_desc.repeat_m_ * tile_desc.thread_per_block_m_;
+    const int effective_n = tile_desc.repeat_n_ * tile_desc.thread_per_block_n_;
 
-    if (effective_m > norm_problem.m || effective_n > norm_problem.n) {
+    if (effective_m > norm_problem.m_ || effective_n > norm_problem.n_) {
         VLOG(3) << "Invalid tile descriptor: effective dimensions (" << effective_m << "x" << effective_n
-                << ") exceed problem dimensions (" << norm_problem.m << "x" << norm_problem.n << ")";
+                << ") exceed problem dimensions (" << norm_problem.m_ << "x" << norm_problem.n_ << ")";
         return false;
     }
 
@@ -53,21 +55,21 @@ std::vector<NormTileDesc> NormEmitter::HeuristicFilter(const std::vector<NormTil
         bool should_include = false;
 
         // For small problems, prefer smaller tile sizes
-        if (norm_problem.m <= 64 && norm_problem.n <= 64) {
-            if (tile_desc.repeat_m == 1 && tile_desc.repeat_n == 1 && tile_desc.thread_per_block_m <= 8
-                && tile_desc.thread_per_block_n <= 8) {
+        if (norm_problem.m_ <= 64 && norm_problem.n_ <= 64) {
+            if (tile_desc.repeat_m_ == 1 && tile_desc.repeat_n_ == 1 && tile_desc.thread_per_block_m_ <= 8
+                && tile_desc.thread_per_block_n_ <= 8) {
                 should_include = true;
             }
         }
         // For medium problems, prefer balanced tiles
-        else if (norm_problem.m <= 256 && norm_problem.n <= 256) {
-            if (tile_desc.thread_per_block_m == 4 && tile_desc.thread_per_block_n == 16) {
+        else if (norm_problem.m_ <= 256 && norm_problem.n_ <= 256) {
+            if (tile_desc.thread_per_block_m_ == 4 && tile_desc.thread_per_block_n_ == 16) {
                 should_include = true;
             }
         }
         // For large problems, prefer larger tiles with higher vectorization
         else {
-            if (tile_desc.thread_per_block_m == 4 && tile_desc.thread_per_block_n == 64 && tile_desc.vector_n >= 2) {
+            if (tile_desc.thread_per_block_m_ == 4 && tile_desc.thread_per_block_n_ == 64 && tile_desc.vector_n_ >= 2) {
                 should_include = true;
             }
         }
@@ -101,12 +103,12 @@ NormCodeGen NormEmitter::CreateNormCodeGen(const NormProblem& norm_problem, cons
 {
     NormCodeGen norm;
 
-    norm.kind      = norm_problem.kind;
-    norm.tile_desc = tile_desc;
+    norm.kind_      = norm_problem.kind_;
+    norm.tile_desc_ = tile_desc;
 
     // Copy data type information
-    norm.x_dtype_            = norm_problem.x_dtype;
-    norm.y_dtype_            = norm_problem.y_dtype;
+    norm.x_dtype_            = norm_problem.x_dtype_;
+    norm.y_dtype_            = norm_problem.y_dtype_;
     norm.smooth_scale_dtype_ = norm_problem.smooth_scale_dtype_;
     norm.y_scale_dtype_      = norm_problem.y_scale_dtype_;
 
@@ -118,9 +120,9 @@ NormCodeGen NormEmitter::CreateNormCodeGen(const NormProblem& norm_problem, cons
     return norm;
 }
 
-std::map<std::string, std::unique_ptr<NormCodeGen>> NormEmitter::GenerateInstances(const NormProblem& norm_problem)
+void NormEmitter::GenerateInstances(NormProblem& norm_problem)
 {
-    ValidateMode(FLAGS_FC_mode);
+    ValidateMode(FLAGS_FC_TUNING_MODE);
 
     // Clear previous instances
     instance_map_.clear();
@@ -135,8 +137,8 @@ std::map<std::string, std::unique_ptr<NormCodeGen>> NormEmitter::GenerateInstanc
     }
 
     if (valid_tile_desc.empty()) {
-        LOG(ERROR) << "No valid tile descriptors found for problem: " << norm_problem.ToString();
-        return instance_map_;
+        LOG(ERROR) << "No valid tile descriptors found for problem: " << norm_problem.Serialize();
+        return;
     }
 
     VLOG(1) << "Found " << valid_tile_desc.size() << " valid tile descriptors";
@@ -144,7 +146,7 @@ std::map<std::string, std::unique_ptr<NormCodeGen>> NormEmitter::GenerateInstanc
     // Generate operation instances based on mode
     std::vector<NormTileDesc> selected_tile_desc;
 
-    switch (FLAGS_FC_mode) {
+    switch (FLAGS_FC_TUNING_MODE) {
         case 0: {
             // Heuristic mode: select single best tile
             auto filtered_desc = HeuristicFilter(valid_tile_desc, norm_problem);
@@ -170,23 +172,22 @@ std::map<std::string, std::unique_ptr<NormCodeGen>> NormEmitter::GenerateInstanc
             break;
         }
         default:
-            FC_THROW(std::invalid_argument("Invalid mode: " + std::to_string(FLAGS_FC_mode)));
+            FC_THROW(Unavailable("Invalid mode:{} ", FLAGS_FC_TUNING_MODE));
     }
 
     // Generate code instances
     for (const auto& tile_desc : selected_tile_desc) {
         NormCodeGen norm = CreateNormCodeGen(norm_problem, tile_desc);
 
-        std::string config_name               = norm.GetInstanceName();
-        instance_map_[norm.kind][config_name] = std::make_unique<NormCodeGen>(std::move(norm));
+        std::string config_name                = norm.GetInstanceName();
+        instance_map_[norm.kind_][config_name] = NormCodeGen(std::move(norm));
         num_instances_++;
 
         VLOG(2) << "Generated norm instance: " << config_name;
     }
 
-    LOG(INFO) << "Generated " << selected_tile_desc.size() << " norm operation instances for mode " << FLAGS_FC_mode;
-
-    return instance_map_;
+    LOG(INFO) << "Generated " << selected_tile_desc.size() << " norm operation instances for mode "
+              << FLAGS_FC_TUNING_MODE;
 }
 
 int64_t NormEmitter::GetNumInstances() const

@@ -197,12 +197,6 @@ void Context::BuildContext()
 
     VLOG(1) << "Context has build layer ";
 
-    for (auto iter : all_node_vec_) {
-        if (iter->GetType() == NodeType::Variable) {
-            static_cast<Variable*>(iter)->UpdateRegressiveIdx();
-        }
-    }
-
     try {
         allocator_ptr_->Free(tmp_buff_);
     }

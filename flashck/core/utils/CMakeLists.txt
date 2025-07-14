@@ -7,4 +7,4 @@ target_include_directories(utils PUBLIC
     ${CMAKE_SOURCE_DIR}
 )
 target_link_libraries(utils PUBLIC
-    glog::glog gflags jinja2cpp fmt::fmt hip::device)
+    glog::glog gflags jinja2cpp fmt::fmt hip::device sqlite3)

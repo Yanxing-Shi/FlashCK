@@ -16,6 +16,7 @@ std::ostream& operator<<(std::ostream& os, const std::vector<T>& vec)
 }
 
 template std::ostream& operator<<(std::ostream& os, const std::vector<int64_t>& vec);
+template std::ostream& operator<<(std::ostream& os, const std::vector<std::string>& vec);
 
 template<typename T>
 std::ostream& operator<<(std::ostream& os, const std::vector<std::vector<T>>& lod)
@@ -31,6 +32,7 @@ std::ostream& operator<<(std::ostream& os, const std::vector<std::vector<T>>& lo
 }
 
 template std::ostream& operator<<(std::ostream& os, const std::vector<std::vector<int64_t>>& lod);
+template std::ostream& operator<<(std::ostream& os, const std::vector<std::vector<std::string>>& lod);
 
 std::string HumanReadableSize(uint64_t bytes, int precision)
 {

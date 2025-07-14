@@ -135,17 +135,17 @@ namespace flashck {
 class NormCommonKernel: public Kernel {
 public:
     std::vector<std::tuple<std::filesystem::path, std::filesystem::path>>
-    CommonCodeGenForTuning(const std::string&                                  model_name,
-                           const std::string&                                  kind_name,
-                           const std::map<std::string, std::unique_ptr<void>>& instance_map,
-                           const TuningTpl&                                    tuning_tpl,
-                           const std::string&                                  folder_name = "kernel_profile");
+    CommonCodeGenForTuning(const std::string&    model_name,
+                           const std::string&    kind_name,
+                           const instance_map_t& instance_map,
+                           const TuningTpl&      tuning_tpl,
+                           const std::string&    folder_name = "kernel_profile");
 
-    std::string CommonCodeGenForRunning(const std::string&                                  func_name,
-                                        const std::string&                                  model_name,
-                                        const std::map<std::string, RunningItem>&           running_infos,
-                                        const std::map<std::string, std::unique_ptr<void>>& kernel_instance_map,
-                                        const RunningTpl&                                   running_tpl,
-                                        const std::string& folder_name = "kernel_profile");
+    std::string CommonCodeGenForRunning(const std::string&                        func_name,
+                                        const std::string&                        model_name,
+                                        const std::map<std::string, RunningItem>& running_infos,
+                                        const instance_map_t&                     instance_map,
+                                        const RunningTpl&                         running_tpl,
+                                        const std::string&                        folder_name = "kernel_profile");
 };
 }  // namespace flashck

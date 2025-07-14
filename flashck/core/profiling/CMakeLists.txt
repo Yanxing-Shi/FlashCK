@@ -5,4 +5,4 @@ add_library(profiling_engine STATIC ${ProfilingFile})
 target_include_directories(profiling_engine PUBLIC
     ${CMAKE_SOURCE_DIR}
 )
-target_link_libraries(profiling_engine PUBLIC utils graph)
+target_link_libraries(profiling_engine PUBLIC utils graph tile_norm)
