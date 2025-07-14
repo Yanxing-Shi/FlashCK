@@ -20,7 +20,7 @@ public:
     static ProfilingEngine* GetInstance();
 
     // Generate kernel for the given operation kind and problem
-    void GenerateKernel(const CodeGenKind& code_gen_kind, const std::variant<NormProblem>& problem);
+    void GenerateInstances(const CodeGenKind& code_gen_kind, const std::variant<NormProblem>& problem);
 
     // Constructs validated cache path following hierarchy:
     std::filesystem::path GetProfilingDBPath();

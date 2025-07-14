@@ -5,6 +5,14 @@
 #include "flashck/core/profiling/codegen_common.h"
 #include "flashck/core/utils/common.h"
 
+FC_DECLARE_int32(FC_N_WARMUP);
+FC_DECLARE_int32(FC_N_REPEAT);
+FC_DECLARE_bool(FC_IS_GPU_TIMER);
+FC_DECLARE_int32(FC_VERIFY);
+FC_DECLARE_bool(FC_LOG);
+FC_DECLARE_bool(FC_FLUSH_CACHE);
+FC_DECLARE_int32(FC_ROTATING_COUNT);
+
 namespace flashck {
 
 enum class Metric {
@@ -70,6 +78,17 @@ public:
 
 class Setting {
 public:
+    Setting():
+        n_warmup_(FLAGS_FC_N_WARMUP),
+        n_repeat_(FLAGS_FC_N_REPEAT),
+        is_gpu_timer_(FLAGS_FC_IS_GPU_TIMER),
+        verify_(FLAGS_FC_VERIFY),
+        log_(FLAGS_FC_LOG),
+        flush_cache_(FLAGS_FC_FLUSH_CACHE),
+        rotating_count_(FLAGS_FC_ROTATING_COUNT)
+    {
+    }
+
     std::string Serialize() const
     {
         return "{\n"
@@ -149,15 +168,29 @@ public:
 // This structure is used to store the results of profiling operations
 class InstanceData {
 public:
-    template<typename Visitor>
-    auto VisitProblem(Visitor&& vis)
+    // query
+    InstanceData(Environment env, Setting setting, CodeGenKind code_gen_kind, std::variant<NormProblem> problem):
+        environment_(std::move(env)),
+        setting_(std::move(setting)),
+        code_gen_kind_(code_gen_kind),
+        problem_(std::move(problem))
     {
-        return std::visit(std::forward<Visitor>(vis), problem_);
     }
 
-    void SetProblem(auto&& prob)
+    // insert
+    InstanceData(Environment               env,
+                 Setting                   setting,
+                 CodeGenKind               code_gen_kind,
+                 std::variant<NormProblem> problem,
+                 std::string               instance_name,
+                 PerfResult                perf_result):
+        environment_(std::move(env)),
+        setting_(std::move(setting)),
+        code_gen_kind_(code_gen_kind),
+        problem_(std::move(problem)),
+        instance_name_(std::move(instance_name)),
+        perf_result_(std::move(perf_result))
     {
-        problem_ = std::forward<decltype(prob)>(prob);
     }
 
     std::string Serialize() const
@@ -179,6 +212,17 @@ public:
                + perf_result_.Serialize()
                + "\n"
                  "}";
+    }
+
+    template<typename Visitor>
+    auto VisitProblem(Visitor&& vis)
+    {
+        return std::visit(std::forward<Visitor>(vis), problem_);
+    }
+
+    void SetProblem(auto&& prob)
+    {
+        problem_ = std::forward<decltype(prob)>(prob);
     }
 
     Environment environment_;

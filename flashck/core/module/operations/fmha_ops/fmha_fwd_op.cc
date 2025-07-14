@@ -287,7 +287,7 @@ template<typename T>
 std::function<std::vector<std::string>(const std::string&)> FmhaFwdOp<T>::GenBuildCmd()
 {
     auto fbuild_cmd = [&](const std::string& exec_key) {
-        std::vector<int64_t>     input_shape = this->InvertExecKey(exec_key);
+        std::vector<int64_t>     input_shape = this->ExtractWorkLoad(exec_key);
         std::vector<std::string> cmd_str     = {"-b=" + std::to_string(input_shape[0]),
                                                 "-h=" + std::to_string(input_shape[2]),
                                                 "-h_k=" + std::to_string(input_shape[1]),

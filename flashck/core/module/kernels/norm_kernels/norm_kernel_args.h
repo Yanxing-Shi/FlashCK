@@ -21,10 +21,10 @@ struct NormKernelArgs {
 
     float eps_;
 
-    int64_t x_stride_;
-    int64_t xr_stride_;
-    int64_t y_stride_;
-    int64_t yr_stride_;
+    int64_t x_stride_  = -1;
+    int64_t xr_stride_ = -1;
+    int64_t y_stride_  = -1;
+    int64_t yr_stride_ = -1;
 
     hipStream_t stream_;
 };

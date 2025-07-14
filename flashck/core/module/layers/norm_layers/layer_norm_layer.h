@@ -9,22 +9,6 @@
 
 namespace flashck {
 
-enum class LayerNormType {
-    PreLayerNorm  = 0,
-    PostLayerNorm = 1,
-    Unknown       = 2
-};
-
-/*
-Standalone layernorm op.
-Applies Layer Normalization over a mini-batch of inputs as described in the
-paper Layer Normalization. The mean and standard-deviation are calculated
-over the last D dimensions, where D is the dimension of normalized_shape.
-Input shape: [M0, M1, ..., Mp, N1, N2, ..., ND]
-Normalized_shape: [N1, N2, ..., ND]
-Gamma/Beta, if not None, have the same shape as normalized_shape.
-*/
-
 template<typename T>
 class LayerNormLayer: public Layer {
 public:

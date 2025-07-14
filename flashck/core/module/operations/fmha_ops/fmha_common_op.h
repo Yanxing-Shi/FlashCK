@@ -54,7 +54,7 @@ public:
     }
 
     // [batch, nhead_k, nhead_q, hdim_q, hdim_v, seqlen_k, seqlen_q]
-    std::vector<int64_t> InvertExecKey(const std::string& key)
+    std::vector<int64_t> ExtractWorkLoad(const std::string& key)
     {
         std::vector<int64_t> tmp;
         std::regex           pattern("(\\d+)");
@@ -67,7 +67,7 @@ public:
         return tmp;
     }
 
-    std::string GenExecKey(const std::map<std::string, std::vector<int64_t>>& name_value_mapping)
+    std::string GenWorkLoad(const std::map<std::string, std::vector<int64_t>>& name_value_mapping)
     {
         std::vector<std::string> key_strs;
         for (auto& [name, values] : name_value_mapping) {
@@ -159,11 +159,11 @@ public:
                 max_values[name]         = {max_shape_values};
             }
 
-            VLOG(1) << "profiling_key: " << GenExecKey(max_values);
-            VLOG(1) << "exec_cond: " << GenExecKey(shape_values_map);
+            VLOG(1) << "profiling_key: " << GenWorkLoad(max_values);
+            VLOG(1) << "exec_cond: " << GenWorkLoad(shape_values_map);
 
             std::shared_ptr<RunningItem> exec_item_ptr =
-                std::make_shared<RunningItem>(GenExecKey(max_values), GenExecKey(shape_values_map), "");
+                std::make_shared<RunningItem>(GenWorkLoad(max_values), GenWorkLoad(shape_values_map), "");
 
             exec_path_[exec_item_ptr->profiling_key_] = exec_item_ptr;
         }
@@ -175,7 +175,7 @@ public:
             }
 
             std::shared_ptr<RunningItem> exec_item_ptr =
-                std::make_shared<RunningItem>(GenExecKey(min_values), GenExecKey(shape_values_map), "");
+                std::make_shared<RunningItem>(GenWorkLoad(min_values), GenWorkLoad(shape_values_map), "");
             exec_path_[exec_item_ptr->profiling_key_] = exec_item_ptr;
         }
         else if (dynamic_profiling_strategy == ProfilingStrategy::kIteration) {
@@ -213,11 +213,11 @@ public:
             }
 
             for (const auto& iter_value : iter_values_vec) {
-                VLOG(1) << "profiling_key: " << GenExecKey(iter_value);
-                VLOG(1) << "exec_cond: " << GenExecKey(iter_value);
+                VLOG(1) << "profiling_key: " << GenWorkLoad(iter_value);
+                VLOG(1) << "exec_cond: " << GenWorkLoad(iter_value);
 
                 std::shared_ptr<RunningItem> exec_item_ptr =
-                    std::make_shared<RunningItem>(GenExecKey(iter_value), GenExecKey(iter_value), "");
+                    std::make_shared<RunningItem>(GenWorkLoad(iter_value), GenWorkLoad(iter_value), "");
                 exec_path_[exec_item_ptr->profiling_key_] = exec_item_ptr;
             }
         }
@@ -227,7 +227,7 @@ public:
         }
     }
 
-    void IfShouldBuildProfiler(const std::vector<std::string>& workloads)
+    void IsBuildProfilingEngine(const std::vector<std::string>& workloads)
     {
         for (const auto& workload : workloads) {
             std::string exec_entry_sha1 = SHA1ToHexString(workload);
@@ -273,7 +273,7 @@ public:
         exec_key_ = GetKeyVector(exec_path_);
 
         if (!FLAGS_FC_FORCE_PROFILER_CACHE) {
-            IfShouldBuildProfiler(exec_key_);
+            IsBuildProfilingEngine(exec_key_);
         }
         else {
             LOG(INFO) << "Forced to use cache, skip building profilers for " << op_name_;
@@ -284,7 +284,7 @@ public:
         fmha_problems.reserve(exec_key_.size());
         std::for_each(exec_key_.begin(), exec_key_.end(), [&](const std::string& key) {
             std::vector<int64_t> inverse_res =
-                InvertExecKey(key);  // [batch, nhead_k, nhead_q, hdim_q, hdim_v, seqlen_k, seqlen_q]
+                ExtractWorkLoad(key);  // [batch, nhead_k, nhead_q, hdim_q, hdim_v, seqlen_k, seqlen_q]
 
             fmha_problems.emplace_back(DefineProblem(inverse_res));
         });
@@ -312,10 +312,10 @@ public:
     }
 
     std::vector<std::string>
-    GenOpProfileCmd(const std::string&                                                 profiler_prefix,
-                    const std::string&                                                 profiler_filename,
-                    const std::string&                                                 exec_key,
-                    const std::function<std::vector<std::string>(const std::string&)>& fbuild_cmd = nullptr)
+    GetTuningCmd(const std::string&                                                 profiler_prefix,
+                 const std::string&                                                 profiler_filename,
+                 const std::string&                                                 exec_key,
+                 const std::function<std::vector<std::string>(const std::string&)>& fbuild_cmd = nullptr)
     {
         std::filesystem::path exe_path = std::filesystem::path(profiler_prefix) / profiler_filename;
 
@@ -375,14 +375,14 @@ public:
             auto fbuild_cmd = static_cast<OpType*>(this)->GenBuildCmd();
 
             std::vector<std::string> command =
-                GenOpProfileCmd(profiler_prefix, kernel_instance.first, workload, fbuild_cmd);
+                GetTuningCmd(profiler_prefix, kernel_instance.first, workload, fbuild_cmd);
 
             LOG(INFO) << "profile command: " << JoinStrings(command);
 
             if (op_kind_ == FmhaOperationKind::FwdSplitKV) {
 
                 std::vector<int64_t> inverse_res =
-                    InvertExecKey(workload);  // [batch, nhead_k, nhead_q, hdim_q, hdim_v, seqlen_k, seqlen_q]
+                    ExtractWorkLoad(workload);  // [batch, nhead_k, nhead_q, hdim_q, hdim_v, seqlen_k, seqlen_q]
 
                 std::vector<int64_t> split_k_search_space;
                 if (this->num_splits_ != -1) {

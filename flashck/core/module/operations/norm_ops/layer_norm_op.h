@@ -66,22 +66,22 @@ public:
     void ExtractExecPath(const ProfilingStrategy& dynamic_profiling_strategy = ProfilingStrategy::kMax,
                          const int                step_value                 = 1);
 
-    void IfShouldBuildProfiler(const std::vector<std::string>& workloads);
+    void IsBuildProfilingEngine(const std::vector<std::string>& workloads);
 
     std::vector<std::tuple<std::filesystem::path, std::filesystem::path>>
     GenOpProfiler(const ProfilingStrategy& dynamic_profiling_strategy = ProfilingStrategy::kMax) override;
 
-    std::vector<std::string> GenOpProfileCmd(const std::string&          profiler_prefix,
-                                             const std::string&          profiler_filename,
-                                             const std::vector<int64_t>& input_shape);
+    std::vector<std::string> GenProfileCmd(const std::string&          profiler_prefix,
+                                           const std::string&          profiler_filename,
+                                           const std::vector<int64_t>& input_shape);
 
     void ProfileSingleWorkload(const std::string&                         profiler_prefix,
                                const std::string&                         workload,
                                const std::shared_ptr<GPUProfilingRunner>& profiler_runner_ptr,
                                bool                                       force_cache);
 
-    void Profile(const std::shared_ptr<GPUProfilingRunner>& profiler_runner_ptr,
-                 const std::string&                         folder_name) override;
+    void Tuning(const std::shared_ptr<GPUProfilingRunner>& profiler_runner_ptr,
+                const std::string&                         folder_name) override;
 
     std::string GenOpFunction() override;
 
@@ -91,25 +91,16 @@ public:
 
     NormKind        op_kind_     = NormKind::LayerNorm;
     TensorOperation epilogue_op_ = TensorOperation::PassThrough;
+    NormBiasEnum    is_add_bias_ = NormBiasEnum::NO_BIAS;
+    FusedAddEnum    fused_add_   = FusedAddEnum::NO_ADD;
+    FusedQuantEnum  fused_quant_ = FusedQuantEnum::NO_SWEEP;
 
     Shape normalized_shape_;
 
-    NormBiasEnum   is_add_bias_ = NormBiasEnum::NO_BIAS;
-    FusedAddEnum   fused_add_   = FusedAddEnum::NO_ADD;
-    FusedQuantEnum fused_quant_ = FusedQuantEnum::NO_SWEEP;
-
     float eps_;
 
-    int64_t x_stride_  = -1;
-    int64_t xr_stride_ = -1;
-    int64_t y_stride_  = -1;
-    int64_t yr_stride_ = -1;
-
-    std::vector<RunningItem> exec_items_;
+    std::vector<RunningItem> exec_paths_;
 
     std::shared_ptr<Kernel> register_kernel_ptr_;
-
-    std::vector<Variable*> input_var_;
-    std::vector<Variable*> output_var_;
 };
 }  // namespace flashck

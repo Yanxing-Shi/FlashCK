@@ -392,7 +392,7 @@ template<typename T>
 std::function<std::vector<std::string>(const std::string&)> FmhaFwdAppendKVOp<T>::GenBuildCmd()
 {
     auto fbuild_cmd = [&](const std::string& exec_key) {
-        std::vector<int64_t> input_shape = this->InvertExecKey(exec_key);
+        std::vector<int64_t> input_shape = this->ExtractWorkLoad(exec_key);
         // [batch, nhead_k, nhead_q, hdim_q, hdim_v, seqlen_k, seqlen_q, seqlen_knew]
         std::vector<std::string> cmd_str = {"-b=" + std::to_string(input_shape[0]),
                                             "-h=" + std::to_string(input_shape[2]),

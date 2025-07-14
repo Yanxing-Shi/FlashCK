@@ -54,21 +54,21 @@ public:
                          Shape       normalized_shape,
                          const float eps = 1e-5);
 
-    std::vector<int64_t> InvertExecKey(const std::string& key);
+    std::vector<int64_t> ExtractWorkLoad(const std::string& key);
 
-    std::string GenExecKey(const std::map<std::string, std::vector<int64_t>>& name_value_mapping);
+    std::string GenWorkLoad(const std::map<std::string, std::vector<int64_t>>& name_value_mapping);
 
     void ExtractExecPath(const ProfilingStrategy& dynamic_profiling_strategy = ProfilingStrategy::kMax,
                          const int                step_value                 = 1);
 
-    void IfShouldBuildProfiler(const std::vector<std::string>& workloads);
+    void IsBuildProfilingEngine(const std::vector<std::string>& workloads);
 
     std::vector<std::tuple<std::filesystem::path, std::filesystem::path>>
     GenOpProfiler(const ProfilingStrategy& dynamic_profiling_strategy = ProfilingStrategy::kMax) override;
 
-    std::vector<std::string> GenOpProfileCmd(const std::string&          profiler_prefix,
-                                             const std::string&          profiler_filename,
-                                             const std::vector<int64_t>& input_shape);
+    std::vector<std::string> GetTuningCmd(const std::string&          profiler_prefix,
+                                          const std::string&          profiler_filename,
+                                          const std::vector<int64_t>& input_shape);
 
     void ProfileSingleWorkload(const std::string&                         profiler_prefix,
                                const std::string&                         workload,

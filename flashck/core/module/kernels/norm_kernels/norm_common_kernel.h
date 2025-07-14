@@ -143,7 +143,7 @@ public:
 
     std::string CommonCodeGenForRunning(const std::string&                                  func_name,
                                         const std::string&                                  model_name,
-                                        const std::vector<RunningItem>&                     running_items,
+                                        const std::map<std::string, RunningItem>&           running_infos,
                                         const std::map<std::string, std::unique_ptr<void>>& kernel_instance_map,
                                         const RunningTpl&                                   running_tpl,
                                         const std::string& folder_name = "kernel_profile");

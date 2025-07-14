@@ -9,9 +9,8 @@ LayerNormLayer<T>::LayerNormLayer(Shape          normalized_shape,
                                   FusedQuantEnum fused_quant):
     Layer("LayerNormLayer")
 {
-    // param node
-    gamma_var_ = std::make_unique<Variable>("weight_var", CppTypeToDataType<T>::Type());  // gamma
-    beta_var_  = std::make_unique<Variable>("bias_var", CppTypeToDataType<T>::Type());    // beta
+    gamma_var_ = std::make_unique<Variable>("weight_var", CppTypeToDataType<T>::Type());
+    beta_var_  = std::make_unique<Variable>("bias_var", CppTypeToDataType<T>::Type());
 
     gamma_var_->SetShape(normalized_shape);
     beta_var_->SetShape(normalized_shape);

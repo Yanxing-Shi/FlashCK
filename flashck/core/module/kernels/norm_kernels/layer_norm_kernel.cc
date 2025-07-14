@@ -22,7 +22,7 @@ LayerNormKernel::CodeGenForTuning(const std::string&                            
 
 std::string LayerNormKernel::CodeGenForRunning(const std::string&                                  func_name,
                                                const std::string&                                  model_name,
-                                               const std::vector<RunningItem>&                     running_items,
+                                               const std::map<std::string, RunningItem>&           running_infos,
                                                const std::map<std::string, std::unique_ptr<void>>& kernel_instance_map,
                                                const std::string&                                  folder_name)
 {
@@ -31,7 +31,7 @@ std::string LayerNormKernel::CodeGenForRunning(const std::string&               
                                                        g_layer_norm_func_signature_tpl,
                                                        g_layer_norm_make_args_tpl};
 
-    return CommonCodeGenForRunning(func_name, model_name, running_items, kernel_instance_map, templates, folder_name);
+    return CommonCodeGenForRunning(func_name, model_name, running_infos, kernel_instance_map, templates, folder_name);
 }
 
 void LayerNormKernel::KernelLauncher(const std::string& kernel_func_name, const KernelArgs& args)

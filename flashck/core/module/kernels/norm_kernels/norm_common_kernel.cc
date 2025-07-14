@@ -101,7 +101,7 @@ NormCommonKernel::CommonCodeGenForTuning(const std::string&                     
 std::string
 NormCommonKernel::CommonCodeGenForRunning(const std::string&                                  func_name,
                                           const std::string&                                  model_name,
-                                          const std::vector<RunningItem>&                     running_items,
+                                          const std::map<std::string, RunningItem>&           running_infos,
                                           const std::map<std::string, std::unique_ptr<void>>& kernel_instance_map,
                                           const RunningTpl&                                   running_tpl,
                                           const std::string&                                  folder_name)
@@ -118,7 +118,7 @@ NormCommonKernel::CommonCodeGenForRunning(const std::string&                    
     std::string                        instance_decl;
     std::set<std::string>              instance_def_flag;
     std::map<std::string, std::string> running_instance_map;
-    for (const auto& running_item : running_items) {
+    for (const auto& [_, running_item] : running_infos) {
         std::string hash_running_cond = "f" + HashToHexString(running_item.running_cond_);
         std::string instance_name     = running_item.instance_name_;
 

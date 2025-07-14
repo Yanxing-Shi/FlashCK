@@ -50,16 +50,10 @@ struct RunningTpl {
 
 // Execution item for profiling
 struct RunningItem {
-    std::string profiling_key_;
+    std::string profiling_workload_;
     std::string running_cond_;
     std::string instance_name_;
     PerfResult  perf_result_;
-
-    RunningItem() = default;
-    RunningItem(const std::string& key, const std::string& cond, const std::string& instance):
-        profiling_key_(key), running_cond_(cond), instance_name_(instance)
-    {
-    }
 };
 
 // Base kernel class
@@ -81,7 +75,7 @@ public:
 
     virtual std::string CodeGenForRunning(const std::string&                                  func_name,
                                           const std::string&                                  model_name,
-                                          const std::vector<RunningItem>&                     running_items,
+                                          const std::map<std::string, RunningItem>&           running_infos,
                                           const std::map<std::string, std::unique_ptr<void>>& kernel_instance_map,
                                           const std::string& folder_name = "kernel_profile")
     {

@@ -181,7 +181,7 @@ Variable* RMSNormOp<T>::operator()(Variable*   x,
 Invert execution key to get input arguments as integers.
 */
 template<typename T>
-std::vector<int64_t> RMSNormOp<T>::InvertExecKey(const std::string& key)
+std::vector<int64_t> RMSNormOp<T>::ExtractWorkLoad(const std::string& key)
 {
     std::vector<int64_t> tmp;
     std::regex           pattern("(\\d+)");
@@ -198,7 +198,7 @@ std::vector<int64_t> RMSNormOp<T>::InvertExecKey(const std::string& key)
 Generate execution key from the name value mapping.
 */
 template<typename T>
-std::string RMSNormOp<T>::GenExecKey(const std::map<std::string, std::vector<int64_t>>& name_value_mapping)
+std::string RMSNormOp<T>::GenWorkLoad(const std::map<std::string, std::vector<int64_t>>& name_value_mapping)
 {
     std::vector<std::string> key_strs;
     for (auto& [name, values] : name_value_mapping) {
@@ -251,7 +251,7 @@ void RMSNormOp<T>::ExtractExecPath(const ProfilingStrategy& dynamic_profiling_st
         };
 
         std::shared_ptr<RunningItem> exec_item_ptr =
-            std::make_shared<RunningItem>(GenExecKey(max_values), GenExecKey(shape_values_map), "");
+            std::make_shared<RunningItem>(GenWorkLoad(max_values), GenWorkLoad(shape_values_map), "");
 
         exec_path_[exec_item_ptr->profiling_key_] = exec_item_ptr;
     }
@@ -262,7 +262,7 @@ void RMSNormOp<T>::ExtractExecPath(const ProfilingStrategy& dynamic_profiling_st
         };
 
         std::shared_ptr<RunningItem> exec_item_ptr =
-            std::make_shared<RunningItem>(GenExecKey(min_values), GenExecKey(shape_values_map), "");
+            std::make_shared<RunningItem>(GenWorkLoad(min_values), GenWorkLoad(shape_values_map), "");
 
         exec_path_[exec_item_ptr->profiling_key_] = exec_item_ptr;
     }
@@ -287,7 +287,7 @@ void RMSNormOp<T>::ExtractExecPath(const ProfilingStrategy& dynamic_profiling_st
 
         for (const auto& iter_value : iter_values_vec) {
             std::shared_ptr<RunningItem> exec_item_ptr =
-                std::make_shared<RunningItem>(GenExecKey(iter_value), GenExecKey(iter_value), "");
+                std::make_shared<RunningItem>(GenWorkLoad(iter_value), GenWorkLoad(iter_value), "");
 
             exec_path_[exec_item_ptr->profiling_key_] = exec_item_ptr;
         }
@@ -299,7 +299,7 @@ void RMSNormOp<T>::ExtractExecPath(const ProfilingStrategy& dynamic_profiling_st
 }
 
 template<typename T>
-void RMSNormOp<T>::IfShouldBuildProfiler(const std::vector<std::string>& workloads)
+void RMSNormOp<T>::IsBuildProfilingEngine(const std::vector<std::string>& workloads)
 {
     for (const auto& workload : workloads) {
         std::string exec_entry_sha1 = SHA1ToHexString(workload);
@@ -345,7 +345,7 @@ RMSNormOp<T>::GenOpProfiler(const ProfilingStrategy& dynamic_profiling_strategy)
     exec_key_ = GetKeyVector(exec_path_);
 
     if (!FLAGS_FC_FORCE_PROFILER_CACHE) {
-        IfShouldBuildProfiler(exec_key_);
+        IsBuildProfilingEngine(exec_key_);
     }
     else {
         LOG(INFO) << "Forced to use cache, skip building profilers for " << op_name_;
@@ -355,7 +355,7 @@ RMSNormOp<T>::GenOpProfiler(const ProfilingStrategy& dynamic_profiling_strategy)
     std::vector<NormProblem> layernorm_problems;
     layernorm_problems.reserve(exec_key_.size());
     std::for_each(exec_key_.begin(), exec_key_.end(), [&](const std::string& key) {
-        std::vector<int64_t> inverse_res = InvertExecKey(key);
+        std::vector<int64_t> inverse_res = ExtractWorkLoad(key);
         NormProblem          layernorm_problem{CppTypeToDataType<T>::Type(),
                                       CppTypeToDataType<T>::Type(),
                                       DataType::FLOAT32,
@@ -393,9 +393,9 @@ RMSNormOp<T>::GenOpProfiler(const ProfilingStrategy& dynamic_profiling_strategy)
 }
 
 template<typename T>
-std::vector<std::string> RMSNormOp<T>::GenOpProfileCmd(const std::string&          profiler_prefix,
-                                                       const std::string&          profiler_filename,
-                                                       const std::vector<int64_t>& input_shape)
+std::vector<std::string> RMSNormOp<T>::GetTuningCmd(const std::string&          profiler_prefix,
+                                                    const std::string&          profiler_filename,
+                                                    const std::vector<int64_t>& input_shape)
 {
     std::filesystem::path exe_path = std::filesystem::path(profiler_prefix) / profiler_filename;
 
@@ -453,8 +453,8 @@ void RMSNormOp<T>::ProfileSingleWorkload(const std::string&                     
             return process_result_callback;
         };
 
-        auto                     input_shape = InvertExecKey(workload);
-        std::vector<std::string> command     = GenOpProfileCmd(profiler_prefix, kernel_config_name, input_shape);
+        auto                     input_shape = ExtractWorkLoad(workload);
+        std::vector<std::string> command     = GetTuningCmd(profiler_prefix, kernel_config_name, input_shape);
 
         LOG(INFO) << "profile command: " << JoinStrings(command);
 

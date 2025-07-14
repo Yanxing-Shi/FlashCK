@@ -27,7 +27,7 @@ GenProfilerResult GenProfiler(const std::vector<Operation*>& model_ops, const Pr
     for (auto* op : model_ops) {
         CHECK(op != nullptr) << "Invalid null Operation pointer";  // Defensive programming
 
-        if (!op->has_profiler_) {
+        if (!op->has_profiling_engine_) {
             VLOG(1) << "Skip profiler for " << op->GetName() << ": Profiling not enabled";
             continue;
         }

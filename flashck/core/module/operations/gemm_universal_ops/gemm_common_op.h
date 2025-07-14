@@ -81,7 +81,7 @@ public:
         return static_cast<OpType*>(this)->ExtractDimsImpl(for_profiling);
     }
 
-    std::string GenExecKey(const std::map<std::string, std::vector<int64_t>>& name_value_mapping)
+    std::string GenWorkLoad(const std::map<std::string, std::vector<int64_t>>& name_value_mapping)
     {
         std::vector<std::string> key_strs;
         for (auto& [name, values] : name_value_mapping) {
@@ -180,11 +180,11 @@ public:
                 max_values[name]         = {max_shape_values};
             }
 
-            VLOG(1) << "profiling_key: " << GenExecKey(max_values);
-            VLOG(1) << "exec_cond: " << GenExecKey(shape_values_map);
+            VLOG(1) << "profiling_key: " << GenWorkLoad(max_values);
+            VLOG(1) << "exec_cond: " << GenWorkLoad(shape_values_map);
 
             std::shared_ptr<RunningItem> exec_item_ptr =
-                std::make_shared<RunningItem>(GenExecKey(max_values), GenExecKey(shape_values_map), "");
+                std::make_shared<RunningItem>(GenWorkLoad(max_values), GenWorkLoad(shape_values_map), "");
 
             exec_path_[exec_item_ptr->profiling_key_] = exec_item_ptr;
         }
@@ -196,7 +196,7 @@ public:
             }
 
             std::shared_ptr<RunningItem> exec_item_ptr =
-                std::make_shared<RunningItem>(GenExecKey(min_values), GenExecKey(shape_values_map), "");
+                std::make_shared<RunningItem>(GenWorkLoad(min_values), GenWorkLoad(shape_values_map), "");
             exec_path_[exec_item_ptr->profiling_key_] = exec_item_ptr;
         }
         else if (dynamic_profiling_strategy == ProfilingStrategy::kIteration) {
@@ -234,11 +234,11 @@ public:
             }
 
             for (const auto& iter_value : iter_values_vec) {
-                VLOG(1) << "profiling_key: " << GenExecKey(iter_value);
-                VLOG(1) << "exec_cond: " << GenExecKey(iter_value);
+                VLOG(1) << "profiling_key: " << GenWorkLoad(iter_value);
+                VLOG(1) << "exec_cond: " << GenWorkLoad(iter_value);
 
                 std::shared_ptr<RunningItem> exec_item_ptr =
-                    std::make_shared<RunningItem>(GenExecKey(iter_value), GenExecKey(iter_value), "");
+                    std::make_shared<RunningItem>(GenWorkLoad(iter_value), GenWorkLoad(iter_value), "");
                 exec_path_[exec_item_ptr->profiling_key_] = exec_item_ptr;
             }
         }
@@ -248,7 +248,7 @@ public:
         }
     }
 
-    void IfShouldBuildProfiler(const std::vector<std::string>& workloads)
+    void IsBuildProfilingEngine(const std::vector<std::string>& workloads)
     {
         for (const auto& workload : workloads) {
             std::string exec_entry_sha1 = SHA1ToHexString(workload);
@@ -293,7 +293,7 @@ public:
         exec_key_ = GetKeyVector(exec_path_);
 
         if (!FLAGS_FC_FORCE_PROFILER_CACHE) {
-            IfShouldBuildProfiler(exec_key_);
+            IsBuildProfilingEngine(exec_key_);
         }
         else {
             LOG(INFO) << "Forced to use cache, skip building profilers for " << op_name_;
@@ -326,7 +326,7 @@ public:
         std::vector<std::tuple<std::filesystem::path, std::filesystem::path>> generated_profilers;
 
         for (int i = 0; i < exec_key_.size(); i++) {
-            Target::Instance()->GenerateKernel(CodeGenKind::Gemm, gemm_problems[i]);
+            Target::Instance()->GenerateInstances(CodeGenKind::Gemm, gemm_problems[i]);
 
             // init kernel instance map
             kernel_instance_map_ = register_kernel_ptr_->Init(op_kind_, epilogue_op_);
@@ -367,10 +367,10 @@ public:
     }
 
     std::vector<std::string>
-    GenOpProfileCmd(const std::string&                                                 profiler_prefix,
-                    const std::string&                                                 profiler_filename,
-                    const std::string&                                                 exec_key,
-                    const std::function<std::vector<std::string>(const std::string&)>& fbuild_cmd = nullptr)
+    GetTuningCmd(const std::string&                                                 profiler_prefix,
+                 const std::string&                                                 profiler_filename,
+                 const std::string&                                                 exec_key,
+                 const std::function<std::vector<std::string>(const std::string&)>& fbuild_cmd = nullptr)
     {
         std::filesystem::path exe_path = std::filesystem::path(profiler_prefix) / profiler_filename;
 
@@ -462,8 +462,7 @@ public:
 
             auto fbuild_cmd = static_cast<OpType*>(this)->GenBuildCmd();
 
-            std::vector<std::string> command =
-                GenOpProfileCmd(profiler_prefix, kernel_config_name, workload, fbuild_cmd);
+            std::vector<std::string> command = GetTuningCmd(profiler_prefix, kernel_config_name, workload, fbuild_cmd);
 
             LOG(INFO) << "profile command: " << JoinStrings(command);
 
@@ -546,7 +545,7 @@ public:
     TensorOperation   epilogue_op_ = TensorOperation::PassThrough;
     DataLayout        layout_;
 
-    bool has_profiler_ = true;
+    bool has_profiling_engine_ = true;
 
     int64_t split_k_       = 1;
     int64_t split_k_hints_ = 4;

@@ -175,8 +175,11 @@ public:
         FC_THROW(Unimplemented("{}", "GenOpFunction is not implemented."));
     }
 
-    bool has_profiler_     = true;
-    bool has_gen_function_ = true;
+    bool has_profiling_engine_ = true;
+    bool has_gen_function_     = true;
+
+    std::vector<Variable*> input_var_;
+    std::vector<Variable*> output_var_;
 };
 
 }  // namespace flashck
