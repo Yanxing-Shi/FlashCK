@@ -1,168 +1,97 @@
 #include "flashck/core/profiling/tile/norm/norm_codegen.h"
 
-#include <algorithm>
-#include <sstream>
-
 namespace flashck {
-
-// Static member initialization
-int NormCodeGen::instance_counter_ = 0;
-
-// ==================== NormTileDesc Implementation ====================
 
 std::string NormTileDesc::GetInstanceName() const
 {
-    return Sprintf("{}_{}_{}_{}_{}", repeat_m_, repeat_n_, thread_per_block_m_, thread_per_block_n_, vector_n_);
-}
-
-std::string NormTileDesc::ToString() const
-{
-    return Sprintf("NormTileDesc(repeat_m={}, repeat_n={}, "
-                   "thread_per_block_m={}, thread_per_block_n={}, vector_n={})",
-                   repeat_m_,
-                   repeat_n_,
-                   thread_per_block_m_,
-                   thread_per_block_n_,
-                   vector_n_);
-}
-
-bool NormTileDesc::IsValid() const
-{
-    // Check for positive values
-    if (repeat_m_ <= 0 || repeat_n_ <= 0 || thread_per_block_m_ <= 0 || thread_per_block_n_ <= 0 || vector_n_ <= 0) {
-        return false;
-    }
-
-    // Check thread block size limits
-    const int64_t total_threads = GetTotalThreads();
-    if (total_threads > 1024) {  // Common GPU limit
-        return false;
-    }
-
-    // Check vector size constraints
-    if (vector_n_ > thread_per_block_n_) {
-        return false;
-    }
-
-    // Check warp size alignment
-    constexpr int64_t warpSize = 32;
-    if (total_threads % warpSize != 0) {
-        return false;
-    }
-
-    return true;
-}
-
-std::pair<int64_t, int64_t> NormTileDesc::CalculateWarpDistribution() const
-{
-    constexpr int64_t warpSize        = 32;
-    const bool        is_warp_per_row = thread_per_block_n_ <= warpSize;
-    const int64_t     total_warps     = GetTotalThreads() / warpSize;
-
-    int64_t block_warps_m, block_warps_n;
-
-    if (is_warp_per_row) {
-        FC_ENFORCE_EQ(
-            warpSize % thread_per_block_n_, 0, Unavailable("thread_per_block_n_ must be divisor of warpSize"));
-        block_warps_m = total_warps * (warpSize / thread_per_block_n_);
-        block_warps_n = 1;
-    }
-    else {
-        FC_ENFORCE_EQ(
-            thread_per_block_n_ % warpSize, 0, Unavailable("thread_per_block_n_ must be multiple of warpSize"));
-        block_warps_m = total_warps / (thread_per_block_n_ / warpSize);
-        block_warps_n = thread_per_block_n_ / warpSize;
-    }
-
-    return {block_warps_m, block_warps_n};
+    return Sprintf("{repeat_m}_{repeat_n}_{thread_per_block_m}_{thread_per_block_n}_{vector_n}",
+                   fmt::arg("repeat_m", repeat_m_),
+                   fmt::arg("repeat_n", repeat_n_),
+                   fmt::arg("thread_per_block_m", thread_per_block_m_),
+                   fmt::arg("thread_per_block_n", thread_per_block_n_),
+                   fmt::arg("vector_n", vector_n_));
 }
 
 std::string NormTileDesc::Emit() const
 {
-    if (!IsValid()) {
-        FC_THROW(Unavailable("Invalid tile descriptor:{} ", ToString()));
-    }
+    bool is_warp_per_row = thread_per_block_n_ <= warpSize;
+    FC_ENFORCE_EQ((thread_per_block_m_ * thread_per_block_n_) % warpSize,
+                  0,
+                  Unavailable("thread_per_block_m_ * thread_per_block_n_ must be multiple of warpSize"));
 
-    constexpr int64_t warpSize = 32;
-    FC_ENFORCE_EQ(GetTotalThreads() % warpSize, 0, Unavailable("Total threads must be multiple of warpSize"));
+    int64_t total_warps = (thread_per_block_m_ * thread_per_block_n_) / warpSize;
+    // num of warps along m
+    int64_t block_warps_m = [&]() -> int64_t {
+        if (is_warp_per_row) {
+            FC_ENFORCE_EQ(
+                warpSize % thread_per_block_n_, 0, Unavailable("thread_per_block_n_ must be multiple of warpSize"));
+            return total_warps * (warpSize / thread_per_block_n_);
+        }
+        else {
+            // static_assert(warpSize % thread_per_block_m_ == 0);
+            return total_warps / (thread_per_block_n_ / warpSize);
+        }
+    }();
 
-    auto [block_warps_m, block_warps_n] = CalculateWarpDistribution();
+    // num of warps along n
+    int64_t block_warps_n = [&]() -> int64_t {
+        if (is_warp_per_row) {
+            FC_ENFORCE_EQ(
+                warpSize % thread_per_block_n_, 0, Unavailable("thread_per_block_n_ must be multiple of warpSize"));
+            return 1;
+        }
+        else {
+            FC_ENFORCE_EQ(
+                thread_per_block_n_ % warpSize, 0, Unavailable("thread_per_block_n_ must be multiple of warpSize"));
 
-    const int64_t block_m = GetEffectiveM();
-    const int64_t block_n = GetEffectiveN();
-    const int64_t warp_m  = thread_per_block_m_ / block_warps_m;
-    const int64_t warp_n  = thread_per_block_n_ / block_warps_n * vector_n_;
+            return thread_per_block_n_ / warpSize;
+        }
+    }();
 
-    const std::string tile_tpl = R"(
-    ck_tile::Generic2dBlockShape<ck_tile::sequence<{}, {}>,
-                                ck_tile::sequence<{}, {}>,
-                                ck_tile::sequence<{}, {}>, 
-                                ck_tile::sequence<1, {}>>,
+    int64_t block_m = repeat_m_ * thread_per_block_m_;
+    int64_t block_n = repeat_n_ * thread_per_block_n_ * vector_n_;
+
+    int64_t warp_m = thread_per_block_m_ / block_warps_m;
+    int64_t warp_n = thread_per_block_n_ / block_warps_n * vector_n_;
+
+    std::string tile_desc = R"(
+    ck_tile::Generic2dBlockShape<ck_tile::sequence<{{block_m}}, {{block_n}}>,
+                                ck_tile::sequence<{{block_warps_m}}, {{block_warps_n}}>,
+                                ck_tile::sequence<{{warp_m}}, {{warp_n}}>, 
+                                ck_tile::sequence<1, {{vector_n}}>>,
 )";
 
-    jinja2::ValuesMap value_map{
+    jinja2::ValuesMap tile_desc_value_map = {
         {"block_m", block_m},
         {"block_n", block_n},
         {"block_warps_m", block_warps_m},
         {"block_warps_n", block_warps_n},
         {"warp_m", warp_m},
         {"warp_n", warp_n},
-        {"vector_n_", vector_n_},
+        {"vector_n", vector_n_},
     };
 
-    return TemplateLoadAndRender(tile_tpl, value_map);
+    return TemplateLoadAndRender(tile_desc, tile_desc_value_map);
 }
-
-// ==================== NormCodeGen Implementation ====================
 
 std::string NormCodeGen::GetInstanceName() const
 {
-    return Sprintf("{}_{}_{}_{}_{}_{}_{}_{}_{}",
-                   GetNormKindName(kind_),
-                   DataTypeToString(x_dtype_),
-                   DataTypeToString(y_dtype_),
-                   DataTypeToString(smooth_scale_dtype_),
-                   DataTypeToString(y_scale_dtype_),
-                   tile_desc_.GetInstanceName(),
-                   GetNormBiasName(is_add_bias_),
-                   GetFusedAddName(fused_add_),
-                   GetFusedQuantName(fused_quant_));
+    return Sprintf("{kind_name}_{x_dtype}_{y_dtype}_{smooth_scale_dtype}_{y_scale_dtype}_"
+                   "{tile_desc}_{is_add_bias}_{fused_add}_{fused_quant}",
+                   fmt::arg("kind_name", GetNormKindShortName(kind_)),
+                   fmt::arg("x_dtype", DataTypeToString(x_dtype_)),
+                   fmt::arg("y_dtype", DataTypeToString(y_dtype_)),
+                   fmt::arg("smooth_scale_dtype", DataTypeToString(smooth_scale_dtype_)),
+                   fmt::arg("y_scale_dtype", DataTypeToString(y_scale_dtype_)),
+                   fmt::arg("tile_desc", tile_desc_.GetInstanceName()),
+                   fmt::arg("is_add_bias", GetNormBiasShortName(is_add_bias_)),
+                   fmt::arg("fused_add", GetFusedAddShortName(fused_add_)),
+                   fmt::arg("fused_quant", GetFusedQuantShortName(fused_quant_)));
 }
 
-std::string NormCodeGen::ToString() const
+std::string NormCodeGen::Emit() const
 {
-    return Sprintf("NormCodeGen(kind={}, x_dtype={}, y_dtype={}, "
-                   "smooth_scale_dtype={}, y_scale_dtype={}, "
-                   "tile_desc={}, is_add_bias={}, fused_add={}, fused_quant={})",
-                   GetNormKindName(kind_),
-                   DataTypeToString(x_dtype_),
-                   DataTypeToString(y_dtype_),
-                   DataTypeToString(smooth_scale_dtype_),
-                   DataTypeToString(y_scale_dtype_),
-                   tile_desc_.ToString(),
-                   GetNormBiasName(is_add_bias_),
-                   GetFusedAddName(fused_add_),
-                   GetFusedQuantName(fused_quant_));
-}
-
-bool NormCodeGen::IsValid() const
-{
-    // Validate enum values
-    if (!IsValidNormKind(kind_) || !IsValidBiasEnum(is_add_bias_) || !IsValidFusedAddEnum(fused_add_)
-        || !IsValidFusedQuantEnum(fused_quant_)) {
-        return false;
-    }
-
-    // Validate tile descriptor
-    if (!tile_desc_.IsValid()) {
-        return false;
-    }
-    return true;
-}
-
-std::string NormCodeGen::GetTemplateSource() const
-{
-    return R"(
+    std::string source = R"(
 using PipelineProblem_{{idx}} = ck_tile::{{norm_problem}}<
     XDataType,
 {% if norm_kind == "layer_norm" %}
@@ -185,13 +114,13 @@ using PipelineProblem_{{idx}} = ck_tile::{{norm_problem}}<
                                 {% endif %}
                                     {{is_two_pass}} /*kTwoPass*/,
                                 {% if norm_kind == "layer_norm" %}
-                                    static_cast<ck_tile::Layernorm2dXBiasEnum>({{is_add_bias}}) /*kIsAddBias*/,
+                                    static_cast<ck_tile::Layernorm2dXBiasEnum>({{is_add_bias}}) /*kisaddbias*/,
                                 {% endif %}
                                     static_cast<ck_tile::Layernorm2dFusedAddEnum>({{fused_add}}) /*kFusedAdd*/,
                                     static_cast<ck_tile::Layernorm2dFusedQuantEnum>({{fused_quant}}) /*kFusedQuant*/>>;
 
 {% if is_smooth_quant %}
-using DynamicQuantEpilogueProblem_{{idx}} = ck_tile::DynamicQuantEpilogueProblem<
+using DynamicQuantEpilogueProblem_{{idx}}         = ck_tile::DynamicQuantEpilogueProblem<
     ComputeDataType,
     SmoothScaleDataType,
     YScaleDataType,
@@ -216,47 +145,28 @@ using {{name}} = ck_tile::{{norm_fwd}}<
     ck_tile::Default2DEpilogue<Default2DEpilogueProblem_{{idx}}>
 {% endif %}
     >;
+
 )";
-}
+    static int  idx    = 0;
 
-jinja2::ValuesMap NormCodeGen::GenerateValueMap() const
-{
-    const bool is_smooth_quant = (fused_quant_ == FusedQuantEnum::SMOOTH_DYNAMIC_QUANT);
-    const bool is_two_pass     = (kind_ == NormKind::LayerNorm);
+    jinja2::ValuesMap value_map{{"name", GetInstanceName()},
+                                {"idx", idx++},
+                                {"norm_kind", GetNormKindName(kind_)},
+                                {"norm_problem", GetNormKindProblemTag(kind_)},
+                                {"norm_traits", GetNormKindTraitTag(kind_)},
+                                {"norm_fwd", GetNormKindFwdTag(kind_)},
+                                {"norm_pass", GetNormKindPassTag(kind_)},
+                                {"is_pad_n", "true"},
+                                {"is_fast_div", "true"},
+                                {"is_two_pass", "true"},
+                                {"is_welford", "true"},
+                                {"is_add_bias", static_cast<int>(is_add_bias_)},
+                                {"fused_add", static_cast<int>(fused_add_)},
+                                {"fused_quant", static_cast<int>(fused_quant_)},
+                                {"is_smooth_quant", static_cast<int>(fused_quant_) == 1 ? true : false},
+                                {"shape", tile_desc_.Emit()}};
 
-    return jinja2::ValuesMap{{"name", GetInstanceName()},
-                             {"idx", instance_counter_++},
-                             {"norm_kind", GetNormKindName(kind_)},
-                             {"norm_problem", GetNormKindProblemTag(kind_)},
-                             {"norm_traits", GetNormKindTraitTag(kind_)},
-                             {"norm_fwd", GetNormKindFwdTag(kind_)},
-                             {"norm_pass", GetNormKindPassTag(kind_)},
-                             {"shape", tile_desc_.Emit()},
-                             {"is_pad_n", true},
-                             {"is_fast_div", true},
-                             {"is_two_pass", is_two_pass},
-                             {"is_welford", true},
-                             {"is_add_bias", static_cast<int>(is_add_bias_)},
-                             {"fused_add", static_cast<int>(fused_add_)},
-                             {"fused_quant", static_cast<int>(fused_quant_)},
-                             {"is_smooth_quant", is_smooth_quant}};
-}
-
-std::string NormCodeGen::Emit() const
-{
-    if (!IsValid()) {
-        FC_THROW(Unavailable("Invalid norm code generation configuration:{} ", ToString()));
-    }
-
-    const std::string       template_tpl = GetTemplateSource();
-    const jinja2::ValuesMap value_map    = GenerateValueMap();
-
-    try {
-        return TemplateLoadAndRender(template_tpl, value_map);
-    }
-    catch (const std::exception& e) {
-        FC_THROW(Unavailable("Template rendering failed: {}", e.what()));
-    }
+    return TemplateLoadAndRender(source, value_map);
 }
 
 }  // namespace flashck

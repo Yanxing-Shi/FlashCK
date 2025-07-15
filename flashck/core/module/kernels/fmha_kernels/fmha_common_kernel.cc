@@ -244,12 +244,12 @@ FmhaCommonKernel::GenFmhaCommonKernelFunction(const std::string&                
     }
 
     std::string exec_paths;
-    for (const auto& [exec_cond, profile_result] : exec_instance_map) {
+    for (const auto& [exec_cond, profiling_result] : exec_instance_map) {
         std::string instance_name = "f" + SHA1ToHexString(exec_cond);
 
         jinja2::ValuesMap prepare_args_value_map{{"mode_str", g_fmha_operation_mode_name_map.at(op_mode)},
                                                  {"is_running", true},
-                                                 {"num_splits", std::get<0>(profile_result)},
+                                                 {"num_splits", std::get<0>(profiling_result)},
                                                  {"paged_block_size", paged_block_size},
                                                  {"bias_str", g_bias_enum_names_map.at(bias_enum)},
                                                  {"bias_rank_info", bias_rank_info}};

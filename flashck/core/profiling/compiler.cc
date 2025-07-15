@@ -6,7 +6,7 @@ FC_DECLARE_string(FC_HOME_PATH);
 FC_DECLARE_string(FC_COMPILER_OPT_LEVEL);
 FC_DECLARE_bool(FC_DEBUG_KERNEL_INSTANCE);
 FC_DECLARE_bool(FC_SAVE_TEMP_FILE);
-FC_DECLARE_bool(FC_PRINT_KERNEL_tpl_USAGE);
+FC_DECLARE_bool(FC_PRINT_KERNEL_SOURCE_USAGE);
 FC_DECLARE_bool(FC_FLUSH_DENORMALS);
 FC_DECLARE_bool(FC_USE_FAST_MATH);
 
@@ -61,7 +61,7 @@ std::vector<std::string> Compiler::GetLibraryOptions(const std::string& dst_file
 
 std::vector<std::string> Compiler::GetCompilerOptions()
 {
-    std::vector<std::string> opts = {ToString(FLAGS_FC_COMPILER_OPT_LEVEL),
+    std::vector<std::string> opts = {"-" + ToString(FLAGS_FC_COMPILER_OPT_LEVEL),
                                      "-x",
                                      "hip",
                                      "-std=c++17",
@@ -83,7 +83,7 @@ std::vector<std::string> Compiler::GetCompilerOptions()
     if (FLAGS_FC_SAVE_TEMP_FILE) {
         opts.push_back("--save-temps=obj");
     }
-    if (FLAGS_FC_PRINT_KERNEL_tpl_USAGE) {
+    if (FLAGS_FC_PRINT_KERNEL_SOURCE_USAGE) {
         opts.push_back("-Rpass-analysis=kernel-resource-usage");
     }
     if (FLAGS_FC_FLUSH_DENORMALS) {
@@ -99,12 +99,10 @@ std::vector<std::string> Compiler::GetCompilerOptions()
 std::filesystem::path Compiler::GetROCmCompilerPath()
 {
     if (FLAGS_FC_ROCM_PATH.empty()) {
-        // If ROCM path is not set, return default clang
-        return std::filesystem::absolute("/usr/bin/clang");
+        return std::filesystem::absolute(std::filesystem::path("/opt/rocm") / "llvm" / "bin" / "clang");
     }
 
-    // Return the absolute path to the ROCm clang compiler
-    return std::filesystem::absolute(std::filesystem::path(FLAGS_FC_ROCM_PATH) / "llvm" / "bin" / "clang");
+    return std::filesystem::path(FLAGS_FC_ROCM_PATH) / "bin" / "hipcc";
 }
 
 std::string Compiler::GetCompilerCommand(const std::vector<std::string>& src_files,
@@ -118,8 +116,9 @@ std::string Compiler::GetCompilerCommand(const std::vector<std::string>& src_fil
     std::vector<std::string>           compiler_options = GetCompilerOptions();
     std::filesystem::path              compiler_path    = GetROCmCompilerPath();
 
-    std::vector<std::string> options = compiler_options;
-    options.insert(options.end(), extra_args.begin(), extra_args.end());
+    std::vector<std::string> options;
+    options.push_back(compiler_path.string());
+    options.insert(options.end(), compiler_options.begin(), compiler_options.end());
 
     for (const auto& path : include_paths) {
         options.push_back("-I" + path.string());
@@ -134,7 +133,7 @@ std::string Compiler::GetCompilerCommand(const std::vector<std::string>& src_fil
         options.push_back("-shared");
     }
     else if (dst_file_ext == "exe") {
-        options.push_back("-DGENERATE_CK_STANDALONE_RUNNER");
+        // No additional flags needed for executable
     }
     else {
         FC_THROW(Unimplemented("Unsupported output file suffix: {}", dst_file_ext));

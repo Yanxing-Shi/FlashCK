@@ -7,7 +7,7 @@
 #include "flashck/core/utils/common.h"
 
 FC_DECLARE_int32(FC_NUM_BUILDERS);
-FC_DECLARE_bool(FC_COMBINE_PROFILING_tplS);
+FC_DECLARE_bool(FC_COMBINE_PROFILING_SOURCES);
 FC_DECLARE_bool(FC_FORCE_PROFILING_DB);
 FC_DECLARE_string(FC_HOME_PATH);
 
@@ -69,91 +69,91 @@ std::filesystem::path Builder::CombineSources(const std::set<std::filesystem::pa
 }
 
 std::map<std::filesystem::path, std::set<std::filesystem::path>>
-Builder::CombineProfilingSources(const std::map<std::filesystem::path, std::set<std::filesystem::path>>& target_to_tpls,
-                                 const int                                                               num_jobs)
+Builder::CombineTuningSources(const std::map<std::filesystem::path, std::set<std::filesystem::path>>& target_to_sources,
+                              const int                                                               num_jobs)
 {
-    if (target_to_tpls.size() >= num_jobs_) {
+    if (target_to_sources.size() >= num_jobs_) {
         // there are at least as many targets as the total
         // number of sources required (or single source per
         // target is forced): combine everything
         VLOG(1) << "there are at least as many targets, combine everything";
-        std::map<std::filesystem::path, std::set<std::filesystem::path>> target_to_combined_tpls;
-        for (const auto& [target, sources] : target_to_tpls) {
-            target_to_combined_tpls[target] = std::set<std::filesystem::path>({CombineSources(sources)});
+        std::map<std::filesystem::path, std::set<std::filesystem::path>> target_to_combined_sources;
+        for (const auto& [target, sources] : target_to_sources) {
+            target_to_combined_sources[target] = std::set<std::filesystem::path>({CombineSources(sources)});
         }
         VLOG(1) << "Combine finished";
-        return target_to_combined_tpls;
+        return target_to_combined_sources;
     }
 
     std::map<std::filesystem::path, std::set<std::filesystem::path>> combine_candiates;  // multi-source targets
-    int                                                              num_multi_tpls  = 0;
-    int                                                              num_single_tpls = 0;
-    for (const auto& [target, sources] : target_to_tpls) {
+    int                                                              num_multi_sources  = 0;
+    int                                                              num_single_sources = 0;
+    for (const auto& [target, sources] : target_to_sources) {
         if (sources.size() > 1) {
             combine_candiates[target] = sources;
-            num_multi_tpls += sources.size();
+            num_multi_sources += sources.size();
         }
         else {
-            num_single_tpls++;
+            num_single_sources++;
         }
     }
 
-    if (num_multi_tpls == 0) {
+    if (num_multi_sources == 0) {
         // all targets are single-source: nothing to combine
-        return target_to_tpls;
+        return target_to_sources;
     }
 
-    if (num_multi_tpls + num_single_tpls <= num_jobs) {
+    if (num_multi_sources + num_single_sources <= num_jobs) {
         // there are fewer source files than the total
         // number of sources required: no need to combine
-        return target_to_tpls;
+        return target_to_sources;
     }
 
     // number of sources we need for the multi-file targets
-    int num_combined_tpls = num_jobs - num_single_tpls;
+    int num_combined_sources = num_jobs - num_single_sources;
 
     // the number of combined sources per multi-source target as a
-    // fraction of num_combined_tpls is proportional to the number of
+    // fraction of num_combined_sources is proportional to the number of
     // multiple sources of the target (rounded down); ultimately, there
     // should be at least one source target (hence max(..., 1))
-    std::map<std::filesystem::path, int> num_tpls_per_target;
+    std::map<std::filesystem::path, int> num_sources_per_target;
     for (const auto& [target, sources] : combine_candiates) {
-        num_tpls_per_target[target] =
-            std::max(static_cast<int>(sources.size() / num_multi_tpls * num_combined_tpls), 1);
+        num_sources_per_target[target] =
+            std::max(static_cast<int>(sources.size() / num_multi_sources * num_combined_sources), 1);
     }
 
     // do any sources remain after the above per-target distribution?
-    int remaining_tpls =
-        num_combined_tpls
-        - std::accumulate(num_tpls_per_target.begin(),
-                          num_tpls_per_target.end(),
+    int remaining_sources =
+        num_combined_sources
+        - std::accumulate(num_sources_per_target.begin(),
+                          num_sources_per_target.end(),
                           0,
                           [](const int a, const std::pair<std::filesystem::path, int>& b) { return a + b.second; });
-    if (remaining_tpls > 0) {
+    if (remaining_sources > 0) {
         // reverse-sort the targets by the remainder after rounding down:
         // prefer adding sources to the targets with a higher remainder
         // (i.e. the ones closest to getting another source)
 
         std::vector<std::filesystem::path> targets;
-        for (const auto& [target, _] : num_tpls_per_target) {
+        for (const auto& [target, _] : num_sources_per_target) {
             targets.emplace_back(target);
         }
 
         int target_id = 0;
-        while (remaining_tpls > 0) {
+        while (remaining_sources > 0) {
             // increment the number of sources for the target
-            num_tpls_per_target[targets[target_id]] += 1;
+            num_sources_per_target[targets[target_id]] += 1;
             target_id = (target_id + 1) % targets.size();
-            remaining_tpls -= 1;
+            remaining_sources -= 1;
         }
     }
 
     std::map<std::filesystem::path, std::set<std::filesystem::path>> result;
-    for (const auto& [target, sources] : target_to_tpls) {
+    for (const auto& [target, sources] : target_to_sources) {
         if (combine_candiates.find(target) != combine_candiates.end()) {
             // collect the sources of the target
             // in N batches by round robin
-            int num_tpls = num_tpls_per_target[target];
+            int num_sources = num_sources_per_target[target];
             // TODO: form the source batches by the total number
             // of lines instead of the number of sources for more
             // even distribution of the compilation time per batch
@@ -163,7 +163,7 @@ Builder::CombineProfilingSources(const std::map<std::filesystem::path, std::set<
 
             for (auto& source : sources) {
                 batches[batch_id].emplace(source);
-                batch_id = (batch_id + 1) % num_tpls;
+                batch_id = (batch_id + 1) % num_sources;
             }
 
             // combine the sources in each batch
@@ -173,7 +173,7 @@ Builder::CombineProfilingSources(const std::map<std::filesystem::path, std::set<
         }
         else {
             // use the single-source profiler target as is
-            result[target] = {target_to_tpls.at(target)};
+            result[target] = {target_to_sources.at(target)};
         }
     }
 
@@ -229,36 +229,37 @@ Builder::GenMakefileForTuning(const std::vector<std::tuple<std::filesystem::path
     profiler_dir = profiler_dir / "";
 
     // deduplicate targets from different kernels
-    std::map<std::filesystem::path, std::set<std::filesystem::path>> target_to_tpls;
+    std::map<std::filesystem::path, std::set<std::filesystem::path>> target_to_sources;
 
     for (const auto& [source, target] : file_tuples) {
-        target_to_tpls[target] = std::set<std::filesystem::path>({source});
+        target_to_sources[target] = std::set<std::filesystem::path>({source});
     }
 
     // stabilize the order of sources per targets
-    auto calculate_num_tpls =
-        [&](const std::map<std::filesystem::path, std::set<std::filesystem::path>>& target_to_tpls) {
-            int num_tpls = 0;
-            for (const auto& [_, sources] : target_to_tpls) {
-                num_tpls += sources.size();
+    auto calculate_num_sources =
+        [&](const std::map<std::filesystem::path, std::set<std::filesystem::path>>& target_to_sources) {
+            int num_sources = 0;
+            for (const auto& [_, sources] : target_to_sources) {
+                num_sources += sources.size();
             }
-            return num_tpls;
+            return num_sources;
         };
 
-    if (FLAGS_FC_COMBINE_PROFILING_tplS) {
+    if (FLAGS_FC_COMBINE_PROFILING_SOURCES) {
         LOG(INFO) << "enable combine profiling sources";
-        int  num_tpls_before        = calculate_num_tpls(target_to_tpls);
-        auto combine_target_to_tpls = CombineProfilingSources(target_to_tpls, num_jobs_);
-        int  num_tpls_after         = calculate_num_tpls(combine_target_to_tpls);
-        if (num_tpls_after <= num_tpls_before) {
-            LOG(INFO) << "Combined " << num_tpls_before << " sources into " << num_tpls_after << " sources";
+        int  num_sources_before        = calculate_num_sources(target_to_sources);
+        auto combine_target_to_sources = CombineTuningSources(target_to_sources, num_jobs_);
+        int  num_sources_after         = calculate_num_sources(combine_target_to_sources);
+        if (num_sources_after <= num_sources_before) {
+            LOG(INFO) << "Combined " << num_sources_before << " sources into " << num_sources_after << " sources";
         }
     }
 
     auto split_path = [](const std::filesystem::path& path) {
         auto path_parts = SplitStrings(path.string(), "/");
-        if (path_parts.size() >= 2) {
-            return std::filesystem::path(path_parts[path_parts.size() - 2] + "/" + path_parts.back());
+        if (path_parts.size() >= 3) {
+            return std::filesystem::path(path_parts[path_parts.size() - 3] + "/" + path_parts[path_parts.size() - 2]
+                                         + "/" + path_parts.back());
         }
         return path;
     };
@@ -266,7 +267,7 @@ Builder::GenMakefileForTuning(const std::vector<std::tuple<std::filesystem::path
     std::set<std::filesystem::path>                                  targets;
     std::map<std::filesystem::path, std::set<std::filesystem::path>> dependencies;
 
-    for (auto& [target, sources] : target_to_tpls) {
+    for (auto& [target, sources] : target_to_sources) {
         std::filesystem::path target_file = split_path(target);
         if (sources.size() == 1) {
             // single source: no need to combine
@@ -294,15 +295,16 @@ Builder::GenMakefileForTuning(const std::vector<std::tuple<std::filesystem::path
     }
 
     std::vector<std::string>        commands;
-    int                             num_compiled_tpls = 0;
+    int                             num_compiled_sources = 0;
     std::set<std::filesystem::path> target_names;
     for (const auto& [target, srcs] : dependencies) {
         // for each "target: srcs" pair,
         // generate two lines for the Makefile
         std::string src_str  = JoinStrings(dependencies[target], " ");
         std::string dep_line = Sprintf("{}: {}", target.string(), src_str);
-        std::string cmd_line =
-            TimeCmd(ProfilingEngine::GetInstance()->GetCompiler()->GetCompilerCommand({src_str}, target.string(), "o"));
+
+        std::string cmd_line = TimeCmd(
+            ProfilingEngine::GetInstance()->GetCompiler()->GetCompilerCommand({src_str}, target.string(), "exe"));
 
         std::string command = Sprintf("{}\n\t{}", dep_line, cmd_line);
         commands.emplace_back(command);
@@ -311,7 +313,7 @@ Builder::GenMakefileForTuning(const std::vector<std::tuple<std::filesystem::path
         // update compilation statistics
         std::for_each(srcs.begin(), srcs.end(), [&](const std::filesystem::path& src) {
             if (EndsWith(src.string(), ".cc")) {
-                num_compiled_tpls += 1;
+                num_compiled_sources += 1;
             }
         });
 
@@ -320,11 +322,11 @@ Builder::GenMakefileForTuning(const std::vector<std::tuple<std::filesystem::path
         }
     }
 
-    LOG(INFO) << "compiling " << num_compiled_tpls << " profiling sources";
+    LOG(INFO) << "compiling " << num_compiled_sources << " profiling sources";
     LOG(INFO) << "linking " << target_names.size() << " profiling executables";
 
-    jinja2::ValuesMap makefile_value_map{{"targets", Sprintf("{}", JoinStrings(targets, " "))},
-                                         {"commands", Sprintf("{}", JoinStrings(commands, "\n"))}};
+    jinja2::ValuesMap makefile_value_map{{"targets", JoinStrings(targets, " ")},
+                                         {"commands", JoinStrings(commands, "\n")}};
 
     std::string makefile_content = TemplateLoadAndRender(makefile_tpl, makefile_value_map);
 

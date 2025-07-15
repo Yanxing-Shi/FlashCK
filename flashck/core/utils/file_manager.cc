@@ -54,10 +54,13 @@ bool FileManager::FileExists(const std::filesystem::path& file_path)
     return std::filesystem::exists(file_path) && std::filesystem::is_regular_file(file_path);
 }
 
-bool FileManager::CreateDirectories(const std::filesystem::path& dir_path)
+bool FileManager::CreateDirectoryIfNotExists(const std::filesystem::path& dir_path)
 {
     try {
-        return std::filesystem::create_directories(dir_path) || std::filesystem::exists(dir_path);
+        if (std::filesystem::exists(dir_path)) {
+            return std::filesystem::is_directory(dir_path);
+        }
+        return std::filesystem::create_directories(dir_path);
     }
     catch (const std::filesystem::filesystem_error& e) {
         return false;
@@ -209,7 +212,7 @@ void FileManager::EnsureParentDirectories(const std::filesystem::path& file_path
 {
     auto parent_path = file_path.parent_path();
     if (!parent_path.empty() && !std::filesystem::exists(parent_path)) {
-        if (!CreateDirectories(parent_path)) {
+        if (!CreateDirectoryIfNotExists(parent_path)) {
             FC_THROW(Unavailable("Failed to create parent directories for: {}", file_path.string()));
         }
     }

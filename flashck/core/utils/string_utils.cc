@@ -19,11 +19,21 @@ std::vector<std::string> SplitStrings(const std::string& str, const std::string&
     size_t                   end   = str.find(delimiter);
 
     while (end != std::string::npos) {
-        tokens.push_back(str.substr(start, end - start));
+        std::string token = str.substr(start, end - start);
+        // Only add non-empty tokens to avoid empty strings from leading delimiters
+        if (!token.empty()) {
+            tokens.push_back(token);
+        }
         start = end + delimiter.length();
         end   = str.find(delimiter, start);
     }
-    tokens.push_back(str.substr(start));
+
+    // Add the last token if it's not empty
+    std::string last_token = str.substr(start);
+    if (!last_token.empty()) {
+        tokens.push_back(last_token);
+    }
+
     return tokens;
 }
 

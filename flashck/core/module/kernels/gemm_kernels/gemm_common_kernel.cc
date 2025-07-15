@@ -381,7 +381,7 @@ GemmCommonKernel::GenGemmCommonKernelFunction(const std::string&                
     int64_t p_dims = permute_shape.GetNumDim() ? permute_shape.GetNumDim() : 0;
 
     std::string exec_paths;
-    for (const auto& [exec_cond, profile_result] : exec_instance_map) {
+    for (const auto& [exec_cond, profiling_result] : exec_instance_map) {
         std::string instance_name = "f" + SHA1ToHexString(exec_cond);
 
         jinja2::ValuesMap problem_args_value_map{{"indent", "    "},
@@ -389,7 +389,7 @@ GemmCommonKernel::GenGemmCommonKernelFunction(const std::string&                
                                                  {"has_d0", has_d0_flag},
                                                  {"has_d1", has_d1_flag},
                                                  {"is_running", true},
-                                                 {"split_k", std::get<0>(profile_result)}};
+                                                 {"split_k", std::get<0>(profiling_result)}};
         std::string       problem_args = TemplateLoadAndRender(problem_args_template, problem_args_value_map);
 
         jinja2::ValuesMap exec_value_map{

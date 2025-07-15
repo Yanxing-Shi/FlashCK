@@ -12,8 +12,8 @@ public:
     std::filesystem::path CombineSources(const std::set<std::filesystem::path>& sources);
 
     std::map<std::filesystem::path, std::set<std::filesystem::path>>
-    CombineProfilingSources(const std::map<std::filesystem::path, std::set<std::filesystem::path>>& target_to_tpls,
-                            const int                                                               num_jobs);
+    CombineTuningSources(const std::map<std::filesystem::path, std::set<std::filesystem::path>>& target_to_tpls,
+                         const int                                                               num_jobs);
 
     std::filesystem::path
     GenMakefileForTuning(const std::vector<std::tuple<std::filesystem::path, std::filesystem::path>>& file_tuples,

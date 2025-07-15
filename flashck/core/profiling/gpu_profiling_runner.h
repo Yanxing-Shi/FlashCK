@@ -20,8 +20,8 @@ class GPUProfilingRunner {
 public:
     explicit GPUProfilingRunner(const Postprocesser& postprocesser);
 
-    void Push(const std::vector<std::string>&                                           cmds,
-              std::function<void(const std::vector<PerfResult>&, const Postprocesser&)> process_result_callback);
+    void Push(const std::vector<std::string>&                  cmds,
+              std::function<void(PerfResult&, Postprocesser&)> process_result_callback);
 
     void Join();
 

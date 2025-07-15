@@ -18,15 +18,6 @@ public:
                 FusedAddEnum   fused_add   = FusedAddEnum::NO_ADD,
                 FusedQuantEnum fused_quant = FusedQuantEnum::NO_SWEEP);
 
-    // void SanityCheck(Variable* x,
-    //                  Variable* gamma,
-    //                  Variable* beta,
-    //                  Variable* x_bias,
-    //                  Variable* x_residual,
-    //                  Variable* smooth_scale,
-    //                  Variable* y_residual,
-    //                  Variable* y_scale);
-
     Shape InferShape(Variable* x);
 
     Variable* operator()(Variable*   x,
@@ -47,17 +38,15 @@ public:
     std::vector<std::tuple<std::filesystem::path, std::filesystem::path>>
     CodeGenForTuning(const ProfilingStrategy& dynamic_profiling_strategy = ProfilingStrategy::kMax) override;
 
-    // std::vector<std::string> GenProfileCmd(const std::string&          profiler_prefix,
-    //                                        const std::string&          profiler_filename,
-    //                                        const std::vector<int64_t>& input_shape);
+    std::vector<std::string> GetTuningCmd(const std::string&                profiling_file_prefix,
+                                          const std::string&                profiler_filename,
+                                          const std::map<std::string, int>& profiling_key_map);
 
-    // void ProfileSingleWorkload(const std::string&                         profiler_prefix,
-    //                            const std::string&                         workload,
-    //                            const std::shared_ptr<GPUProfilingRunner>& profiler_runner_ptr,
-    //                            bool                                       force_cache);
+    void TuningSingleWorkload(const std::string&  profiling_file_prefix,
+                              const std::string&  profiling_workload,
+                              GPUProfilingRunner& profiling_runner);
 
-    // void Tuning(const std::shared_ptr<GPUProfilingRunner>& profiler_runner_ptr,
-    //             const std::string&                         folder_name) override;
+    void Tuning(GPUProfilingRunner& profiling_runner, const std::string& folder_name) override;
 
     // std::string GenOpFunction() override;
 
@@ -72,6 +61,7 @@ public:
 
     float eps_;
 
+    std::map<std::string, NormCodeGen> norm_instance_map_;
     std::map<std::string, RunningItem> running_infos_;
 
     std::shared_ptr<Kernel> register_kernel_ptr_;

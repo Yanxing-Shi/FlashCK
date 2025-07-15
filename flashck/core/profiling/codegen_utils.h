@@ -231,6 +231,16 @@ public:
         problem_ = std::forward<Problem>(prob);
     }
 
+    void SetInstanceName(const std::string& instance_name)
+    {
+        instance_name_ = instance_name;
+    }
+
+    void SetPerfResult(const PerfResult& perf_result)
+    {
+        perf_result_ = perf_result;
+    }
+
     Environment environment_;
     Setting     setting_;
     CodeGenKind code_gen_kind_;

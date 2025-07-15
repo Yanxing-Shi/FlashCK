@@ -168,8 +168,9 @@ public:
         FC_THROW(Unimplemented("{}", "GenOpFunction is not implemented."));
     }
 
-    virtual void Profile(const GPUProfilingRunner& profiler_runner, const std::string& folder_name = "kernel_profile")
+    virtual void Tuning(GPUProfilingRunner& profiler_runner, const std::string& folder_name = "kernel_profile")
     {
+        FC_THROW(Unimplemented("{}", "Tuning is not implemented."));
     }
 
     bool has_profiling_engine_ = true;

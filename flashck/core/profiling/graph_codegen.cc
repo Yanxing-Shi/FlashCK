@@ -1,5 +1,7 @@
 #include "flashck/core/profiling/graph_codegen.h"
 
+#include "flashck/core/profiling/builder.h"
+
 FC_DECLARE_string(FC_HOME_PATH);
 
 namespace flashck {
@@ -31,26 +33,29 @@ void GraphCodeGen::CodeGenAndProfiling(const std::vector<Operation*>& model_ops,
                                        const ProfilingStrategy&       strategy,
                                        const std::string&             folder_name)
 {
-    // step1: gen profiler
-    std::vector<std::vector<std::tuple<std::filesystem::path, std::filesystem::path>>> graph_generated_profilers =
+    // step1: profiling instance file generation
+    std::vector<std::vector<std::tuple<std::filesystem::path, std::filesystem::path>>> instance_files =
         CodeGenForTuning(model_ops, strategy);
 
-    // // // step.2 profile result
-    // VLOG(1) << "Profiler generated " << graph_generated_profilers.size() << " model operations";
-    // Builder builder;
-    // builder.MakeTuning(graph_generated_profilers, context_name);
-    // auto profiling_runner = GPUProfilingRunner{Postprocesser{}};
-    // for (Operation* op_ptr : model_ops) {
-    //     op_ptr->Profile(profiling_runner);
-    // }
-    // profiling_runner.Join();
+    // step.2 builder instance
+    // generate makefile and other necessary files
+    VLOG(1) << "Profiler generated " << instance_files.size() << " model operations";
+    Builder builder;
+    builder.MakeTuning(instance_files, context_name);
 
-    // // step3 gen kernel source function
+    // step.3 run profiling
+    auto profiling_runner = GPUProfilingRunner{Postprocesser{}};
+    for (Operation* op : model_ops) {
+        op->Tuning(profiling_runner);
+    }
+    profiling_runner.Join();
+
+    // step3 gen kernel source function
     // std::vector<std::tuple<std::filesystem::path, std::filesystem::path>> file_tuples =
     //     CodeGenForRunning(model_ops, context_name);
     // builder.MakeRunning(file_tuples, "generated_kernel.so", context_name);
 
-    // // read dll and load function
+    // // step.4 read dll and load function
     // ProfilingEngine::GetInstance()->LoadKernelLibrary("kernel_profile", context_name, "generated_kernel.so");
 }
 

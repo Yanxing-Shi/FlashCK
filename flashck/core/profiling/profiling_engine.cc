@@ -85,7 +85,7 @@ std::filesystem::path ProfilingEngine::GetProfilingDBPath()
         return {};
     }
 
-    FileManager::CreateDirectories(default_path);
+    FileManager::CreateDirectoryIfNotExists(default_path);
 
     // Ensure directory existence
     if (!FileManager::CheckWithRetries(default_path)) {

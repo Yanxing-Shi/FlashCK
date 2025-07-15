@@ -76,10 +76,10 @@ std::vector<NormTileDesc> NormEmitter::HeuristicFilter(const std::vector<NormTil
 
         if (should_include) {
             filtered_tile_desc.push_back(tile_desc);
-            VLOG(2) << "Selected tile descriptor: " << tile_desc.ToString();
+            VLOG(2) << "Selected tile descriptor: " << tile_desc.GetInstanceName();
         }
         else {
-            VLOG(3) << "Filtered out tile descriptor: " << tile_desc.ToString();
+            VLOG(3) << "Filtered out tile descriptor: " << tile_desc.GetInstanceName();
         }
     }
 
@@ -179,11 +179,11 @@ void NormEmitter::GenerateInstances(NormProblem& norm_problem)
     for (const auto& tile_desc : selected_tile_desc) {
         NormCodeGen norm = CreateNormCodeGen(norm_problem, tile_desc);
 
-        std::string config_name                = norm.GetInstanceName();
-        instance_map_[norm.kind_][config_name] = NormCodeGen(std::move(norm));
+        std::string instance_name                = norm.GetInstanceName();
+        instance_map_[norm.kind_][instance_name] = NormCodeGen(std::move(norm));
         num_instances_++;
 
-        VLOG(2) << "Generated norm instance: " << config_name;
+        VLOG(2) << "Generated norm instance: " << instance_name;
     }
 
     LOG(INFO) << "Generated " << selected_tile_desc.size() << " norm operation instances for mode "

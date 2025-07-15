@@ -31,18 +31,14 @@ RunMakeCmds(const std::vector<std::string>& cmds,  // [0] = "make clean", [1] = 
         std::string stdout_str = result.first.buf.data();
         std::string stderr_str = result.second.buf.data();
 
-        int exit_code = popen.wait();
+        VLOG(1) << "make stdout: " << stdout_str << std::endl;
+        VLOG(1) << "make stderr: " << stderr_str << std::endl;
 
-        VLOG(1) << "make stdout: " << stdout_str;
-        VLOG(1) << "make stderr: " << stderr_str;
-        VLOG(1) << "make exit code: " << exit_code;
-
-        if (exit_code == 0) {
+        if (!stdout_str.empty() && stderr_str.empty()) {
             return {true, stdout_str};
         }
         else {
-            LOG(ERROR) << "Make command failed with exit code: " << exit_code << "\nstdout: " << stdout_str
-                       << "\nstderr: " << stderr_str;
+            LOG(ERROR) << "Make command failed, " << "\nstdout: " << stdout_str << "\nstderr: " << stderr_str;
             return {false, stderr_str};
         }
     }
@@ -74,6 +70,27 @@ inline std::vector<std::string> ParseFailedFiles(const std::string& make_output)
                     if (std::find(failed_files.begin(), failed_files.end(), filename) == failed_files.end()) {
                         failed_files.push_back(filename);
                     }
+                }
+            }
+        }
+        // Look for make target errors
+        else if (line.find("No rule to make target") != std::string::npos) {
+            // Extract the target name between quotes
+            size_t start_quote = line.find("'\"");
+            size_t end_quote   = line.find("\"'", start_quote + 2);
+            if (start_quote != std::string::npos && end_quote != std::string::npos) {
+                std::string target = line.substr(start_quote + 2, end_quote - start_quote - 2);
+                VLOG(1) << "Make target error for: " << target;
+                failed_files.push_back("Target: " + target);
+            }
+            // Also try single quotes
+            else {
+                start_quote = line.find("'");
+                end_quote   = line.find("'", start_quote + 1);
+                if (start_quote != std::string::npos && end_quote != std::string::npos) {
+                    std::string target = line.substr(start_quote + 1, end_quote - start_quote - 1);
+                    VLOG(1) << "Make target error for: " << target;
+                    failed_files.push_back("Target: " + target);
                 }
             }
         }

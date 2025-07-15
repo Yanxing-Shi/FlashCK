@@ -14,14 +14,7 @@ NormCommonKernel::CommonCodeGenForTuning(const std::string&    model_name,
 
     std::vector<std::tuple<std::filesystem::path, std::filesystem::path>> file_tuples;
 
-    std::filesystem::path prefix_path =
-        std::filesystem::path(FLAGS_FC_HOME_PATH) / folder_name / model_name / "profiling" / kind_name;
-    FileManager::CreateDirectories(prefix_path);
-
     std::string common_header = TemplateLoadAndRender(tuning_tpl.dtype_config_tpl_, {{}});
-
-    std::filesystem::path common_header_path = prefix_path / "norm_common.h";
-    FileManager::WriteFile(common_header_path, common_header);
 
     auto norm_instance_map = std::get<norm_codegen_map_t>(instance_map);
 
@@ -81,9 +74,12 @@ NormCommonKernel::CommonCodeGenForTuning(const std::string&    model_name,
                                               {"func_call", func_call}};
         std::string       profiler_tpl = TemplateLoadAndRender(g_norm_profiling_tpl, profiling_value_map);
 
-        std::filesystem::path prefix_path =
-            std::filesystem::path(FLAGS_FC_HOME_PATH) / folder_name / model_name / "profiling" / instance_name;
-        FileManager::CreateDirectories(prefix_path);
+        std::filesystem::path prefix_path = std::filesystem::path(FLAGS_FC_HOME_PATH) / folder_name / model_name
+                                            / "profiling" / kind_name / instance_name;
+        FileManager::CreateDirectoryIfNotExists(prefix_path);
+
+        std::filesystem::path common_header_path = prefix_path / "norm_common.h";
+        FileManager::WriteFile(common_header_path, common_header);
 
         std::filesystem::path src_path = prefix_path / (instance_name + ".cc");
         std::filesystem::path obj_path = prefix_path / instance_name;
@@ -108,7 +104,7 @@ std::string NormCommonKernel::CommonCodeGenForRunning(const std::string&        
 {
 
     std::filesystem::path prefix_path = std::filesystem::path(FLAGS_FC_HOME_PATH) / folder_name / model_name;
-    FileManager::CreateDirectories(prefix_path);
+    FileManager::CreateDirectoryIfNotExists(prefix_path);
 
     std::string common_header = TemplateLoadAndRender(running_tpl.dtype_config_tpl_, {{}});
 

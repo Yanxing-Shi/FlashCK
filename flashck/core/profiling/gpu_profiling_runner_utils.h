@@ -18,11 +18,11 @@ static constexpr int g_profiler_run_max_attempts        = 3;
 static constexpr int g_profiler_run_retry_delay_seconds = 10000;
 
 // Regular expressions for parsing kernel and time values
-static const std::regex instance_name_pattern(R"(KERNEL:([a-zA-Z0-9_]+))");  // Captures kernel name
-static const std::regex split_k_pattern(R"(SPLIT_K:([\d\.]+))");             // split_k value
-static const std::regex latency_pattern(R"(TIME:([\d\.]+))");                // Captures latency value
-static const std::regex tflops_pattern(R"(TFLOPS:([\d\.]+))");               // Captures tflops value
-static const std::regex bandwidth_pattern(R"(BANDWIDTH:([\d\.]+))");         // Captures bandwidth value
+static const std::regex instance_name_pattern(R"(KERNEL:\s*([a-zA-Z0-9_]+))");       // Captures kernel name
+static const std::regex split_k_pattern(R"(SPLIT_K:\s*([\d\.]+))");                  // split_k value
+static const std::regex latency_pattern(R"(LATENCY:\s*([\d\.]+)(?:\s*ms)?)");        // Captures latency value
+static const std::regex tflops_pattern(R"(TFLOPS:\s*([\d\.]+)(?:\s*Tflops)?)");      // Captures tflops value
+static const std::regex bandwidth_pattern(R"(BANDWIDTH:\s*([\d\.]+)(?:\s*GB/s)?)");  // Captures bandwidth value
 
 inline std::vector<std::string> ExtractMatches(const std::regex& regex, std::string input)
 {
@@ -39,11 +39,10 @@ inline std::vector<std::string> ExtractMatches(const std::regex& regex, std::str
 }
 
 // Extracts profiling results from a given output string.
-inline std::tuple<std::vector<PerfResult>, bool> ExtractProfileResult(std::string                  output,
-                                                                      const std::set<std::string>& return_kernels = {})
+inline std::tuple<PerfResult, bool> ExtractProfilingResult(std::string output)
 {
-    std::vector<PerfResult> results;
-    bool                    failed = false;
+    PerfResult results;
+    bool       failed = false;
 
     try {
         // Extract kernel configurations and times
@@ -53,33 +52,35 @@ inline std::tuple<std::vector<PerfResult>, bool> ExtractProfileResult(std::strin
         auto tflops        = ExtractMatches(tflops_pattern, output);
         auto bandwidth     = ExtractMatches(bandwidth_pattern, output);
 
-        // Ensure we have matching pairs of kernel configs and latency
-        if (instance_name.size() != latency.size() || instance_name.size() != tflops.size()
-            || instance_name.size() != bandwidth.size()) {
-            FC_THROW(Unavailable("Mismatched number of kernel configurations and time values."));
+        VLOG(1) << "Extracted instance name: " << (instance_name.empty() ? "N/A" : instance_name[0])
+                << ", split_k: " << (split_k.empty() ? "N/A" : split_k[0])
+                << ", latency: " << (latency.empty() ? "N/A" : latency[0])
+                << ", tflops: " << (tflops.empty() ? "N/A" : tflops[0])
+                << ", bandwidth: " << (bandwidth.empty() ? "N/A" : bandwidth[0]);
+
+        // Check for required fields (split_k is optional)
+        if (instance_name.empty() || latency.empty() || tflops.empty() || bandwidth.empty()) {
+            throw std::runtime_error("Incomplete profiling data: missing one or more required fields.");
         }
 
-        // Populate results
-        for (size_t i = 0; i < instance_name.size(); ++i) {
-            // Filter kernels if return_kernels is specified
-            if (return_kernels.empty() || return_kernels.count(std::string(instance_name[i])) > 0) {
-                results.push_back(PerfResult{.split_k_   = split_k.empty() ? -1 : std::stoi(split_k[i]),
-                                             .latency_   = std::stof(latency[i]),
-                                             .tflops_    = std::stof(tflops[i]),
-                                             .bandwidth_ = std::stof(bandwidth[i])});
-            }
-        }
+        results = PerfResult{.split_k_   = split_k.empty() ? -1 : std::stoi(split_k[0]),
+                             .latency_   = std::stof(latency[0]),
+                             .tflops_    = std::stof(tflops[0]),
+                             .bandwidth_ = std::stof(bandwidth[0])};
     }
     catch (const std::regex_error& e) {
         // Handle regex errors
+        LOG(ERROR) << "Regex error in ExtractProfilingResult: " << e.what();
         failed = true;
     }
     catch (const std::invalid_argument& e) {
         // Handle invalid time values
+        LOG(ERROR) << "Invalid argument in ExtractProfilingResult: " << e.what();
         failed = true;
     }
     catch (const std::exception& e) {
         // Handle other exceptions
+        LOG(ERROR) << "Exception in ExtractProfilingResult: " << e.what();
         failed = true;
     }
 

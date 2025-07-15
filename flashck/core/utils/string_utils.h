@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <filesystem>
 #include <functional>
 #include <iomanip>
 #include <iostream>
@@ -10,6 +11,7 @@
 #include <memory>
 #include <numeric>
 #include <regex>
+#include <set>
 #include <sstream>
 #include <string>
 #include <type_traits>
@@ -69,6 +71,22 @@ inline std::string JoinStrings(const Container& container, const std::string& de
         oss << *it++;
         for (; it != container.end(); ++it) {
             oss << delimiter << *it;
+        }
+    }
+    return oss.str();
+}
+
+// Specialization for std::set<std::filesystem::path>
+template<>
+inline std::string JoinStrings(const std::set<std::filesystem::path>& container, const std::string& delimiter)
+{
+    std::ostringstream oss;
+    auto               it = container.begin();
+    if (it != container.end()) {
+        oss << it->string();
+        ++it;
+        for (; it != container.end(); ++it) {
+            oss << delimiter << it->string();
         }
     }
     return oss.str();

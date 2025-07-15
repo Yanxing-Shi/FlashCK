@@ -44,7 +44,7 @@ public:
      * @param dir_path The directory path to create
      * @return true if directories were created or already exist, false otherwise
      */
-    static bool CreateDirectories(const std::filesystem::path& dir_path);
+    static bool CreateDirectoryIfNotExists(const std::filesystem::path& dir_path);
 
     /**
      * @brief Delete a file

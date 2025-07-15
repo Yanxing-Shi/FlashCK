@@ -15,77 +15,6 @@ LayerNormOp<T>::LayerNormOp(Shape          normalized_shape,
     normalized_shape_ = normalized_shape;
 }
 
-// template<typename T>
-// void LayerNormOp<T>::CheckParamShape(const Shape& x_shape, const Shape& param_shape, const std::string& param_name)
-// {
-//     FC_ENFORCE_LT(
-//         normalized_shape.GetNumDim(),
-//         x_shape.GetNumDim(),
-//         Unavailable(
-//             "Layernorm normalized_shape length must be smaller than the input. Current normalized_shape: {}, input
-//             shape: {}", normalized_shape.ToString(), x_shape.ToString()));
-
-//     FC_ENFORCE_GE(x_shape.GetNumDim(),
-//                   2,
-//                   Unimplemented("norm only supports 2D or higher input, runtime rank: {}", x_shape.GetNumDim()));
-
-//     if (fused_add_ != FusedAddEnum::NO_ADD) {
-//         FC_ENFORCE_EQ(
-//             x_residual_shape.GetNumDim(),
-//             x_shape.GetNumDim(),
-//             Unimplemented("norm only supports 2D or higher input, runtime rank: {}", x_residual_shape.GetNumDim()));
-//     }
-
-//     if (param_name != "normalized" && param_shape.GetNumDim()) {
-//         return;
-//     }
-
-//     if (!x_shape.GetLastDim().IsStatic()) {
-//         FC_THROW(Unimplemented("layernorm requires reduction dim to be static. Current input shape: {}",
-//                                x_shape.ToString()));
-//     }
-
-//     for (const auto& shape : param_shape.ToVector()) {
-//         if (!shape.IsStatic()) {
-//             FC_THROW(Unimplemented(
-//                 "Layernorm {} shape must be immutable values. Current value: {}", param_name,
-//                 param_shape.ToString()));
-//         }
-//     }
-
-//     int64_t batch_ndims = x_shape.GetNumDim() - param_shape.GetNumDim();
-//     for (int i = 0; i < param_shape.GetNumDim(); i++) {
-//         if (param_shape[i].GetValues() != x_shape[batch_ndims + i].GetValues()) {
-//             FC_THROW(Unavailable(
-//                 "Layernorm {} shape must be broadcastable to the input shape. Current {} shape: {}, input shape: {}",
-//                 param_name,
-//                 param_shape.ToString(),
-//                 x_shape.ToString()));
-//         }
-//     }
-// }
-
-// template<typename T>
-// void LayerNormOp<T>::CheckParamValue()
-// {
-// }
-
-// template<typename T>
-// void LayerNormOp<T>::SanityCheck(Variable* x,
-//                                  Variable* gamma,
-//                                  Variable* beta,
-//                                  Variable* x_bias,
-//                                  Variable* x_residual,
-//                                  Variable* smooth_scale,
-//                                  Variable* y_residual,
-//                                  Variable* y_scale)
-// {
-//     // TODO: Add more sanity checks
-//     FC_ENFORCE_NOT_NULL(x, Unavailable("Input variable x is null"));
-//     FC_ENFORCE_NOT_NULL(gamma, Unavailable("Gamma variable is null"));
-//     FC_ENFORCE_NOT_NULL(beta, Unavailable("Beta variable is null"));
-// }
-
 template<typename T>
 Shape LayerNormOp<T>::InferShape(Variable* x)
 {
@@ -103,8 +32,6 @@ Variable* LayerNormOp<T>::operator()(Variable*   x,
                                      Variable*   y_scale,
                                      const float eps)
 {
-    // SanityCheck(x, gamma, beta, x_bias, x_residual, smooth_scale, y_residual, y_scale);
-
     eps_                             = eps;
     std::vector<Variable*> input_var = {x, gamma, beta, x_bias, x_residual, smooth_scale, y_residual, y_scale};
     for (auto var : input_var) {
@@ -242,7 +169,7 @@ void LayerNormOp<T>::IsBuildProfilingEngine()
         if (!instance_name.empty() && perf_result.IsValid() && !FLAGS_FC_FORCE_PROFILING) {
             LOG(INFO) << "Load profiling result for layer norm from database, " << instance_name
                       << " split_k: " << perf_result.split_k_ << ", latency: " << perf_result.latency_ << "ms, "
-                      << "tflops: " << perf_result.tflops_ << "GB, " << "throughput: " << perf_result.bandwidth_
+                      << "tflops: " << perf_result.tflops_ << "tflops, " << "bandwidth: " << perf_result.bandwidth_
                       << "GB/s";
 
             // Update the running info with the found instance
@@ -268,12 +195,8 @@ LayerNormOp<T>::CodeGenForTuning(const ProfilingStrategy& profiling_strategy)
     if (!FLAGS_FC_FORCE_PROFILING) {
         IsBuildProfilingEngine();
     }
-    else {
-        LOG(INFO) << "Forced to use cache, skip building profiling engine for layernorm";
-        return {};
-    }
 
-    std::vector<std::tuple<std::filesystem::path, std::filesystem::path>> generated_profilers;
+    std::vector<std::tuple<std::filesystem::path, std::filesystem::path>> generated_profiling_files;
 
     for (const auto& [workload_key, running_info] : running_infos_) {
         std::map<std::string, int> profiling_key_map = ExtractWorkLoad(workload_key);
@@ -288,111 +211,117 @@ LayerNormOp<T>::CodeGenForTuning(const ProfilingStrategy& profiling_strategy)
                                                                    .fused_add_          = fused_add_,
                                                                    .fused_quant_        = fused_quant_};
 
-        auto norm_instance_map = NormEmitter::GetInstance()->GetInstanceMap(problem);
+        norm_instance_map_ = NormEmitter::GetInstance()->GetInstanceMap(problem);
 
-        if (norm_instance_map.size() == 0) {
+        if (norm_instance_map_.size() == 0) {
             FC_THROW(Fatal("No layernorm op instances were generated for layernorm"));
         }
 
         if (!running_info.IsInstanceExist()) {
 
-            generated_profilers = register_kernel_ptr_->CodeGenForTuning(
-                context_ptr_->GetName(), GetNormKindName(op_kind_), norm_instance_map);
+            generated_profiling_files = register_kernel_ptr_->CodeGenForTuning(
+                context_ptr_->GetName(), GetNormKindName(op_kind_), norm_instance_map_);
         }
         else {
             LOG(INFO) << "layer norm already exists, not profile";
         }
     }
 
-    return generated_profilers;
+    return generated_profiling_files;
 }
 
-// template<typename T>
-// std::vector<std::string> LayerNormOp<T>::GetTuningCmd(const std::string&          profiler_prefix,
-//                                                       const std::string&          profiler_filename,
-//                                                       const std::vector<int64_t>& input_shape)
-// {
-//     std::filesystem::path exe_path = std::filesystem::path(profiler_prefix) / profiler_filename;
+template<typename T>
+std::vector<std::string> LayerNormOp<T>::GetTuningCmd(const std::string&                profiling_file_prefix,
+                                                      const std::string&                profiling_filename,
+                                                      const std::map<std::string, int>& profiling_key_map)
+{
+    std::filesystem::path exe_path =
+        std::filesystem::path(profiling_file_prefix) / profiling_filename / profiling_filename;
 
-//     FileManager::Instance().CreateDirectoryIfNotExists(exe_path.parent_path());
-//     FileManager::Instance().CheckWithRetries(exe_path, 3, 5);
+    FileManager::CreateDirectoryIfNotExists(exe_path.parent_path());
 
-//     std::vector<std::string> cmd = {exe_path.string(),
-//                                     "-m=" + std::to_string(input_shape[0]),
-//                                     "-n=" + std::to_string(input_shape[1]),
-//                                     "-e=" + std::to_string(eps_)};
+    if (FileManager::CheckWithRetries(exe_path, 3, 5)) {
+        std::vector<std::string> cmd = {exe_path.string(),
+                                        "-m=" + std::to_string(profiling_key_map.at("m")),
+                                        "-n=" + std::to_string(profiling_key_map.at("n")),
+                                        "-e=" + std::to_string(eps_)};
+        return cmd;
+    }
+    else {
+        LOG(ERROR) << "Executable file not found: " << exe_path.string();
+    }
 
-//     return cmd;
-// }
+    return {};
+}
 
-// template<typename T>
-// void LayerNormOp<T>::ProfileSingleWorkload(const std::string&                         profiler_prefix,
-//                                            const std::string&                         workload,
-//                                            const std::shared_ptr<GPUProfilingRunner>& profiler_runner_ptr,
-//                                            bool                                       force_cache)
-// {
-//     std::vector<std::string> kernel_instance_map_key = GetKeyVector(kernel_instance_map_);
+template<typename T>
+void LayerNormOp<T>::TuningSingleWorkload(const std::string&  profiling_file_prefix,
+                                          const std::string&  profiling_workload,
+                                          GPUProfilingRunner& profiling_runner)
+{
+    std::map<std::string, int> profiling_key_map = ExtractWorkLoad(profiling_workload);
+    auto                       instance_data     = InstanceData{
+        Environment{.device_name_ = GetDeviceName(),
+                                              .rocm_version_ = ProfilingEngine::GetInstance()->GetCompiler()->GetROCmVersion()},
+        Setting{},
+        CodeGenKind::Norm,
+        NormProblem{.x_dtype_            = CppTypeToDataType<T>::Type(),
+                                              .y_dtype_            = CppTypeToDataType<T>::Type(),
+                                              .smooth_scale_dtype_ = DataType::FLOAT32,
+                                              .y_scale_dtype_      = DataType::FLOAT32,
+                                              .m_                  = profiling_key_map.at("m"),
+                                              .n_                  = profiling_key_map.at("n"),
+                                              .kind_               = op_kind_,
+                                              .is_add_bias_        = is_add_bias_,
+                                              .fused_add_          = fused_add_,
+                                              .fused_quant_        = fused_quant_},
+    };
 
-//     std::string exec_entry_sha1 = SHA1ToHexString(workload);
-//     auto        query           = NormQueryEntry(DataTypeToShortString(CppTypeToDataType<T>::Type()),
-//                                 DataTypeToShortString(CppTypeToDataType<T>::Type()),
-//                                 DataTypeToShortString(DataType::FLOAT32),
-//                                 DataTypeToShortString(DataType::FLOAT32),
-//                                 g_norm_operation_kind_names_map.at(op_kind_),
-//                                 Target::Instance()->GetTargetDeviceName(),
-//                                 g_short_tensor_operation_names_map.at(epilogue_op_),
-//                                 exec_entry_sha1,
-//                                 g_fused_add_enum_str_map.at(fused_add_),
-//                                 g_fused_quant_enum_str_map.at(fused_quant_));
+    auto [instance_name, perf_result] = ProfilingEngine::GetInstance()->GetProfilingDB()->Query(instance_data);
 
-//     auto cache_value = Target::Instance()->QueryProfileCache(CodeGenKind::Norm, query);
+    if (!instance_name.empty() && perf_result.IsValid() && !FLAGS_FC_FORCE_PROFILING) {
+        LOG(INFO) << "Load profiling result for layer norm from database, " << instance_name
+                  << " split_k: " << perf_result.split_k_ << ", latency: " << perf_result.latency_ << "ms, "
+                  << "tflops: " << perf_result.tflops_ << "tflops, " << "bandwidth: " << perf_result.bandwidth_
+                  << "GB/s";
+    }
 
-//     if (cache_value == std::make_tuple("null", -1) && force_cache) {
-//         LOG(WARNING) << "force_cache is enabled but we could not find the following cache available on device. "
-//                      << "op_name: " << op_name_ << " exec_entry_sha1: " << exec_entry_sha1;
-//     }
+    for (auto& [instance_name, _] : norm_instance_map_) {
+        auto GenCallback = [&] {
+            auto process_result_callback = [&](PerfResult& perf_result, Postprocesser& postprocesser) {
+                instance_data.SetInstanceName(instance_name);
+                instance_data.SetPerfResult(perf_result);
+                postprocesser.AddInstance(instance_data);
+            };
+            return process_result_callback;
+        };
 
-//     for (const auto& kernel_config_name : kernel_instance_map_key) {
-//         auto GenCallback = [&] {
-//             auto process_result_callback =
-//                 [&](const std::vector<ProfileResult>&           result,
-//                     const std::shared_ptr<ProfilerPostprocess>& postprocessing_delegate_ptr) {
-//                     postprocessing_delegate_ptr->AddInstance(
-//                         result, CodeGenKind::Norm, GetAttrsMap(), kernel_config_name, workload);
-//                 };
-//             return process_result_callback;
-//         };
+        std::vector<std::string> command = GetTuningCmd(profiling_file_prefix, instance_name, profiling_key_map);
 
-//         auto                     input_shape = ExtractWorkLoad(workload);
-//         std::vector<std::string> command     = GetTuningCmd(profiler_prefix, kernel_config_name, input_shape);
+        LOG(INFO) << "layer norm tuning command: " << command;
 
-//         LOG(INFO) << "profile command: " << JoinStrings(command);
+        if (!command.empty()) {
+            profiling_runner.Push(command, GenCallback());
+        }
+    }
+}
 
-//         profiler_runner_ptr->Push(command, GenCallback());
-//     }
-// }
+template<typename T>
+void LayerNormOp<T>::Tuning(GPUProfilingRunner& profiling_runner, const std::string& folder_name)
+{
+    std::filesystem::path profiling_file_prefix = std::filesystem::path(FLAGS_FC_HOME_PATH) / folder_name
+                                                  / context_ptr_->GetName() / "profiling" / GetNormKindName(op_kind_);
+    FileManager::CreateDirectoryIfNotExists(profiling_file_prefix);
 
-// template<typename T>
-// void LayerNormOp<T>::Tuning(const std::shared_ptr<GPUProfilingRunner>& profiler_runner_ptr,
-//                             const std::string&                         folder_name)
-// {
-//     std::filesystem::path profiler_prefix =
-//         std::filesystem::path(FLAGS_FC_HOME_PATH) / folder_name / context_ptr_->GetName() / "profiling" / op_name_;
-//     FileManager::Instance().CreateDirectoryIfNotExists(profiler_prefix);
-
-//     for (const auto& workload : profiling_key_) {
-
-//         if (exec_path_[workload]->algo_ == "") {
-//             if (kernel_instance_map_.size() == 0) {
-//                 kernel_instance_map_ = register_kernel_ptr_->Init(op_kind_, epilogue_op_);
-//             }
-//             ProfileSingleWorkload(profiler_prefix, workload, profiler_runner_ptr, FLAGS_FC_FORCE_PROFILER_CACHE);
-//         }
-//         else {
-//             LOG(INFO) << op_name_ << " from cache, not profile";
-//         }
-//     }
-// }
+    for (const auto& [profiling_workload, running_item] : running_infos_) {
+        if (!running_item.IsInstanceExist()) {
+            TuningSingleWorkload(profiling_file_prefix, profiling_workload, profiling_runner);
+        }
+        else {
+            LOG(INFO) << "layer norm already exists, not profile";
+        }
+    }
+}
 
 // template<typename T>
 // std::string LayerNormOp<T>::GenOpFunction()

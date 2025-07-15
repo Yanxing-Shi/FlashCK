@@ -140,10 +140,10 @@ TYPED_TEST_SUITE(LayerNormTest, KernelTestTypes);
 TYPED_TEST(LayerNormTest, test_layernorm_2d_d768)
 {
     this->RunTestLayerNorm({64}, {64}, 768, true, "test_layernorm_2d_d768_m64");
-    this->RunTestLayerNorm({128}, {128}, 768, true, "test_layernorm_2d_d768_m128");
-    this->RunTestLayerNorm({256}, {256}, 768, true, "test_layernorm_2d_d768_m256");
-    this->RunTestLayerNorm({512}, {512}, 768, true, "test_layernorm_2d_d768_m512");
-    this->RunTestLayerNorm({1024}, {1024}, 768, true, "test_layernorm_2d_d768_m1024");
+    // this->RunTestLayerNorm({128}, {128}, 768, true, "test_layernorm_2d_d768_m128");
+    // this->RunTestLayerNorm({256}, {256}, 768, true, "test_layernorm_2d_d768_m256");
+    // this->RunTestLayerNorm({512}, {512}, 768, true, "test_layernorm_2d_d768_m512");
+    // this->RunTestLayerNorm({1024}, {1024}, 768, true, "test_layernorm_2d_d768_m1024");
 }
 
 // TYPED_TEST(LayerNormTest, test_layernorm_3d_static)

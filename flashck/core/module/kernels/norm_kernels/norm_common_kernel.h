@@ -41,7 +41,7 @@ auto create_args(int argc, char* argv[])
 
 static const std::string g_norm_instance_tpl = R"(
 {{instance_code}}
-using {{instance_alias_name}} = {{config_name}};
+using {{instance_alias_name}} = {{instance_name}};
 )";
 
 static const std::string g_norm_running_tpl = R"(
@@ -61,10 +61,17 @@ static const std::string g_norm_running_tpl = R"(
     }
 
 {% if not is_running %}
+    std::size_t flop = std::size_t(2)  * m * n;
     std::size_t num_byte = sizeof(XDataType) * m * n + sizeof(GammaDataType) * n +
                            sizeof(BetaDataType) * n + sizeof(YDataType) * m * n;
     float gb_per_sec = num_byte / 1.E6 / ave_time;
-    std::cout << "KERNEL:" << "{{config_name}}" << ",TIME:" << ave_time << "ms\n" << std::flush;
+
+    float tflops = static_cast<float>(flop) / 1.E9 / ave_time;
+    std::cout << "KERNEL: " << "{{instance_name}}" << std::endl;
+    std::cout << "LATENCY: " << ave_time << " ms" << std::endl;
+    std::cout << "TFLOPS: " << tflops << " Tflops" << std::endl;
+    std::cout << "BANDWIDTH: " << gb_per_sec << " GB/s" << std::endl;
+
 {% endif %}
 )";
 
@@ -85,7 +92,7 @@ static const std::string g_norm_kernel_func_tpl = R"(
 
 {{dtype_decl}}
 
-{{instances_decl}}
+{{instance_decl}}
 
 {% if is_running %} {{c_flag}} FC_EXPORT {% endif %} {{func_signature}} {
     {{execute_func}}

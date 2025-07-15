@@ -36,8 +36,7 @@ void Postprocesser::PostProcessResults()
         });
 
         LOG(INFO) << "According to given metrics: " << MetricToString(metric) << "\n"
-                  << "Profiling engine selected the best instance for best instance is: " << best_instance.Serialize()
-                  << std::endl;
+                  << "Profiling engine selected the best instance is: " << best_instance.Serialize() << std::endl;
 
         // for (const auto& instance : group) {
         //     auto& exec_item =
@@ -59,9 +58,8 @@ void Postprocesser::PostProcessResults()
 
 GPUProfilingRunner::GPUProfilingRunner(const Postprocesser& postprocesser): postprocesser_(postprocesser) {}
 
-void GPUProfilingRunner::Push(
-    const std::vector<std::string>&                                           cmds,
-    std::function<void(const std::vector<PerfResult>&, const Postprocesser&)> process_result_callback)
+void GPUProfilingRunner::Push(const std::vector<std::string>&                  cmds,
+                              std::function<void(PerfResult&, Postprocesser&)> process_result_callback)
 {
     LOG(INFO) << "running profiler engine with command: " << cmds;
     int attempts = 0;
@@ -75,15 +73,15 @@ void GPUProfilingRunner::Push(
             LOG(ERROR) << "profiling engine failed to run, stdout or stderr is empty";
         }
         else {
-            LOG(INFO) << "profiling engine stdout: " << stdout_str;
             // collect profiler results for postprocessing
-            const auto& [profile_result, is_error] = ExtractProfileResult(stdout_str);
+            auto [perf_result, is_error] = ExtractProfilingResult(stdout_str);
             if (is_error) {
                 LOG(ERROR) << "profiling engine failure!" << "\n"
                            << "profiling engine stdout: " << stdout_str << "\n"
                            << "profiling engine stderr: " << stderr_str;
             }
-            process_result_callback(profile_result, postprocesser_);
+
+            process_result_callback(perf_result, postprocesser_);
         }
     }
     catch (std::exception& e) {
