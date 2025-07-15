@@ -211,16 +211,16 @@ LayerNormOp<T>::CodeGenForTuning(const ProfilingStrategy& profiling_strategy)
                                                                    .fused_add_          = fused_add_,
                                                                    .fused_quant_        = fused_quant_};
 
-        norm_instance_map_ = NormEmitter::GetInstance()->GetInstanceMap(problem);
+        instance_map_ = NormEmitter::GetInstance()->GetInstanceMap(problem);
 
-        if (norm_instance_map_.size() == 0) {
+        if (instance_map_.size() == 0) {
             FC_THROW(Fatal("No layernorm op instances were generated for layernorm"));
         }
 
         if (!running_info.IsInstanceExist()) {
 
             generated_profiling_files = register_kernel_ptr_->CodeGenForTuning(
-                context_ptr_->GetName(), GetNormKindName(op_kind_), norm_instance_map_);
+                context_ptr_->GetName(), GetNormKindName(op_kind_), instance_map_);
         }
         else {
             LOG(INFO) << "layer norm already exists, not profile";
@@ -286,12 +286,12 @@ void LayerNormOp<T>::TuningSingleWorkload(const std::string&  profiling_file_pre
                   << "GB/s";
     }
 
-    for (auto& [instance_name, _] : norm_instance_map_) {
+    for (auto& [instance_name, _] : instance_map_) {
         auto GenCallback = [&] {
             auto process_result_callback = [&](PerfResult& perf_result, Postprocesser& postprocesser) {
                 instance_data.SetInstanceName(instance_name);
                 instance_data.SetPerfResult(perf_result);
-                postprocesser.AddInstance(instance_data);
+                postprocesser.AddInstance(instance_data, running_infos_);
             };
             return process_result_callback;
         };
@@ -323,88 +323,92 @@ void LayerNormOp<T>::Tuning(GPUProfilingRunner& profiling_runner, const std::str
     }
 }
 
-// template<typename T>
-// std::string LayerNormOp<T>::GenOpFunction()
-// {
-//     return register_kernel_ptr_->GenKernelFunction(GetName(), context_ptr_->GetName(), GetAttrsMap());
-// }
+template<typename T>
+std::string LayerNormOp<T>::CodeGenForRunning()
+{
+    return register_kernel_ptr_->CodeGenForRunning(GetName(), context_ptr_->GetName(), running_infos_, instance_map_);
+}
 
-// template<typename T>
-// void LayerNormOp<T>::Forward()
-// {
-//     Variable* x = GetParentNode(0);
+template<typename T>
+void LayerNormOp<T>::Forward()
+{
+    Variable* x = GetParentNode(0);
 
-//     T* x_ptr      = (T*)x->GetValue();
-//     T* gamma_ptr  = (T*)GetParentNode(1)->GetValue();
-//     T* beta_ptr   = (T*)GetParentNode(2)->GetValue();
-//     T* x_bias_ptr = is_add_bias_ != NormBiasEnum::NO_BIAS ? (T*)GetParentNode(3)->GetValue() : nullptr;
-//     T* x_residual_ptr =
-//         fused_add_ != FusedAddEnum::NO_ADD ? (T*)GetParentNode(3 + (x_bias_ptr != nullptr))->GetValue() : nullptr;
-//     T* smooth_scale_ptr = fused_quant_ == FusedQuantEnum::SMOOTH_DYNAMIC_QUANT ?
-//                               (T*)GetParentNode(3 + (x_residual_ptr != nullptr) + (x_bias_ptr !=
-//                               nullptr))->GetValue() : nullptr;
-//     T* y_residual_ptr =
-//         fused_add_ == FusedAddEnum::PRE_ADD_STORE ?
-//             (T*)GetParentNode(3 + (x_bias_ptr != nullptr) + (smooth_scale_ptr != nullptr) + (x_residual_ptr !=
-//             nullptr))
-//                 ->GetValue() :
-//             nullptr;
-//     T* y_scale_ptr = fused_quant_ != FusedQuantEnum::NO_SWEEP ?
-//                          (T*)GetParentNode(3 + (x_bias_ptr != nullptr) + (y_residual_ptr != nullptr)
-//                                            + (smooth_scale_ptr != nullptr) + (x_residual_ptr != nullptr))
-//                              ->GetValue() :
-//                          nullptr;
+    T* x_ptr      = (T*)x->GetValue();
+    T* gamma_ptr  = (T*)GetParentNode(1)->GetValue();
+    T* beta_ptr   = (T*)GetParentNode(2)->GetValue();
+    T* x_bias_ptr = is_add_bias_ != NormBiasEnum::NO_BIAS ? (T*)GetParentNode(3)->GetValue() : nullptr;
+    T* x_residual_ptr =
+        fused_add_ != FusedAddEnum::NO_ADD ? (T*)GetParentNode(3 + (x_bias_ptr != nullptr))->GetValue() : nullptr;
+    T* smooth_scale_ptr = fused_quant_ == FusedQuantEnum::SMOOTH_DYNAMIC_QUANT ?
+                              (T*)GetParentNode(3 + (x_residual_ptr != nullptr) + (x_bias_ptr != nullptr))->GetValue() :
+                              nullptr;
+    T* y_residual_ptr =
+        fused_add_ == FusedAddEnum::PRE_ADD_STORE ?
+            (T*)GetParentNode(3 + (x_bias_ptr != nullptr) + (smooth_scale_ptr != nullptr) + (x_residual_ptr != nullptr))
+                ->GetValue() :
+            nullptr;
+    T* y_scale_ptr = fused_quant_ != FusedQuantEnum::NO_SWEEP ?
+                         (T*)GetParentNode(3 + (x_bias_ptr != nullptr) + (y_residual_ptr != nullptr)
+                                           + (smooth_scale_ptr != nullptr) + (x_residual_ptr != nullptr))
+                             ->GetValue() :
+                         nullptr;
 
-//     T* y_ptr = (T*)GetChildNode(0)->GetValue();
+    T* y_ptr = (T*)GetChildNode(0)->GetValue();
 
-//     if (!context_ptr_->IsBuilt()) {
-//         return;
-//     }
+    if (!context_ptr_->IsBuilt()) {
+        return;
+    }
 
-//     Shape c_shape = InferShape(GetParentNode(0));
-//     output_var_[0]->SetShape(c_shape);  // must update actual output shape
+    Shape c_shape = InferShape(GetParentNode(0));
+    output_var_[0]->SetShape(c_shape);  // must update actual output shape
 
-//     auto broadcast_shape_func = [&](Variable* x) {
-//         auto x_shape_vec = x->GetShape().ToVector();
-//         int  dim0_value  = 1;
-//         std::for_each(
-//             x_shape_vec.begin(), x_shape_vec.end() - 1, [&](const DDim& dim) { dim0_value *= dim.GetValues()[0]; });
+    auto broadcast_shape_func = [&](Variable* x) {
+        auto x_shape_vec = x->GetShape().ToVector();
+        int  dim0_value  = 1;
+        std::for_each(
+            x_shape_vec.begin(), x_shape_vec.end() - 1, [&](const DDim& dim) { dim0_value *= dim.GetValues()[0]; });
 
-//         return dim0_value;
-//     };
+        return dim0_value;
+    };
 
-//     VLOG(1) << "norm " << this->op_name_ << ", out shape: " << c_shape.ToString();
+    VLOG(1) << "norm " << GetNormKindName(op_kind_) << ", out shape: " << c_shape.ToString();
 
-//     // PrintToScreen(x_ptr, 3, "[" + this->op_name_ + "]" + "x_ptr");
-//     // PrintToScreen(gamma_ptr, 3, "[" + this->op_name_ + "]" + "gamma_ptr");
-//     // PrintToScreen(beta_ptr, 3, "[" + this->op_name_ + "]" + "beta_ptr");
-//     // PrintToScreen(x_bias_ptr, 3, "[" + this->op_name_ + "]" + "x_bias_ptr");
-//     // PrintToScreen(x_residual_ptr, 3, "[" + this->op_name_ + "]" + "x_residual_ptr");
-//     // PrintToScreen(smooth_scale_ptr, 3, "[" + this->op_name_ + "]" + "smooth_scale_ptr");
-//     // PrintToScreen(y_residual_ptr, 3, "[" + this->op_name_ + "]" + "y_residual_ptr");
-//     // PrintToScreen(y_scale_ptr, 3, "[" + this->op_name_ + "]" + "y_scale_ptr");
+    PrintToScreen(x_ptr, 3, "[" + GetNormKindName(op_kind_) + "]" + "x_ptr");
+    PrintToScreen(gamma_ptr, 3, "[" + GetNormKindName(op_kind_) + "]" + "gamma_ptr");
+    PrintToScreen(beta_ptr, 3, "[" + GetNormKindName(op_kind_) + "]" + "beta_ptr");
+    PrintToScreen(x_bias_ptr, 3, "[" + GetNormKindName(op_kind_) + "]" + "x_bias_ptr");
+    PrintToScreen(x_residual_ptr, 3, "[" + GetNormKindName(op_kind_) + "]" + "x_residual_ptr");
+    PrintToScreen(smooth_scale_ptr, 3, "[" + GetNormKindName(op_kind_) + "]" + "smooth_scale_ptr");
+    PrintToScreen(y_residual_ptr, 3, "[" + GetNormKindName(op_kind_) + "]" + "y_residual_ptr");
+    PrintToScreen(y_scale_ptr, 3, "[" + GetNormKindName(op_kind_) + "]" + "y_scale_ptr");
 
-//     NormKernelArgs layer_norm_args;
-//     layer_norm_args.x_ptr_            = x_ptr;
-//     layer_norm_args.x_residual_ptr_   = x_residual_ptr;
-//     layer_norm_args.smooth_scale_ptr_ = smooth_scale_ptr;
-//     layer_norm_args.x_bias_ptr_       = x_bias_ptr;
-//     layer_norm_args.gamma_ptr_        = gamma_ptr;
-//     layer_norm_args.beta_ptr_         = beta_ptr;
-//     layer_norm_args.y_ptr_            = y_ptr;
-//     layer_norm_args.y_residual_ptr_   = y_residual_ptr;
-//     layer_norm_args.y_scale_ptr_      = y_scale_ptr;
+    NormKernelArgs layer_norm_args;
+    layer_norm_args.x_ptr_            = x_ptr;
+    layer_norm_args.x_residual_ptr_   = x_residual_ptr;
+    layer_norm_args.smooth_scale_ptr_ = smooth_scale_ptr;
+    layer_norm_args.x_bias_ptr_       = x_bias_ptr;
+    layer_norm_args.gamma_ptr_        = gamma_ptr;
+    layer_norm_args.beta_ptr_         = beta_ptr;
+    layer_norm_args.y_ptr_            = y_ptr;
+    layer_norm_args.y_residual_ptr_   = y_residual_ptr;
+    layer_norm_args.y_scale_ptr_      = y_scale_ptr;
 
-//     layer_norm_args.x_dim_0_ = broadcast_shape_func(x);
-//     layer_norm_args.x_dim_1_ = x->GetShape().GetLastDim().GetValues()[0];
-//     layer_norm_args.eps_     = eps_;
-//     layer_norm_args.stream_  = context_ptr_->GetStream();
+    layer_norm_args.x_dim_0_   = broadcast_shape_func(x);
+    layer_norm_args.x_dim_1_   = x->GetShape().GetLastDim().GetValues()[0];
+    layer_norm_args.eps_       = eps_;
+    layer_norm_args.x_stride_  = layer_norm_args.x_dim_1_;
+    layer_norm_args.xr_stride_ = layer_norm_args.x_dim_1_;
+    layer_norm_args.y_stride_  = layer_norm_args.x_dim_1_;
+    layer_norm_args.yr_stride_ = layer_norm_args.x_dim_1_;
+    layer_norm_args.stream_    = context_ptr_->GetStream();
 
-//     register_kernel_ptr_->KernelLauncher(GetName(), layer_norm_args);
+    register_kernel_ptr_->KernelLauncher(GetName(), layer_norm_args);
 
-//     // PrintToScreen(y_ptr, 3, "[" + this->op_name_ + "]" + "y_ptr");
-//     // ResultChecker(y_ptr, std::get<0>(c_shape.GetElementSizeTuple()), "[" + this->op_name_ + "]" + "y_ptr");
-// }
+    PrintToScreen(y_ptr, 3, "[" + GetNormKindName(op_kind_) + "]" + "y_ptr");
+    // ResultChecker(y_ptr, std::get<0>(c_shape.GetElementSizeTuple()), "[" + GetNormKindName(op_kind_) + "]" +
+    // "y_ptr");
+}
 
 template class LayerNormOp<float>;
 template class LayerNormOp<_Float16>;

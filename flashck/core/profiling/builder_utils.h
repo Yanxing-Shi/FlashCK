@@ -72,6 +72,17 @@ inline std::vector<std::string> ParseFailedFiles(const std::string& make_output)
                     }
                 }
             }
+
+            // Look for "no such file or directory" errors
+            if (line.find("no such file or directory:") != std::string::npos) {
+                size_t start_quote = line.find("'", line.find("no such file or directory:"));
+                size_t end_quote   = line.find("'", start_quote + 1);
+                if (start_quote != std::string::npos && end_quote != std::string::npos) {
+                    std::string missing_file = line.substr(start_quote + 1, end_quote - start_quote - 1);
+                    VLOG(1) << "Missing file error for: " << missing_file;
+                    failed_files.push_back("Missing: " + missing_file);
+                }
+            }
         }
         // Look for make target errors
         else if (line.find("No rule to make target") != std::string::npos) {
@@ -92,6 +103,17 @@ inline std::vector<std::string> ParseFailedFiles(const std::string& make_output)
                     VLOG(1) << "Make target error for: " << target;
                     failed_files.push_back("Target: " + target);
                 }
+            }
+        }
+        // Look for make execution errors
+        else if (line.find("make: ***") != std::string::npos && line.find("Error") != std::string::npos) {
+            // Extract the target that failed
+            size_t colon_pos   = line.find(": ");
+            size_t bracket_pos = line.find("]");
+            if (colon_pos != std::string::npos && bracket_pos != std::string::npos && bracket_pos > colon_pos) {
+                std::string target = line.substr(colon_pos + 2, bracket_pos - colon_pos - 2);
+                VLOG(1) << "Make error for: " << target;
+                failed_files.push_back("Failed: " + target);
             }
         }
     }

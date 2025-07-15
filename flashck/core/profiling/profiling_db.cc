@@ -130,7 +130,7 @@ bool ProfilingDB::CheckIfInsert(InstanceData& instance_data)
     CHECK_SQLITE3(sqlite3_clear_bindings(raw_stmt), db_ptr_.get());
 
     if (rc == SQLITE_DONE) {
-        std::cout << "No matching records found" << std::endl;
+        LOG(INFO) << "No matching records found";
     }
     return (rc == SQLITE_ROW);
 }
@@ -138,6 +138,12 @@ bool ProfilingDB::CheckIfInsert(InstanceData& instance_data)
 // Insert a new entry into the database
 void ProfilingDB::Insert(InstanceData& instance_data)
 {
+    // Check if record already exists
+    if (CheckIfInsert(instance_data)) {
+        LOG(WARNING) << "repeat record, not inserting data" << std::endl;
+        return;
+    }
+
     Execute("BEGIN TRANSACTION");
     try {
         constexpr const char* sql = R"sql(

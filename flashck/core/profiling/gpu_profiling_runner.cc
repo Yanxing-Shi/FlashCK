@@ -11,16 +11,18 @@ FC_DECLARE_int32(FC_TUNING_METRIC);
 
 namespace flashck {
 
-void Postprocesser::AddInstance(InstanceData instance_data)
+void Postprocesser::AddInstance(InstanceData& instance_data, std::map<std::string, RunningItem>& running_info)
 {
-    instances_.emplace_back(std::move(instance_data));
+    instances_.emplace_back(std::make_tuple(instance_data, std::ref(running_info)));
 }
 
 struct ProfileResultGroupByKey {
     using KeyTuple = std::tuple<CodeGenKind>;
 
-    KeyTuple operator()(const InstanceData& instance_data)
+    KeyTuple operator()(const std::tuple<InstanceData, std::reference_wrapper<std::map<std::string, RunningItem>>>&
+                            profiling_instance_tuple)
     {
+        const auto& instance_data = std::get<0>(profiling_instance_tuple);
         return {instance_data.code_gen_kind_};
     }
 };
@@ -32,22 +34,27 @@ void Postprocesser::PostProcessResults()
     for (const auto& group : instance_groups) {
         auto metric        = static_cast<Metric>(FLAGS_FC_TUNING_METRIC);
         auto best_instance = *std::max_element(group.begin(), group.end(), [metric](const auto& a, const auto& b) {
-            return PerfResult::compare(b.perf_result_, a.perf_result_, metric);
+            const auto& instance_data_a = std::get<0>(a);
+            const auto& instance_data_b = std::get<0>(b);
+            return PerfResult::compare(instance_data_a.perf_result_, instance_data_b.perf_result_, metric);
         });
 
+        auto& best_instance_data = std::get<0>(best_instance);
+
         LOG(INFO) << "According to given metrics: " << MetricToString(metric) << "\n"
-                  << "Profiling engine selected the best instance is: " << best_instance.Serialize() << std::endl;
+                  << "Profiling engine selected the best instance is: " << best_instance_data.Serialize() << std::endl;
 
-        // for (const auto& instance : group) {
-        //     auto& exec_item =
-        //         std::any_cast<std::map<std::string, RunningItem>>(instance.op_attrs.at("exec_path"))[exec_cond];
-        //     exec_item.instance_name_        = best_instance.instance_name_;
-        //     exec_item.perf_result_.split_k_ = best_instance.perf_result_.split_k_;
-        // }
+        for (auto& [instance_data, running_info_ref] : group) {
+            auto& running_info = running_info_ref.get();
+            for (auto& [key, running_item] : running_info) {
+                running_item.instance_name_        = best_instance_data.instance_name_;
+                running_item.perf_result_.split_k_ = best_instance_data.perf_result_.split_k_;
+            }
+        }
 
-        if (best_instance.code_gen_kind_ == CodeGenKind::Norm) {
+        if (best_instance_data.code_gen_kind_ == CodeGenKind::Norm) {
             try {
-                ProfilingEngine::GetInstance()->GetProfilingDB()->Insert(best_instance);
+                ProfilingEngine::GetInstance()->GetProfilingDB()->Insert(best_instance_data);
             }
             catch (const std::exception& e) {
                 FC_THROW(Unavailable("Cache update failed for {}", e.what()));

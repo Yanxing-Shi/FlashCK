@@ -8,12 +8,12 @@ namespace flashck {
 
 class Postprocesser {
 public:
-    void AddInstance(InstanceData instance_data);
+    void AddInstance(InstanceData& instance_data, std::map<std::string, RunningItem>& running_info);
 
     void PostProcessResults();
 
 private:
-    std::vector<InstanceData> instances_;
+    std::vector<std::tuple<InstanceData, std::reference_wrapper<std::map<std::string, RunningItem>>>> instances_;
 };
 
 class GPUProfilingRunner {

@@ -183,4 +183,48 @@ void CheckMaxVal(const T* result, const int size, hipStream_t stream)
     LOG(INFO) << "[HIP] addr " << result << " Max: " << max_val;
 }
 
+template<typename T>
+void PrintToScreen(const T* result, const int size, const std::string& name)
+{
+    LOG(INFO) << "------------------------------------------";
+
+    if (result == nullptr) {
+        LOG(WARNING) << "name: " << name << ", " << "value: " << "It is an nullptr, skip!";
+        return;
+    }
+
+    T* tmp = reinterpret_cast<T*>(malloc(sizeof(T) * size));
+    hipMemcpy(tmp, result, sizeof(T) * size, hipMemcpyDeviceToHost);
+    for (int i = 0; i < size; ++i) {
+        LOG(INFO) << "name: " << name << ", " << "index: " << i << ", " << "value: " << static_cast<float>(tmp[i]);
+    }
+
+    free(tmp);
+}
+
+template<>
+void PrintToScreen(const ushort* result, const int size, const std::string& name)
+{
+    LOG(INFO) << "------------------------------------------";
+
+    if (result == nullptr) {
+        LOG(WARNING) << "name: " << name << ", " << "value: " << "It is an nullptr, skip!";
+        return;
+    }
+
+    ushort* tmp = reinterpret_cast<ushort*>(malloc(sizeof(ushort) * size));
+    hipMemcpy(tmp, result, sizeof(ushort) * size, hipMemcpyDeviceToHost);
+    for (int i = 0; i < size; ++i) {
+        LOG(INFO) << "name: " << name << ", " << "index: " << i << ", "
+                  << "value: " << bf16_to_float_raw(bit_cast<uint16_t>(tmp[i]));
+    }
+
+    free(tmp);
+}
+
+template void PrintToScreen(const float* result, const int size, const std::string& name);
+template void PrintToScreen(const _Float16* result, const int size, const std::string& name);
+template void PrintToScreen(const int32_t* result, const int size, const std::string& name);
+template void PrintToScreen(const int64_t* result, const int size, const std::string& name);
+
 }  // namespace flashck

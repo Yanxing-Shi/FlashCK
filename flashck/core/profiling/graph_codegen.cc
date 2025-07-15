@@ -1,6 +1,7 @@
 #include "flashck/core/profiling/graph_codegen.h"
 
 #include "flashck/core/profiling/builder.h"
+#include "flashck/core/profiling/profiling_engine.h"
 
 FC_DECLARE_string(FC_HOME_PATH);
 
@@ -50,75 +51,67 @@ void GraphCodeGen::CodeGenAndProfiling(const std::vector<Operation*>& model_ops,
     }
     profiling_runner.Join();
 
-    // step3 gen kernel source function
-    // std::vector<std::tuple<std::filesystem::path, std::filesystem::path>> file_tuples =
-    //     CodeGenForRunning(model_ops, context_name);
-    // builder.MakeRunning(file_tuples, "generated_kernel.so", context_name);
+    // step.3 gen kernel source function
+    std::vector<std::tuple<std::filesystem::path, std::filesystem::path>> file_tuples =
+        CodeGenForRunning(model_ops, context_name);
 
-    // // step.4 read dll and load function
-    // ProfilingEngine::GetInstance()->LoadKernelLibrary("kernel_profile", context_name, "generated_kernel.so");
+    // step.4 build kernel source function
+    builder.MakeRunning(file_tuples, "generated_kernel.so", context_name);
+
+    // step.5 read dll and load functio
+    ProfilingEngine::GetInstance()->LoadKernelLibrary("kernel_profile", context_name, "generated_kernel.so");
 }
 
 // Generates source/object file pairs for operation-specific functions.
-// GenFunctionResult GraphCodeGen::CodeGenForRunning(const std::vector<Operation*>& model_ops,
-//                                     const std::string&             context_name,
-//                                     const std::string&             folder_name = "kernel_profile")
-// {
-//     GenFunctionResult               file_tuples;
-//     std::unordered_set<std::string> processed_ops;
+GenFunctionResult GraphCodeGen::CodeGenForRunning(const std::vector<Operation*>& model_ops,
+                                                  const std::string&             context_name,
+                                                  const std::string&             folder_name)
+{
+    GenFunctionResult               file_tuples;
+    std::unordered_set<std::string> processed_ops;
 
-//     // Configure output paths
-//     const auto prefix_path = std::filesystem::path(FLAGS_FC_HOME_PATH) / folder_name / context_name;
+    // Configure output paths
+    const auto prefix_path = std::filesystem::path(FLAGS_FC_HOME_PATH) / folder_name / context_name;
+    FileManager::CreateDirectoryIfNotExists(prefix_path);
 
-//     try {
-//         std::filesystem::create_directories(prefix_path);
-//     }
-//     catch (const std::filesystem::filesystem_error& e) {
-//         FC_THROW(Unavailable("Failed to create directory {}: {}", prefix_path.string(), e.what()));
-//     }
+    file_tuples.reserve(model_ops.size());
 
-//     file_tuples.reserve(model_ops.size());
+    for (auto* op : model_ops) {
+        CHECK(op != nullptr) << "Received null Operation pointer";
 
-//     for (auto* op : model_ops) {
-//         CHECK(op != nullptr) << "Received null Operation pointer";
+        if (!op->has_gen_function_) {
+            VLOG(1) << "Skipping codegen for " << op->GetName() << ": Function generation disabled";
+            continue;
+        }
 
-//         if (!op->has_gen_function_) {
-//             VLOG(1) << "Skipping codegen for " << op->GetName() << ": Function generation disabled";
-//             continue;
-//         }
+        const auto op_name = op->GetName();
+        if (processed_ops.contains(op_name)) {
+            VLOG(2) << "Duplicate operation name skipped: " << op_name;
+            continue;
+        }
 
-//         const auto op_name = op->GetName();
-//         if (processed_ops.contains(op_name)) {
-//             VLOG(2) << "Duplicate operation name skipped: " << op_name;
-//             continue;
-//         }
+        // Configure file paths
+        const auto src_path = prefix_path / (op_name + ".cc");
+        const auto obj_path = prefix_path / (op_name + ".o");
+        file_tuples.emplace_back(src_path, obj_path);
 
-//         // Configure file paths
-//         const auto src_path = prefix_path / (op_name + ".cc");
-//         const auto obj_path = prefix_path / (op_name + ".o");
-//         file_tuples.emplace_back(src_path, obj_path);
+        // Check for existing artifacts
+        if (std::filesystem::exists(src_path) && std::filesystem::exists(obj_path)) {
+            LOG(INFO) << "Reusing existing artifacts for " << op_name;
+            processed_ops.insert(op_name);
+            continue;
+        }
 
-//         // Check for existing artifacts
-//         if (std::filesystem::exists(src_path) && std::filesystem::exists(obj_path)) {
-//             LOG(INFO) << "Reusing existing artifacts for " << op_name;
-//             processed_ops.insert(op_name);
-//             continue;
-//         }
+        // Generate source code
 
-//         // Generate source code
-//         try {
-//             FileManager::WriteFile(src_path, op->CodeGenForRunning());
-//         }
-//         catch (const std::exception& e) {
-//             FC_THROW(Unavailable("Failed to write to {}: {}", src_path.string(), e.what()));
-//         }
+        FileManager::WriteFile(src_path, op->CodeGenForRunning());
 
-//         processed_ops.insert(op_name);
-//         LOG(INFO) << "Generated function source: " << src_path.string();
-//     }
+        processed_ops.insert(op_name);
+        LOG(INFO) << "Generated function source: " << src_path.string();
+    }
 
-//     LOG(INFO) << "Total generated source files: " << file_tuples.size();
-//     return file_tuples;
-// }
-//}
+    LOG(INFO) << "Total generated source files: " << file_tuples.size();
+    return file_tuples;
+}
+
 }  // namespace flashck

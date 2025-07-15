@@ -62,8 +62,6 @@ std::vector<std::string> Compiler::GetLibraryOptions(const std::string& dst_file
 std::vector<std::string> Compiler::GetCompilerOptions()
 {
     std::vector<std::string> opts = {"-" + ToString(FLAGS_FC_COMPILER_OPT_LEVEL),
-                                     "-x",
-                                     "hip",
                                      "-std=c++17",
                                      "-fno-gpu-rdc",
                                      "-fPIC",
@@ -127,13 +125,13 @@ std::string Compiler::GetCompilerCommand(const std::vector<std::string>& src_fil
     options.insert(options.end(), lib_options.begin(), lib_options.end());
 
     if (dst_file_ext == "o") {
-        options.push_back("-c");
+        options.push_back("-x hip -c");
     }
     else if (dst_file_ext == "so") {
         options.push_back("-shared");
     }
     else if (dst_file_ext == "exe") {
-        // No additional flags needed for executable
+        options.push_back("-x hip");
     }
     else {
         FC_THROW(Unimplemented("Unsupported output file suffix: {}", dst_file_ext));

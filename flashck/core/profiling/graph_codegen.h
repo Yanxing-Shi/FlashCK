@@ -23,10 +23,13 @@ public:
     GenProfilerResult CodeGenForTuning(const std::vector<Operation*>& model_ops,
                                        const ProfilingStrategy&       strategy = ProfilingStrategy::kMax);
 
-    void CodeGenAndProfiling(const std::vector<Operation*>& model_ops,
-                             const std::string&             context_name,
-                             const ProfilingStrategy&       strategy    = ProfilingStrategy::kMax,
-                             const std::string&             folder_name = "kernel_profile");
+    void              CodeGenAndProfiling(const std::vector<Operation*>& model_ops,
+                                          const std::string&             context_name,
+                                          const ProfilingStrategy&       strategy    = ProfilingStrategy::kMax,
+                                          const std::string&             folder_name = "kernel_profile");
+    GenFunctionResult CodeGenForRunning(const std::vector<Operation*>& model_ops,
+                                        const std::string&             context_name,
+                                        const std::string&             folder_name = "kernel_profile");
 };
 
 }  // namespace flashck

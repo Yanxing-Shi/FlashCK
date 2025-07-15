@@ -48,9 +48,9 @@ public:
 
     void Tuning(GPUProfilingRunner& profiling_runner, const std::string& folder_name) override;
 
-    // std::string GenOpFunction() override;
+    std::string CodeGenForRunning() override;
 
-    // void Forward() override;
+    void Forward() override;
 
     NormKind       op_kind_     = NormKind::LayerNorm;
     NormBiasEnum   is_add_bias_ = NormBiasEnum::NO_BIAS;
@@ -61,7 +61,7 @@ public:
 
     float eps_;
 
-    std::map<std::string, NormCodeGen> norm_instance_map_;
+    std::map<std::string, NormCodeGen> instance_map_;
     std::map<std::string, RunningItem> running_infos_;
 
     std::shared_ptr<Kernel> register_kernel_ptr_;

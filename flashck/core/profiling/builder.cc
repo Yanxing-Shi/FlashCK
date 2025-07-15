@@ -186,28 +186,29 @@ Builder::GenMakefileForRunning(const std::vector<std::tuple<std::filesystem::pat
                                const std::filesystem::path& build_dir)
 {
     std::string makefile_tpl =
-        "CFLAGS = {{CFLAGS}}\nfPIC_flag = -fPIC\n\nobj_files = {{obj_files}}\n\n%.o : %.cc\n\t{{c_file_cmd}}\n\n.PHONY: all clean clean_constants\nall: {{targets}}\n\n{{targets}}: $(obj_files)\n\t{{build_so_cmd}}\n\nclean:\n\trm -f *.obj {{targets}}";
+        "obj_files = {{obj_files}}\n\n%.o : %.cc\n\t{{c_file_cmd}}\n\n.PHONY: all clean clean_constants\nall: {{targets}}\n\n{{targets}}: $(obj_files)\n\t{{build_so_cmd}}\n\nclean:\n\trm -f *.obj {{targets}}";
+
+    auto split_path = [](const std::filesystem::path& path) {
+        auto path_parts = SplitStrings(path.string(), "/");
+        return std::filesystem::path(path_parts.back());  // return the last part of the path
+    };
 
     std::vector<std::string> obj_files;
     std::for_each(file_tuples.begin(),
                   file_tuples.end(),
                   [&](const std::tuple<std::filesystem::path, std::filesystem::path>& val) {
-                      obj_files.push_back(SplitStrings(std::get<1>(val).string(), "/").back());
+                      const auto& [src_path, obj_path] = val;
+                      obj_files.push_back(split_path(obj_path).string());
                   });
 
-    std::string build_so_cmd = ProfilingEngine::GetInstance()->GetCompiler()->GetCompilerCommand({"$@"}, {"$<"}, "so");
+    std::string build_so_cmd = ProfilingEngine::GetInstance()->GetCompiler()->GetCompilerCommand({"$^"}, "$@", "so");
 
-    std::string c_file_cmd = ProfilingEngine::GetInstance()->GetCompiler()->GetCompilerCommand({"$@"}, {"$<"}, "o");
+    std::string c_file_cmd = ProfilingEngine::GetInstance()->GetCompiler()->GetCompilerCommand({"$<"}, "$@", "o");
 
-    c_file_cmd   = TimeCmd(c_file_cmd);
-    build_so_cmd = TimeCmd(build_so_cmd);
-
-    jinja2::ValuesMap makefile_value_map{
-        {"CFLAGS", JoinStrings(ProfilingEngine::GetInstance()->GetCompiler()->GetCompilerOptions())},
-        {"obj_files", JoinStrings(obj_files, " ")},
-        {"c_file_cmd", c_file_cmd},
-        {"build_so_cmd", build_so_cmd},
-        {"targets", so_file_name}};
+    jinja2::ValuesMap makefile_value_map{{"obj_files", JoinStrings(obj_files, " ")},
+                                         {"c_file_cmd", c_file_cmd},
+                                         {"build_so_cmd", build_so_cmd},
+                                         {"targets", so_file_name}};
 
     std::string makefile_str  = TemplateLoadAndRender(makefile_tpl, makefile_value_map);
     std::string makefile_name = Sprintf("Makefile_{}", HashToHexString(so_file_name));
@@ -303,8 +304,14 @@ Builder::GenMakefileForTuning(const std::vector<std::tuple<std::filesystem::path
         std::string src_str  = JoinStrings(dependencies[target], " ");
         std::string dep_line = Sprintf("{}: {}", target.string(), src_str);
 
-        std::string cmd_line = TimeCmd(
-            ProfilingEngine::GetInstance()->GetCompiler()->GetCompilerCommand({src_str}, target.string(), "exe"));
+        // Convert srcs to vector of strings for GetCompilerCommand
+        std::vector<std::string> src_files;
+        for (const auto& src : srcs) {
+            src_files.push_back(src.string());
+        }
+
+        std::string cmd_line =
+            ProfilingEngine::GetInstance()->GetCompiler()->GetCompilerCommand(src_files, target.string(), "exe");
 
         std::string command = Sprintf("{}\n\t{}", dep_line, cmd_line);
         commands.emplace_back(command);

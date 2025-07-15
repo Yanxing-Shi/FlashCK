@@ -250,4 +250,16 @@ public:
     PerfResult                perf_result_;
 };
 
+class RunningItem {
+public:
+    bool IsInstanceExist() const
+    {
+        return !instance_name_.empty() && !running_cond_.empty() && perf_result_.IsValid();
+    }
+
+    std::string running_cond_;
+    std::string instance_name_;
+    PerfResult  perf_result_;
+};
+
 }  // namespace flashck
