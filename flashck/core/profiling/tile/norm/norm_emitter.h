@@ -14,10 +14,11 @@ const std::vector<NormTileDesc> g_default_norm_tile_desc = {
     // clang-format off
     // | repeat_m | repeat_n | thread_per_block_m | thread_per_block_n | vector_n  |
     {       1,          1,        8,                   8,                   8       },
-    // {       1,          1,        4,                   16,                  4       },
-    // {       1,          1,        4,                   64,                  1       },
-    // {       1,          1,        4,                   16,                  8       },
-    // {       1,          1,        4,                   64,                  2       }
+    {       1,          1,        4,                   64,                  2       },
+    {       1,          1,        4,                   16,                  4       },
+    {       1,          1,        4,                   64,                  1       },
+    {       1,          1,        4,                   16,                  8       },
+    {       1,          1,        4,                   64,                  2       }
     // clang-format on
 };
 

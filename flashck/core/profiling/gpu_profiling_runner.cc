@@ -54,10 +54,12 @@ void Postprocesser::PostProcessResults()
         auto metric = static_cast<Metric>(FLAGS_FC_TUNING_METRIC);
 
         // Find the best performing instance in this group
+        // PerfResult::compare(a, b, metric) returns true if 'a' is better than 'b'
+        // We want to find the element that is better than all others
         auto best_instance = *std::max_element(group.begin(), group.end(), [metric](const auto& a, const auto& b) {
             const auto& instance_data_a = std::get<0>(a);
             const auto& instance_data_b = std::get<0>(b);
-            return PerfResult::compare(instance_data_a.perf_result_, instance_data_b.perf_result_, metric);
+            return PerfResult::compare(instance_data_b.perf_result_, instance_data_a.perf_result_, metric);
         });
 
         auto& best_instance_data = std::get<0>(best_instance);
