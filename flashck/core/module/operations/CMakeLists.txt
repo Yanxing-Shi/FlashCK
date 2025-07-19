@@ -12,4 +12,4 @@ file(GLOB_RECURSE OPERATION_SOURCES CONFIGURE_DEPENDS
 add_library(operation STATIC ${OPERATION_SOURCES})
 
 # Link dependencies
-target_link_libraries(operation PUBLIC utils profiling)
+target_link_libraries(operation PUBLIC utils profiling kernel)

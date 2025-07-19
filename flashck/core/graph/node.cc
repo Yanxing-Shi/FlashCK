@@ -6,6 +6,15 @@ namespace flashck {
 
 Node::Node(std::string name, NodeType type): context_ptr_(Context::GetGlobalInstance().get()), type_(type)
 {
+    std::cout << "=== Node Constructor Called: " << name << " (type: " << static_cast<int>(type)
+              << ") ===" << std::endl;
+
+    // Check if context is valid
+    if (context_ptr_ == nullptr) {
+        std::cerr << "ERROR: context_ptr_ is null in Node constructor!" << std::endl;
+        return;
+    }
+
     // Generate unique node name with layer prefix
     std::string last_layer_name = context_ptr_->GetLastLayerName();
     std::string prefix_name     = last_layer_name.empty() ? "" : (last_layer_name + "_");
@@ -15,7 +24,11 @@ Node::Node(std::string name, NodeType type): context_ptr_(Context::GetGlobalInst
     context_ptr_->node_name_cnt[real_name] += 1;
     name_ = real_name + "_" + std::to_string(idx);
 
+    std::cout << "Node final name: " << name_ << std::endl;
+
     context_ptr_->AddNode(this);
+
+    std::cout << "Node constructor completed for: " << name_ << std::endl;
 }
 
 Node::~Node()

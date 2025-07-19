@@ -16,7 +16,14 @@ LayerNormOp<T>::LayerNormOp(Shape          normalized_shape,
                             FusedQuantEnum fused_quant):
     Operation("layer_norm"), is_add_bias_(is_add_bias), fused_add_(fused_add), fused_quant_(fused_quant)
 {
+    fprintf(stderr, ">>> LayerNormOp CONSTRUCTOR START <<<\n");
+    fflush(stderr);
+    std::cerr << "LayerNormOp constructor called!" << std::endl;
+
     normalized_shape_ = normalized_shape;
+
+    fprintf(stderr, ">>> LayerNormOp CONSTRUCTOR END <<<\n");
+    fflush(stderr);
 }
 
 template<typename T>

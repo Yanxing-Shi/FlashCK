@@ -44,7 +44,7 @@ Variable* RMSNormOp<T>::operator()(Variable*   x,
     // Create output variable
     Shape output_shape    = InferShape(x);
     auto  max_output_size = std::get<1>(output_shape.GetElementSizeTuple());
-    output_var_           = {new Variable("rmsnorm_output", max_output_size, CppTypeToDataType<T>::value)};
+    output_var_           = {new Variable("rms_norm_output", max_output_size, CppTypeToDataType<T>::value)};
     output_var_[0]->SetShape(output_shape);
 
     // Build computation graph connections

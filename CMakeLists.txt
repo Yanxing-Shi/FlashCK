@@ -16,7 +16,7 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 # ==============================================================================
 # Build Options
 # ==============================================================================
-option(BUILD_EXAMPLES "Build examples" OFF)
+option(BUILD_EXAMPLES "Build examples" ON)
 option(BUILD_TESTS "Build tests" OFF)
 option(BUILD_WRAPPER "Build Cpp wrapper" ON)
 option(BUILD_PYTHON_BINDINGS "Build Python bindings" OFF)
@@ -97,10 +97,6 @@ if(BUILD_TESTS)
 endif()
 
 # ==============================================================================
-# Third Party Dependencies
-# ==============================================================================
-
-# ==============================================================================
 # Include Directories
 # ==============================================================================
 # Add project root to include path
@@ -128,16 +124,8 @@ if(BUILD_TESTS)
 endif()
 
 # ==============================================================================
-# Benchmarks
+# Installation
 # ==============================================================================
-if(BUILD_BENCHMARKS)
-    message(STATUS "Building benchmarks...")
-    add_subdirectory(benchmark)
-endif()
-
-# # ==============================================================================
-# # Installation
-# # ==============================================================================
 # # Install headers
 # install(DIRECTORY flashck/
 # DESTINATION include/flashck

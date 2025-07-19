@@ -144,7 +144,10 @@ protected:
  */
 class Operation: public Node {
 public:
-    Operation() = default;
+    Operation() { 
+        fprintf(stderr, ">>> OPERATION DEFAULT CONSTRUCTOR CALLED <<<\n"); 
+        fflush(stderr); 
+    }
     Operation(std::string name);
     virtual ~Operation() {}
 

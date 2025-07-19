@@ -5,10 +5,10 @@
 # Add core FlashCK library
 add_subdirectory(core)
 
-# # Add wrapper components
-# if(BUILD_WRAPPER OR BUILD_PYTHON_BINDINGS)
-# add_subdirectory(wrapper)
-# endif()
+# Add wrapper components
+if(BUILD_WRAPPER)
+    add_subdirectory(wrapper)
+endif()
 
 # # Create main FlashCK target
 # add_library(flashck_main INTERFACE)
