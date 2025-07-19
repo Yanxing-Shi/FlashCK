@@ -1,7 +1,5 @@
 #include "flashck/core/module/kernels/norm_kernels/layer_norm_kernel.h"
 
-FC_DECLARE_string(FC_HOME_PATH);
-
 namespace flashck {
 
 std::vector<std::tuple<std::filesystem::path, std::filesystem::path>>
@@ -10,6 +8,7 @@ LayerNormKernel::CodeGenForTuning(const std::string&    model_name,
                                   const instance_map_t& instance_map,
                                   const std::string&    folder_name)
 {
+    // Static template configuration for LayerNorm tuning
     static const std::vector<std::string> templates = {g_layer_norm_dtype_config_utils_tpl,
                                                        g_layer_norm_dtype_decl_tpl,
                                                        g_layer_norm_func_signature_tpl,
@@ -26,6 +25,7 @@ std::string LayerNormKernel::CodeGenForRunning(const std::string&               
                                                const instance_map_t&                     instance_map,
                                                const std::string&                        folder_name)
 {
+    // Static template configuration for LayerNorm runtime (subset of tuning templates)
     static const std::vector<std::string> templates = {g_layer_norm_dtype_config_utils_tpl,
                                                        g_layer_norm_dtype_decl_tpl,
                                                        g_layer_norm_func_signature_tpl,
@@ -38,11 +38,11 @@ void LayerNormKernel::KernelLauncher(const std::string& kernel_func_name, const 
 {
     const auto& kernel_args = std::get<NormKernelArgs>(args);
 
-    // Load kernel function
+    // Load kernel function symbol dynamically
     decltype(&LayerNorm) kernel_func = nullptr;
     LOAD_SYMBOL(kernel_func, kernel_func_name);
 
-    // Execute kernel with all arguments
+    // Execute kernel with all LayerNorm arguments
     kernel_func(kernel_args.x_ptr_,
                 kernel_args.x_residual_ptr_,
                 kernel_args.smooth_scale_ptr_,

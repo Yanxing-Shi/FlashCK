@@ -1,96 +1,116 @@
 #include "flashck/core/profiling/builder.h"
 
 #include <iomanip>
+#include <numeric>
 #include <sstream>
 
+#include "flashck/core/profiling/compiler.h"
 #include "flashck/core/profiling/profiling_engine.h"
 #include "flashck/core/utils/common.h"
 
-FC_DECLARE_int32(FC_NUM_BUILDERS);
-FC_DECLARE_bool(FC_COMBINE_PROFILING_SOURCES);
-FC_DECLARE_bool(FC_FORCE_PROFILING_DB);
-FC_DECLARE_string(FC_HOME_PATH);
+FC_DECLARE_int32(FC_NUM_BUILDERS);              // Number of parallel builder jobs (-1 for auto-detect)
+FC_DECLARE_bool(FC_COMBINE_PROFILING_SOURCES);  // Enable intelligent source combination
+FC_DECLARE_bool(FC_FORCE_PROFILING_DB);         // Force profiling database usage
+FC_DECLARE_string(FC_HOME_PATH);                // Base path for FlashCK operations
 
 namespace flashck {
 
 Builder::Builder()
 {
+    // Determine optimal number of parallel compilation jobs
     const int num_cpus = std::thread::hardware_concurrency();
     if (FLAGS_FC_NUM_BUILDERS == -1) {
+        // Auto-detect: use all available CPU cores
         num_jobs_ = num_cpus;
     }
     else if (FLAGS_FC_NUM_BUILDERS < num_cpus && FLAGS_FC_NUM_BUILDERS != -1) {
+        // User-specified: use the configured number if it's reasonable
         num_jobs_ = FLAGS_FC_NUM_BUILDERS;
     }
+    else {
+        // Fallback: use all available CPU cores
+        num_jobs_ = num_cpus;
+    }
+
+    VLOG(1) << "Builder initialized with " << num_jobs_ << " parallel jobs (CPU cores: " << num_cpus << ")";
 }
 
 std::filesystem::path Builder::CombineSources(const std::set<std::filesystem::path>& sources)
 {
+    // Optimization: no need to combine a single source file
     if (sources.size() == 1) {
-        // no need to combine a single source
-        auto single_tpl = *(sources.begin());
-        VLOG(1) << "no need to combine, a single source is " << single_tpl.string();
-        return single_tpl;
+        auto single_source = *(sources.begin());
+        VLOG(1) << "Single source file, no combination needed: " << single_source.string();
+        return single_source;
     }
 
-    std::ostringstream file_content;
+    // Combine multiple source files into a single compilation unit
+    std::ostringstream combined_content;
     for (const auto& source : sources) {
         std::ifstream source_file(source);
         if (!source_file.is_open()) {
             FC_THROW(Unavailable("Unable to open source file: {}", source.string()));
         }
 
-        // Read and append file content more efficiently
-        file_content << source_file.rdbuf();
-        file_content << '\n';  // Ensure proper line ending
+        // Efficiently read and append file content
+        combined_content << source_file.rdbuf();
+        combined_content << '\n';  // Ensure proper line separation
     }
 
-    // generate a new file name conditioned on the list of the source file names
-    std::ostringstream source_stream;
+    // Generate a unique filename based on the source file list
+    std::ostringstream source_list;
     bool               first = true;
     for (const auto& source : sources) {
-        if (!first)
-            source_stream << ";";
-        source_stream << source.string();
+        if (!first) {
+            source_list << ";";
+        }
+        source_list << source.string();
         first = false;
     }
 
-    std::string file_name = HashToHexString(source_stream.str());
+    // Create hash-based filename to avoid collisions
+    std::string combined_filename = HashToHexString(source_list.str());
 
+    // Use round-robin directory selection for better load distribution
     static int            sources_idx = 0;
-    std::filesystem::path file_dir =
+    std::filesystem::path target_dir =
         std::filesystem::path(*std::next(sources.begin(), sources_idx++ % sources.size())).parent_path();
-    VLOG(1) << "Combined source file directory is " << file_dir.string();
-    std::filesystem::path file_path = file_dir / Sprintf("temp_{}.cc", file_name);
-    VLOG(1) << "Combined source file path is " << file_path.string();
 
-    FileManager::WriteFile(file_path, file_content.str());
-    return file_path;
+    std::filesystem::path combined_file_path = target_dir / Sprintf("temp_{}.cc", combined_filename);
+    VLOG(1) << "Combined " << sources.size() << " sources into: " << combined_file_path.string();
+
+    // Write the combined content to the new file
+    FileManager::WriteFile(combined_file_path, combined_content.str());
+    return combined_file_path;
 }
 
 std::map<std::filesystem::path, std::set<std::filesystem::path>>
 Builder::CombineTuningSources(const std::map<std::filesystem::path, std::set<std::filesystem::path>>& target_to_sources,
                               const int                                                               num_jobs)
 {
+    // Strategy 1: If we have enough targets to saturate available jobs, combine all sources per target
     if (target_to_sources.size() >= num_jobs_) {
-        // there are at least as many targets as the total
-        // number of sources required (or single source per
-        // target is forced): combine everything
-        VLOG(1) << "there are at least as many targets, combine everything";
+        VLOG(1) << "Sufficient targets (" << target_to_sources.size() << ") for " << num_jobs_
+                << " jobs, combining all sources per target";
+
         std::map<std::filesystem::path, std::set<std::filesystem::path>> target_to_combined_sources;
         for (const auto& [target, sources] : target_to_sources) {
             target_to_combined_sources[target] = std::set<std::filesystem::path>({CombineSources(sources)});
         }
-        VLOG(1) << "Combine finished";
+        VLOG(1) << "Source combination completed for " << target_to_combined_sources.size() << " targets";
         return target_to_combined_sources;
     }
 
-    std::map<std::filesystem::path, std::set<std::filesystem::path>> combine_candiates;  // multi-source targets
-    int                                                              num_multi_sources  = 0;
-    int                                                              num_single_sources = 0;
+    // Strategy 2: Intelligent load balancing for optimal parallel compilation
+    std::map<std::filesystem::path, std::set<std::filesystem::path>>
+        multi_source_targets;    // Targets with multiple sources
+    int num_multi_sources  = 0;  // Total count of source files in multi-source targets
+    int num_single_sources = 0;  // Count of single-source targets
+
+    // Categorize targets by source count
     for (const auto& [target, sources] : target_to_sources) {
         if (sources.size() > 1) {
-            combine_candiates[target] = sources;
+            multi_source_targets[target] = sources;
             num_multi_sources += sources.size();
         }
         else {
@@ -98,85 +118,86 @@ Builder::CombineTuningSources(const std::map<std::filesystem::path, std::set<std
         }
     }
 
+    // Early exit conditions for optimization
     if (num_multi_sources == 0) {
-        // all targets are single-source: nothing to combine
+        VLOG(1) << "All targets are single-source, no combination needed";
         return target_to_sources;
     }
 
-    if (num_multi_sources + num_single_sources <= num_jobs) {
-        // there are fewer source files than the total
-        // number of sources required: no need to combine
+    if (num_multi_sources + num_single_sources <= num_jobs_) {
+        VLOG(1) << "Total source count (" << (num_multi_sources + num_single_sources) << ") <= available jobs ("
+                << num_jobs_ << "), no combination needed";
         return target_to_sources;
     }
 
-    // number of sources we need for the multi-file targets
-    int num_combined_sources = num_jobs - num_single_sources;
+    // Calculate optimal source distribution for load balancing
+    int num_combined_sources = num_jobs_ - num_single_sources;
 
-    // the number of combined sources per multi-source target as a
-    // fraction of num_combined_sources is proportional to the number of
-    // multiple sources of the target (rounded down); ultimately, there
-    // should be at least one source target (hence max(..., 1))
-    std::map<std::filesystem::path, int> num_sources_per_target;
-    for (const auto& [target, sources] : combine_candiates) {
-        num_sources_per_target[target] =
-            std::max(static_cast<int>(sources.size() / num_multi_sources * num_combined_sources), 1);
+    // Proportionally distribute combined sources among multi-source targets
+    // Each target gets at least 1 combined source, with additional sources
+    // allocated proportionally to their original source count
+    std::map<std::filesystem::path, int> sources_per_target;
+    for (const auto& [target, sources] : multi_source_targets) {
+        int proportional_allocation =
+            static_cast<int>(static_cast<double>(sources.size()) / num_multi_sources * num_combined_sources);
+        sources_per_target[target] = std::max(proportional_allocation, 1);
     }
 
-    // do any sources remain after the above per-target distribution?
-    int remaining_sources =
-        num_combined_sources
-        - std::accumulate(num_sources_per_target.begin(),
-                          num_sources_per_target.end(),
-                          0,
-                          [](const int a, const std::pair<std::filesystem::path, int>& b) { return a + b.second; });
+    // Distribute any remaining sources using round-robin allocation
+    int total_allocated =
+        std::accumulate(sources_per_target.begin(), sources_per_target.end(), 0, [](int sum, const auto& pair) {
+            return sum + pair.second;
+        });
+
+    int remaining_sources = num_combined_sources - total_allocated;
     if (remaining_sources > 0) {
-        // reverse-sort the targets by the remainder after rounding down:
-        // prefer adding sources to the targets with a higher remainder
-        // (i.e. the ones closest to getting another source)
+        VLOG(1) << "Distributing " << remaining_sources << " remaining sources via round-robin";
 
-        std::vector<std::filesystem::path> targets;
-        for (const auto& [target, _] : num_sources_per_target) {
-            targets.emplace_back(target);
+        std::vector<std::filesystem::path> target_list;
+        for (const auto& [target, _] : sources_per_target) {
+            target_list.emplace_back(target);
         }
 
-        int target_id = 0;
-        while (remaining_sources > 0) {
-            // increment the number of sources for the target
-            num_sources_per_target[targets[target_id]] += 1;
-            target_id = (target_id + 1) % targets.size();
-            remaining_sources -= 1;
+        // Round-robin allocation of remaining sources
+        for (int i = 0; i < remaining_sources; ++i) {
+            sources_per_target[target_list[i % target_list.size()]]++;
         }
     }
 
+    // Build the final result with intelligently combined sources
     std::map<std::filesystem::path, std::set<std::filesystem::path>> result;
     for (const auto& [target, sources] : target_to_sources) {
-        if (combine_candiates.find(target) != combine_candiates.end()) {
-            // collect the sources of the target
-            // in N batches by round robin
-            int num_sources = num_sources_per_target[target];
-            // TODO: form the source batches by the total number
-            // of lines instead of the number of sources for more
-            // even distribution of the compilation time per batch
+        if (multi_source_targets.find(target) != multi_source_targets.end()) {
+            // Multi-source target: create optimized batches for parallel compilation
+            int num_batches = sources_per_target[target];
 
-            int                                          batch_id = 0;
-            std::vector<std::set<std::filesystem::path>> batches(sources.size());
+            // Distribute sources across batches using round-robin for even loading
+            std::vector<std::set<std::filesystem::path>> batches(num_batches);
+            int                                          batch_idx = 0;
 
-            for (auto& source : sources) {
-                batches[batch_id].emplace(source);
-                batch_id = (batch_id + 1) % num_sources;
+            for (const auto& source : sources) {
+                batches[batch_idx].emplace(source);
+                batch_idx = (batch_idx + 1) % num_batches;
             }
 
-            // combine the sources in each batch
-            for (auto& batch : batches) {
-                result[target].emplace(CombineSources(batch));
+            // Combine sources within each batch and add to result
+            for (const auto& batch : batches) {
+                if (!batch.empty()) {
+                    result[target].emplace(CombineSources(batch));
+                }
             }
+
+            VLOG(1) << "Target " << target.filename() << ": " << sources.size() << " sources -> " << num_batches
+                    << " combined batches";
         }
         else {
-            // use the single-source profiler target as is
-            result[target] = {target_to_sources.at(target)};
+            // Single-source target: use as-is for optimal compilation
+            result[target] = sources;
         }
     }
 
+    VLOG(1) << "Intelligent source combination completed: " << target_to_sources.size() << " targets optimized for "
+            << num_jobs_ << " parallel jobs";
     return result;
 }
 
@@ -185,37 +206,49 @@ Builder::GenMakefileForRunning(const std::vector<std::tuple<std::filesystem::pat
                                const std::string&           so_file_name,
                                const std::filesystem::path& build_dir)
 {
-    std::string makefile_tpl =
-        "obj_files = {{obj_files}}\n\n%.o : %.cc\n\t{{c_file_cmd}}\n\n.PHONY: all clean clean_constants\nall: {{targets}}\n\n{{targets}}: $(obj_files)\n\t{{build_so_cmd}}\n\nclean:\n\trm -f *.obj {{targets}}";
+    // Makefile template for building shared library (.so) from object files
+    // Uses pattern rules for automatic .cc -> .o compilation
+    std::string makefile_tpl = "obj_files = {{obj_files}}\n\n"
+                               "%.o : %.cc\n\t{{c_file_cmd}}\n\n"
+                               ".PHONY: all clean clean_constants\n"
+                               "all: {{targets}}\n\n"
+                               "{{targets}}: $(obj_files)\n\t{{build_so_cmd}}\n\n"
+                               "clean:\n\trm -f *.obj {{targets}}";
 
-    auto split_path = [](const std::filesystem::path& path) {
-        auto path_parts = SplitStrings(path.string(), "/");
-        return std::filesystem::path(path_parts.back());  // return the last part of the path
+    // Helper function to extract filename from full path
+    auto extract_filename = [](const std::filesystem::path& path) {
+        auto path_components = SplitStrings(path.string(), "/");
+        return std::filesystem::path(path_components.back());
     };
 
-    std::vector<std::string> obj_files;
-    std::for_each(file_tuples.begin(),
-                  file_tuples.end(),
-                  [&](const std::tuple<std::filesystem::path, std::filesystem::path>& val) {
-                      const auto& [src_path, obj_path] = val;
-                      obj_files.push_back(split_path(obj_path).string());
-                  });
+    // Extract object file names from the file tuples
+    std::vector<std::string> object_files;
+    object_files.reserve(file_tuples.size());
 
-    std::string build_so_cmd = ProfilingEngine::GetInstance()->GetCompiler()->GetCompilerCommand({"$^"}, "$@", "so");
+    for (const auto& [source_path, object_path] : file_tuples) {
+        object_files.push_back(extract_filename(object_path).string());
+    }
 
-    std::string c_file_cmd = ProfilingEngine::GetInstance()->GetCompiler()->GetCompilerCommand({"$<"}, "$@", "o");
+    // Get compiler commands using static method calls
+    std::string shared_lib_cmd     = Compiler::GetCompilerCommand({"$^"}, "$@", "so");
+    std::string object_compile_cmd = Compiler::GetCompilerCommand({"$<"}, "$@", "o");
 
-    jinja2::ValuesMap makefile_value_map{{"obj_files", JoinStrings(obj_files, " ")},
-                                         {"c_file_cmd", c_file_cmd},
-                                         {"build_so_cmd", build_so_cmd},
-                                         {"targets", so_file_name}};
+    // Template substitution values
+    jinja2::ValuesMap tpl_values{{"obj_files", JoinStrings(object_files, " ")},
+                                 {"c_file_cmd", object_compile_cmd},
+                                 {"build_so_cmd", shared_lib_cmd},
+                                 {"targets", so_file_name}};
 
-    std::string makefile_str  = TemplateLoadAndRender(makefile_tpl, makefile_value_map);
-    std::string makefile_name = Sprintf("Makefile_{}", HashToHexString(so_file_name));
-    VLOG(1) << "generate makefile_name for running: " << makefile_name;
+    // Generate the actual Makefile content
+    std::string makefile_content = TEMPLATE_CHECK(makefile_tpl, tpl_values, "Builder::GenMakefileForRunning");
+    std::string makefile_name    = Sprintf("Makefile_{}", HashToHexString(so_file_name));
 
-    std::filesystem::path dumpfile = build_dir / makefile_name;
-    FileManager::WriteFile(dumpfile, makefile_str);
+    VLOG(1) << "Generated running Makefile: " << makefile_name << " (objects: " << object_files.size()
+            << ", target: " << so_file_name << ")";
+
+    // Write Makefile to build directory
+    std::filesystem::path makefile_path = build_dir / makefile_name;
+    FileManager::WriteFile(makefile_path, makefile_content);
 
     return makefile_name;
 }
@@ -310,8 +343,7 @@ Builder::GenMakefileForTuning(const std::vector<std::tuple<std::filesystem::path
             src_files.push_back(src.string());
         }
 
-        std::string cmd_line =
-            ProfilingEngine::GetInstance()->GetCompiler()->GetCompilerCommand(src_files, target.string(), "exe");
+        std::string cmd_line = Compiler::GetCompilerCommand(src_files, target.string(), "exe");
 
         std::string command = Sprintf("{}\n\t{}", dep_line, cmd_line);
         commands.emplace_back(command);
@@ -335,7 +367,7 @@ Builder::GenMakefileForTuning(const std::vector<std::tuple<std::filesystem::path
     jinja2::ValuesMap makefile_value_map{{"targets", JoinStrings(targets, " ")},
                                          {"commands", JoinStrings(commands, "\n")}};
 
-    std::string makefile_content = TemplateLoadAndRender(makefile_tpl, makefile_value_map);
+    std::string makefile_content = TEMPLATE_CHECK(makefile_tpl, makefile_value_map, "Builder::GenMakefileForTuning");
 
     // make the Makefile name dependent on the built target names
     std::string target_names_str = JoinStrings(target_names, "_");
@@ -389,13 +421,15 @@ void Builder::MakeTuning(
     std::string make_clean_cmd = Sprintf("make {} clean", make_flags);
     std::string make_all_cmd   = Sprintf("make {} -j{} all", make_flags, num_jobs_);
 
-    // Track compilation statistics
+    // Track compilation statistics for tuning
     compilation_stats_.total_compilations += file_tuples.size();
+    compilation_stats_.tuning_total += file_tuples.size();
 
     auto [success, output] = RunMakeCmds({make_clean_cmd, make_all_cmd}, build_dir);
 
     if (success) {
         compilation_stats_.successful_compilations += file_tuples.size();
+        compilation_stats_.tuning_successful += file_tuples.size();
         LOG(INFO) << "Successfully compiled " << file_tuples.size() << " profiling sources";
     }
     else {
@@ -403,18 +437,22 @@ void Builder::MakeTuning(
         compilation_stats_.failed_compilations += failed_files.size();
         compilation_stats_.successful_compilations += (file_tuples.size() - failed_files.size());
 
+        compilation_stats_.tuning_failed += failed_files.size();
+        compilation_stats_.tuning_successful += (file_tuples.size() - failed_files.size());
+
         for (const auto& failed_file : failed_files) {
             compilation_stats_.failed_files.push_back(failed_file);
+            compilation_stats_.tuning_failed_files.push_back(failed_file);
         }
 
         LOG(ERROR) << "Compilation failed for " << failed_files.size() << " out of " << file_tuples.size() << " files";
         LOG(ERROR) << "Failed files: " << JoinStrings(failed_files, ", ");
     }
 
-    LOG(INFO) << "Compilation statistics - Total: " << compilation_stats_.total_compilations
-              << ", Success: " << compilation_stats_.successful_compilations
-              << ", Failed: " << compilation_stats_.failed_compilations << ", Success rate: " << std::fixed
-              << std::setprecision(2) << compilation_stats_.GetSuccessRate() << "%";
+    LOG(INFO) << FormatCompilationStats(
+        compilation_stats_.tuning_successful, compilation_stats_.tuning_total, "Tuning");
+    LOG(INFO) << FormatCompilationStats(
+        compilation_stats_.successful_compilations, compilation_stats_.total_compilations, "Overall");
 }
 
 void Builder::MakeRunning(
@@ -453,13 +491,15 @@ void Builder::MakeRunning(
     std::string make_clean_cmd = Sprintf("make {} clean", make_flags);
     std::string make_all_cmd   = Sprintf("make {} -j{} all", make_flags, num_jobs_);
 
-    // Track compilation statistics
+    // Track compilation statistics for running
     compilation_stats_.total_compilations += filter_generated_files.size();
+    compilation_stats_.running_total += filter_generated_files.size();
 
     auto [success, output] = RunMakeCmds({make_clean_cmd, make_all_cmd}, build_dir);
 
     if (success) {
         compilation_stats_.successful_compilations += filter_generated_files.size();
+        compilation_stats_.running_successful += filter_generated_files.size();
         LOG(INFO) << "Successfully compiled " << filter_generated_files.size() << " running sources";
     }
     else {
@@ -467,8 +507,12 @@ void Builder::MakeRunning(
         compilation_stats_.failed_compilations += failed_files.size();
         compilation_stats_.successful_compilations += (filter_generated_files.size() - failed_files.size());
 
+        compilation_stats_.running_failed += failed_files.size();
+        compilation_stats_.running_successful += (filter_generated_files.size() - failed_files.size());
+
         for (const auto& failed_file : failed_files) {
             compilation_stats_.failed_files.push_back(failed_file);
+            compilation_stats_.running_failed_files.push_back(failed_file);
         }
 
         LOG(ERROR) << "Compilation failed for " << failed_files.size() << " out of " << filter_generated_files.size()
@@ -476,9 +520,9 @@ void Builder::MakeRunning(
         LOG(ERROR) << "Failed files: " << JoinStrings(failed_files, ", ");
     }
 
-    LOG(INFO) << "Compilation statistics - Total: " << compilation_stats_.total_compilations
-              << ", Success: " << compilation_stats_.successful_compilations
-              << ", Failed: " << compilation_stats_.failed_compilations << ", Success rate: " << std::fixed
-              << std::setprecision(2) << compilation_stats_.GetSuccessRate() << "%";
+    LOG(INFO) << FormatCompilationStats(
+        compilation_stats_.running_successful, compilation_stats_.running_total, "Running");
+    LOG(INFO) << FormatCompilationStats(
+        compilation_stats_.successful_compilations, compilation_stats_.total_compilations, "Overall");
 }
 }  // namespace flashck

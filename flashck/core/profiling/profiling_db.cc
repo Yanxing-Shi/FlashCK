@@ -6,6 +6,7 @@ ProfilingDB::ProfilingDB(const std::filesystem::path& path):
     db_ptr_(
         [path] {
             sqlite3* raw_db_ptr = nullptr;
+            // Open database with read-write access, create if doesn't exist
             CHECK_SQLITE3(sqlite3_open_v2(
                               path.string().c_str(), &raw_db_ptr, SQLITE_OPEN_READWRITE | SQLITE_OPEN_CREATE, nullptr),
                           raw_db_ptr);
@@ -15,10 +16,14 @@ ProfilingDB::ProfilingDB(const std::filesystem::path& path):
     path_(path)
 {
     try {
-        Execute("PRAGMA journal_mode = WAL");
-        Execute("PRAGMA synchronous = NORMAL");
-        Execute("PRAGMA foreign_keys = ON");
+        VLOG(1) << "Initializing profiling database at: " << path_.string();
 
+        // Configure SQLite for optimal performance and reliability
+        Execute("PRAGMA journal_mode = WAL");    // Write-Ahead Logging for better concurrency
+        Execute("PRAGMA synchronous = NORMAL");  // Balanced safety and performance
+        Execute("PRAGMA foreign_keys = ON");     // Enable referential integrity
+
+        // Create database schema with comprehensive constraints
         constexpr const char* schema = R"sql(
                 CREATE TABLE IF NOT EXISTS norm (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -34,18 +39,28 @@ ProfilingDB::ProfilingDB(const std::filesystem::path& path):
                 );
             )sql";
 
+        // Execute schema creation
         for (const char* sql : {schema}) {
             Execute(sql);
         }
+
+        VLOG(1) << "Database schema initialized successfully";
+    }
+    catch (const std::exception& e) {
+        LOG(ERROR) << "Failed to initialize database: " << e.what();
+        throw;
     }
     catch (...) {
+        LOG(ERROR) << "Unknown error during database initialization";
         throw;
     }
 }
 
-// Query the database for norm profiling information(algo, split_k, latency, tflops, bandwidth)
 std::tuple<std::string, PerfResult> ProfilingDB::Query(InstanceData& instance_data)
 {
+    VLOG(2) << "Querying database for instance: " << instance_data.instance_name_;
+
+    // SQL template for querying optimal instance by environment and problem parameters
     constexpr const char* sql = R"sql(
         SELECT instance_name, split_k, latency, tflops, bandwidth FROM {type}
         WHERE rocm_version=?
@@ -55,11 +70,13 @@ std::tuple<std::string, PerfResult> ProfilingDB::Query(InstanceData& instance_da
         LIMIT 1
     )sql";
 
+    // Format SQL with appropriate table name based on code generation kind
     std::string formatted_sql = Sprintf(sql, fmt::arg("type", CodeGenKindToString(instance_data.code_gen_kind_)));
 
     StmtWrapper   stmt(db_ptr_.get(), formatted_sql.c_str());
     sqlite3_stmt* raw_stmt = stmt;
 
+    // Bind query parameters in order
     int idx = 1;
     CHECK_SQLITE3(
         sqlite3_bind_text(raw_stmt, idx++, instance_data.environment_.rocm_version_.c_str(), -1, SQLITE_TRANSIENT),
@@ -70,32 +87,55 @@ std::tuple<std::string, PerfResult> ProfilingDB::Query(InstanceData& instance_da
     CHECK_SQLITE3(sqlite3_bind_text(stmt, idx++, instance_data.setting_.Serialize().c_str(), -1, SQLITE_TRANSIENT),
                   db_ptr_.get());
 
+    // Bind problem data using visitor pattern to handle different problem types
     instance_data.VisitProblem([&](auto&& problem) {
         CHECK_SQLITE3(sqlite3_bind_text(stmt, idx++, problem.Serialize().c_str(), -1, SQLITE_TRANSIENT), db_ptr_.get());
     });
 
+    // Execute query and process results
     int rc;
     CHECK_SQLITE3_RC(sqlite3_step(raw_stmt), db_ptr_.get(), rc);
 
     if (rc == SQLITE_ROW) {
-        return std::make_tuple(reinterpret_cast<const char*>(sqlite3_column_text(raw_stmt, 0)),
-                               PerfResult{sqlite3_column_int(raw_stmt, 1),
-                                          sqlite3_column_double(raw_stmt, 2),
-                                          sqlite3_column_double(raw_stmt, 3),
-                                          sqlite3_column_double(raw_stmt, 4)});
+        // Extract results from database row
+        std::string instance_name = reinterpret_cast<const char*>(sqlite3_column_text(raw_stmt, 0));
+        PerfResult  perf_result{
+            sqlite3_column_int(raw_stmt, 1),     // split_k
+            sqlite3_column_double(raw_stmt, 2),  // latency
+            sqlite3_column_double(raw_stmt, 3),  // tflops
+            sqlite3_column_double(raw_stmt, 4)   // bandwidth
+        };
+
+        VLOG(1) << "Found cached instance: " << instance_name << " with latency=" << perf_result.latency_ << "ms, "
+                << "tflops=" << perf_result.tflops_ << ", "
+                << "bandwidth=" << perf_result.bandwidth_ << "GB/s";
+
+        // Clean up statement state
+        CHECK_SQLITE3(sqlite3_reset(raw_stmt), db_ptr_.get());
+        CHECK_SQLITE3(sqlite3_clear_bindings(raw_stmt), db_ptr_.get());
+
+        return std::make_tuple(instance_name, perf_result);
     }
     else if (rc != SQLITE_DONE) {
-        throw std::runtime_error(sqlite3_errmsg(db_ptr_.get()));
+        // Handle unexpected SQL errors
+        std::string error_msg = sqlite3_errmsg(db_ptr_.get());
+        LOG(ERROR) << "Database query failed: " << error_msg;
+        throw std::runtime_error("Database query error: " + error_msg);
     }
+
+    // Clean up statement state for no-match case
     CHECK_SQLITE3(sqlite3_reset(raw_stmt), db_ptr_.get());
     CHECK_SQLITE3(sqlite3_clear_bindings(raw_stmt), db_ptr_.get());
 
+    VLOG(2) << "No cached instance found for query";
     return std::make_tuple("", PerfResult{-1, -1.0f, -1.0f, -1.0f});
 }
 
-// Check if an entry exists in the database
 bool ProfilingDB::CheckIfInsert(InstanceData& instance_data)
 {
+    VLOG(2) << "Checking existence for instance: " << instance_data.instance_name_;
+
+    // SQL template for existence check (returns 1 if record exists)
     constexpr const char* sql = R"sql(
     SELECT 1 FROM {type}
     WHERE rocm_version=? 
@@ -105,11 +145,13 @@ bool ProfilingDB::CheckIfInsert(InstanceData& instance_data)
     LIMIT 1
 )sql";
 
+    // Format SQL with appropriate table name
     std::string formatted_sql = Sprintf(sql, fmt::arg("type", CodeGenKindToString(instance_data.code_gen_kind_)));
 
     StmtWrapper   stmt(db_ptr_.get(), formatted_sql.c_str());
     sqlite3_stmt* raw_stmt = stmt;
 
+    // Bind parameters for existence check
     int idx = 1;
     CHECK_SQLITE3(
         sqlite3_bind_text(raw_stmt, idx++, instance_data.environment_.rocm_version_.c_str(), -1, SQLITE_TRANSIENT),
@@ -119,33 +161,46 @@ bool ProfilingDB::CheckIfInsert(InstanceData& instance_data)
         db_ptr_.get());
     CHECK_SQLITE3(sqlite3_bind_text(raw_stmt, idx++, instance_data.setting_.Serialize().c_str(), -1, SQLITE_TRANSIENT),
                   db_ptr_.get());
+
+    // Bind problem data
     instance_data.VisitProblem([&](auto&& problem) {
         CHECK_SQLITE3(sqlite3_bind_text(raw_stmt, idx++, problem.Serialize().c_str(), -1, SQLITE_TRANSIENT),
                       db_ptr_.get());
     });
 
+    // Execute existence check
     int rc;
     CHECK_SQLITE3_RC(sqlite3_step(raw_stmt), db_ptr_.get(), rc);
+
+    // Clean up statement state
     CHECK_SQLITE3(sqlite3_reset(raw_stmt), db_ptr_.get());
     CHECK_SQLITE3(sqlite3_clear_bindings(raw_stmt), db_ptr_.get());
 
+    bool exists = (rc == SQLITE_ROW);
     if (rc == SQLITE_DONE) {
-        LOG(INFO) << "No matching records found";
+        VLOG(2) << "No matching records found for existence check";
     }
-    return (rc == SQLITE_ROW);
+    else if (exists) {
+        VLOG(2) << "Record already exists in database";
+    }
+
+    return exists;
 }
 
-// Insert a new entry into the database
 void ProfilingDB::Insert(InstanceData& instance_data)
 {
-    // Check if record already exists
+    VLOG(1) << "Attempting to insert instance: " << instance_data.instance_name_;
+
+    // Check for duplicate entries before insertion
     if (CheckIfInsert(instance_data)) {
-        LOG(WARNING) << "repeat record, not inserting data" << std::endl;
+        LOG(WARNING) << "Record already exists, skipping insertion for: " << instance_data.instance_name_;
         return;
     }
 
+    // Use transaction for atomicity
     Execute("BEGIN TRANSACTION");
     try {
+        // SQL template for inserting new optimal instance
         constexpr const char* sql = R"sql(
             INSERT INTO {type}
                 (rocm_version, 
@@ -168,11 +223,13 @@ void ProfilingDB::Insert(InstanceData& instance_data)
                     ?9)
         )sql";
 
+        // Format SQL with appropriate table name
         std::string formatted_sql = Sprintf(sql, fmt::arg("type", CodeGenKindToString(instance_data.code_gen_kind_)));
 
         StmtWrapper   stmt(db_ptr_.get(), formatted_sql.c_str());
         sqlite3_stmt* raw_stmt = stmt;
 
+        // Bind all insertion parameters
         int idx = 1;
         CHECK_SQLITE3(
             sqlite3_bind_text(raw_stmt, idx++, instance_data.environment_.rocm_version_.c_str(), -1, SQLITE_TRANSIENT),
@@ -183,10 +240,14 @@ void ProfilingDB::Insert(InstanceData& instance_data)
         CHECK_SQLITE3(
             sqlite3_bind_text(raw_stmt, idx++, instance_data.setting_.Serialize().c_str(), -1, SQLITE_TRANSIENT),
             db_ptr_.get());
+
+        // Bind problem data using visitor pattern
         instance_data.VisitProblem([&](auto&& problem) {
             CHECK_SQLITE3(sqlite3_bind_text(raw_stmt, idx++, problem.Serialize().c_str(), -1, SQLITE_TRANSIENT),
                           db_ptr_.get());
         });
+
+        // Bind instance metadata and performance metrics
         CHECK_SQLITE3(sqlite3_bind_text(raw_stmt, idx++, instance_data.instance_name_.c_str(), -1, SQLITE_TRANSIENT),
                       db_ptr_.get());
         CHECK_SQLITE3(sqlite3_bind_int(raw_stmt, idx++, instance_data.perf_result_.split_k_), db_ptr_.get());
@@ -194,15 +255,32 @@ void ProfilingDB::Insert(InstanceData& instance_data)
         CHECK_SQLITE3(sqlite3_bind_double(raw_stmt, idx++, instance_data.perf_result_.tflops_), db_ptr_.get());
         CHECK_SQLITE3(sqlite3_bind_double(raw_stmt, idx++, instance_data.perf_result_.bandwidth_), db_ptr_.get());
 
+        // Execute insertion
         int rc;
         CHECK_SQLITE3_RC(sqlite3_step(raw_stmt), db_ptr_.get(), rc);
+
+        // Clean up statement state
         CHECK_SQLITE3(sqlite3_reset(raw_stmt), db_ptr_.get());
         CHECK_SQLITE3(sqlite3_clear_bindings(raw_stmt), db_ptr_.get());
 
+        // Commit transaction on success
         Execute("COMMIT");
+
+        VLOG(1) << "Successfully inserted instance: " << instance_data.instance_name_
+                << " with performance metrics: latency=" << instance_data.perf_result_.latency_ << "ms, "
+                << "tflops=" << instance_data.perf_result_.tflops_ << ", "
+                << "bandwidth=" << instance_data.perf_result_.bandwidth_ << "GB/s";
+    }
+    catch (const std::exception& e) {
+        // Rollback transaction on any error
+        Execute("ROLLBACK");
+        LOG(ERROR) << "Failed to insert instance data: " << e.what();
+        throw;
     }
     catch (...) {
+        // Rollback on unknown errors
         Execute("ROLLBACK");
+        LOG(ERROR) << "Unknown error during instance insertion";
         throw;
     }
 }

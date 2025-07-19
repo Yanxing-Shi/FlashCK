@@ -1,11 +1,15 @@
-add_library(kernel_factory STATIC kernel_factory.cc)
-target_include_directories(kernel_factory PUBLIC
-    ${CMAKE_SOURCE_DIR}
+# ==============================================================================
+# FlashCK Kernel Components
+# ==============================================================================
+
+# Collect all module source files recursively
+file(GLOB_RECURSE KERNEL_SOURCES CONFIGURE_DEPENDS
+    "*.cc"
+    "norm_kernels/*.cc"
 )
-target_link_libraries(kernel_factory PUBLIC utils)
 
-# add_subdirectory(gemm_kernels)
-# add_subdirectory(embedding_kernels)
-add_subdirectory(norm_kernels)
+# Create kernel
+add_library(kernel STATIC ${KERNEL_SOURCES})
 
-# add_subdirectory(fmha_kernels)
+# Link dependencies
+target_link_libraries(kernel PUBLIC utils)

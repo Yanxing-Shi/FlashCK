@@ -1,9 +1,14 @@
 #include "flashck/core/utils/debug_utils.h"
 
 #include <algorithm>
+#include <cmath>
+#include <fstream>
+#include <iomanip>
 #include <memory>
 #include <sstream>
+#include <tuple>
 
+#include "flashck/core/utils/dtype.h"
 #include "flashck/core/utils/enforce.h"
 #include "flashck/core/utils/macros.h"
 
@@ -56,7 +61,18 @@ __global__ void tensor_validator_kernel(const T* __restrict__ tensor,
 template<typename T>
 void ResultChecker(const T* tensor, int64_t elem_cnt, const std::string& tensor_name, hipStream_t stream)
 {
-    // Device memory allocation
+    // Input validation
+    if (!tensor) {
+        FC_THROW(InvalidArgument("Tensor pointer is null: {}", tensor_name));
+    }
+    if (elem_cnt <= 0) {
+        FC_THROW(InvalidArgument("Invalid element count: {} for tensor: {}", elem_cnt, tensor_name));
+    }
+    if (!IsValidDevicePointer(tensor)) {
+        FC_THROW(InvalidArgument("Invalid device pointer for tensor: {}", tensor_name));
+    }
+
+    // Device memory allocation with RAII
     int* d_nan     = nullptr;
     int* d_pos_inf = nullptr;
     int* d_neg_inf = nullptr;
@@ -65,49 +81,70 @@ void ResultChecker(const T* tensor, int64_t elem_cnt, const std::string& tensor_
     HIP_ERROR_CHECK(hipMalloc(&d_pos_inf, sizeof(int)));
     HIP_ERROR_CHECK(hipMalloc(&d_neg_inf, sizeof(int)));
 
-    // Initialize counters
-    HIP_ERROR_CHECK(hipMemsetAsync(d_nan, 0, sizeof(int), stream));
-    HIP_ERROR_CHECK(hipMemsetAsync(d_pos_inf, 0, sizeof(int), stream));
-    HIP_ERROR_CHECK(hipMemsetAsync(d_neg_inf, 0, sizeof(int), stream));
+    // RAII cleanup helper
+    auto cleanup = [&]() {
+        if (d_nan)
+            HIP_WARN_CHECK(hipFree(d_nan));
+        if (d_pos_inf)
+            HIP_WARN_CHECK(hipFree(d_pos_inf));
+        if (d_neg_inf)
+            HIP_WARN_CHECK(hipFree(d_neg_inf));
+    };
 
-    // Kernel configuration
-    const int block_dim = kBlockSize;
-    const int grid_dim  = (elem_cnt + block_dim * kElementsPerThread - 1) / (block_dim * kElementsPerThread);
+    try {
+        // Initialize counters
+        HIP_ERROR_CHECK(hipMemsetAsync(d_nan, 0, sizeof(int), stream));
+        HIP_ERROR_CHECK(hipMemsetAsync(d_pos_inf, 0, sizeof(int), stream));
+        HIP_ERROR_CHECK(hipMemsetAsync(d_neg_inf, 0, sizeof(int), stream));
 
-    // Kernel launch
-    hipLaunchKernelGGL(tensor_validator_kernel<T>,
-                       dim3(grid_dim),
-                       dim3(block_dim),
-                       0,
-                       stream,
-                       tensor,
-                       elem_cnt,
-                       tensor_name.c_str(),
-                       d_nan,
-                       d_pos_inf,
-                       d_neg_inf);
+        // Optimized kernel configuration
+        const int block_dim = kBlockSize;
+        const int grid_dim  = (elem_cnt + block_dim * kElementsPerThread - 1) / (block_dim * kElementsPerThread);
 
-    // Check for kernel launch errors
-    HIP_ERROR_CHECK(hipGetLastError());
+        // Kernel launch with error checking
+        hipLaunchKernelGGL(tensor_validator_kernel<T>,
+                           dim3(grid_dim),
+                           dim3(block_dim),
+                           0,
+                           stream,
+                           tensor,
+                           elem_cnt,
+                           tensor_name.c_str(),
+                           d_nan,
+                           d_pos_inf,
+                           d_neg_inf);
 
-    // Copy results back
-    int nan_count = 0, pos_inf_count = 0, neg_inf_count = 0;
-    HIP_ERROR_CHECK(hipMemcpyAsync(&nan_count, d_nan, sizeof(int), hipMemcpyDeviceToHost, stream));
-    HIP_ERROR_CHECK(hipMemcpyAsync(&pos_inf_count, d_pos_inf, sizeof(int), hipMemcpyDeviceToHost, stream));
-    HIP_ERROR_CHECK(hipMemcpyAsync(&neg_inf_count, d_neg_inf, sizeof(int), hipMemcpyDeviceToHost, stream));
-    HIP_ERROR_CHECK(hipStreamSynchronize(stream));
+        HIP_ERROR_CHECK(hipGetLastError());
 
-    // Cleanup
-    HIP_ERROR_CHECK(hipFree(d_nan));
-    HIP_ERROR_CHECK(hipFree(d_pos_inf));
-    HIP_ERROR_CHECK(hipFree(d_neg_inf));
+        // Copy results back with stream synchronization
+        int nan_count = 0, pos_inf_count = 0, neg_inf_count = 0;
+        HIP_ERROR_CHECK(hipMemcpyAsync(&nan_count, d_nan, sizeof(int), hipMemcpyDeviceToHost, stream));
+        HIP_ERROR_CHECK(hipMemcpyAsync(&pos_inf_count, d_pos_inf, sizeof(int), hipMemcpyDeviceToHost, stream));
+        HIP_ERROR_CHECK(hipMemcpyAsync(&neg_inf_count, d_neg_inf, sizeof(int), hipMemcpyDeviceToHost, stream));
+        HIP_ERROR_CHECK(hipStreamSynchronize(stream));
 
-    // Error handling
-    if (nan_count > 0 || pos_inf_count > 0 || neg_inf_count > 0) {
-        throw std::runtime_error("Tensor validation failed: " + tensor_name + " NaN: " + std::to_string(nan_count)
-                                 + " +Inf: " + std::to_string(pos_inf_count)
-                                 + " -Inf: " + std::to_string(neg_inf_count));
+        // Error reporting with detailed statistics
+        if (nan_count > 0 || pos_inf_count > 0 || neg_inf_count > 0) {
+            std::ostringstream error_msg;
+            error_msg << "Tensor validation failed for '" << tensor_name << "' (type: " << GetTypeName<T>() << ")\n";
+            error_msg << "  Elements: " << elem_cnt << "\n";
+            error_msg << "  NaN count: " << nan_count << " (" << (100.0f * nan_count / elem_cnt) << "%)\n";
+            error_msg << "  +Inf count: " << pos_inf_count << " (" << (100.0f * pos_inf_count / elem_cnt) << "%)\n";
+            error_msg << "  -Inf count: " << neg_inf_count << " (" << (100.0f * neg_inf_count / elem_cnt) << "%)";
+
+            LOG(ERROR) << error_msg.str();
+            cleanup();
+            throw std::runtime_error(error_msg.str());
+        }
+
+        LOG(INFO) << "Tensor validation passed for '" << tensor_name << "' (" << elem_cnt << " elements)";
     }
+    catch (...) {
+        cleanup();
+        throw;
+    }
+
+    cleanup();
 }
 
 template<typename T>
@@ -120,8 +157,14 @@ void PrintToFile(const T* result, const int size, const char* file, hipStream_t 
     if (!result && size != 0) {
         FC_THROW(InvalidArgument("Null pointer with non-zero size"));
     }
+    if (!file) {
+        FC_THROW(InvalidArgument("Null file path"));
+    }
+    if (!IsValidDevicePointer(result)) {
+        FC_THROW(InvalidArgument("Invalid device pointer"));
+    }
 
-    LOG(INFO) << "[SAFE] Writing " << size << " elements to " << file;
+    LOG(INFO) << "[FILE] Writing " << size << " elements to " << file;
 
     // RAII file management
     std::ofstream out_file(file, open_mode);
@@ -136,11 +179,12 @@ void PrintToFile(const T* result, const int size, const char* file, hipStream_t 
     HIP_ERROR_CHECK(hipMemcpyAsync(host_buffer.get(), result, sizeof(T) * size, hipMemcpyDeviceToHost, stream));
     HIP_ERROR_CHECK(hipStreamSynchronize(stream));
 
-    // Buffered output generation
+    // Buffered output generation with proper formatting
     std::ostringstream file_buffer;
+    file_buffer << std::fixed << std::setprecision(6);
 
     for (int i = 0; i < size; ++i) {
-        file_buffer << static_cast<float>(host_buffer[i]) << '\n';
+        file_buffer << FormatValue(host_buffer[i]) << '\n';
     }
 
     // Bulk write operation
@@ -150,6 +194,177 @@ void PrintToFile(const T* result, const int size, const char* file, hipStream_t 
     if (out_file.fail()) {
         FC_THROW(Unavailable("Write failure to: {}", file));
     }
+
+    LOG(INFO) << "[FILE] Successfully wrote " << size << " elements to " << file;
+}
+
+template<typename T>
+void PrintToFile(
+    const T* result, const int size, const std::string& filepath, hipStream_t stream, std::ios::openmode open_mode)
+{
+    PrintToFile(result, size, filepath.c_str(), stream, open_mode);
+}
+
+template<typename T>
+void PrintToScreen(const T* result, const int size, const std::string& name, int max_elements)
+{
+    const std::string display_name = name.empty() ? "tensor" : name;
+
+    LOG(INFO) << "=== PrintToScreen: " << display_name << " ===";
+    LOG(INFO) << "Type: " << GetTypeName<T>();
+    LOG(INFO) << "Address: " << result;
+    LOG(INFO) << "Size: " << size << " elements";
+
+    if (result == nullptr) {
+        LOG(WARNING) << "Null pointer, skipping output";
+        return;
+    }
+
+    if (size <= 0) {
+        LOG(WARNING) << "Invalid size: " << size;
+        return;
+    }
+
+    if (!IsValidDevicePointer(result)) {
+        LOG(WARNING) << "Invalid device pointer";
+        return;
+    }
+
+    // Limit output size for readability
+    const int output_size = std::min(size, max_elements);
+
+    // RAII-managed buffer
+    auto host_buffer = std::make_unique<T[]>(output_size);
+
+    // Use proper error checking
+    HIP_ERROR_CHECK(hipMemcpy(host_buffer.get(), result, sizeof(T) * output_size, hipMemcpyDeviceToHost));
+
+    // Formatted output with proper alignment
+    LOG(INFO) << "Contents (showing " << output_size << " of " << size << " elements):";
+
+    for (int i = 0; i < output_size; ++i) {
+        LOG(INFO) << "  [" << std::setw(6) << i << "] = " << std::setw(12) << FormatValue(host_buffer[i]);
+    }
+
+    if (output_size < size) {
+        LOG(INFO) << "  ... (" << (size - output_size) << " more elements)";
+    }
+
+    // Show basic statistics if we have enough elements
+    if (size > 1) {
+        auto [min_val, max_val, mean, std_dev] = GetTensorStats(result, size, nullptr);
+        LOG(INFO) << "Statistics - Min: " << min_val << " Max: " << max_val << " Mean: " << mean << " Std: " << std_dev;
+    }
+}
+
+// Specialized version for ushort (bfloat16)
+template<>
+void PrintToScreen<ushort>(const ushort* result, const int size, const std::string& name, int max_elements)
+{
+    const std::string display_name = name.empty() ? "tensor" : name;
+
+    LOG(INFO) << "=== PrintToScreen: " << display_name << " (bf16) ===";
+    LOG(INFO) << "Type: ushort (bfloat16)";
+    LOG(INFO) << "Address: " << result;
+    LOG(INFO) << "Size: " << size << " elements";
+
+    if (result == nullptr) {
+        LOG(WARNING) << "Null pointer, skipping output";
+        return;
+    }
+
+    if (size <= 0) {
+        LOG(WARNING) << "Invalid size: " << size;
+        return;
+    }
+
+    if (!IsValidDevicePointer(result)) {
+        LOG(WARNING) << "Invalid device pointer";
+        return;
+    }
+
+    // Limit output size for readability
+    const int output_size = std::min(size, max_elements);
+
+    // RAII-managed buffer
+    auto host_buffer = std::make_unique<ushort[]>(output_size);
+
+    // Use proper error checking
+    HIP_ERROR_CHECK(hipMemcpy(host_buffer.get(), result, sizeof(ushort) * output_size, hipMemcpyDeviceToHost));
+
+    // Formatted output with bfloat16 conversion
+    LOG(INFO) << "Contents (showing " << output_size << " of " << size << " elements):";
+
+    for (int i = 0; i < output_size; ++i) {
+        float float_val = bhalf2float(host_buffer[i]);
+        LOG(INFO) << "  [" << std::setw(6) << i << "] = " << std::setw(12) << float_val << " (raw: 0x" << std::hex
+                  << host_buffer[i] << std::dec << ")";
+    }
+
+    if (output_size < size) {
+        LOG(INFO) << "  ... (" << (size - output_size) << " more elements)";
+    }
+
+    // Show basic statistics
+    if (size > 1) {
+        auto [min_val, max_val, mean, std_dev] = GetTensorStats(result, size, nullptr);
+        LOG(INFO) << "Statistics - Min: " << min_val << " Max: " << max_val << " Mean: " << mean << " Std: " << std_dev;
+    }
+}
+
+// ==============================================================================
+// Utility Functions Implementation
+// ==============================================================================
+
+template<typename T>
+constexpr std::string_view GetTypeName()
+{
+    if constexpr (std::is_same_v<T, float>) {
+        return "float";
+    }
+    else if constexpr (std::is_same_v<T, _Float16>) {
+        return "_Float16";
+    }
+    else if constexpr (std::is_same_v<T, ushort>) {
+        return "ushort(bf16)";
+    }
+    else if constexpr (std::is_same_v<T, int32_t>) {
+        return "int32_t";
+    }
+    else if constexpr (std::is_same_v<T, int64_t>) {
+        return "int64_t";
+    }
+    else {
+        return "unknown";
+    }
+}
+
+template<typename T>
+std::string FormatValue(const T& value)
+{
+    if constexpr (std::is_same_v<T, ushort>) {
+        return std::to_string(bhalf2float(value));
+    }
+    else if constexpr (std::is_same_v<T, _Float16>) {
+        return std::to_string(half2float(static_cast<uint16_t>(value)));
+    }
+    else {
+        return std::to_string(static_cast<float>(value));
+    }
+}
+
+bool IsValidDevicePointer(const void* ptr)
+{
+    if (!ptr)
+        return false;
+
+    hipPointerAttribute_t attributes;
+    hipError_t            err = hipPointerGetAttributes(&attributes, ptr);
+    if (err != hipSuccess) {
+        return false;
+    }
+
+    return attributes.type == hipMemoryTypeDevice;
 }
 
 template<typename T>
@@ -161,6 +376,9 @@ void CheckMaxVal(const T* result, const int size, hipStream_t stream)
     }
     if (!result) {
         FC_THROW(InvalidArgument("Null device pointer"));
+    }
+    if (!IsValidDevicePointer(result)) {
+        FC_THROW(InvalidArgument("Invalid device pointer"));
     }
 
     // RAII-managed host buffer
@@ -184,47 +402,311 @@ void CheckMaxVal(const T* result, const int size, hipStream_t stream)
 }
 
 template<typename T>
-void PrintToScreen(const T* result, const int size, const std::string& name)
+void CheckMinVal(const T* result, const int size, hipStream_t stream)
 {
-    LOG(INFO) << "------------------------------------------";
+    // Parameter validation
+    if (size <= 0) {
+        FC_THROW(InvalidArgument("Invalid size: {}", size));
+    }
+    if (!result) {
+        FC_THROW(InvalidArgument("Null device pointer"));
+    }
+    if (!IsValidDevicePointer(result)) {
+        FC_THROW(InvalidArgument("Invalid device pointer"));
+    }
 
-    if (result == nullptr) {
-        LOG(WARNING) << "name: " << name << ", " << "value: " << "It is an nullptr, skip!";
+    // RAII-managed host buffer
+    auto host_buffer = std::make_unique<T[]>(size);
+
+    // Asynchronous memory copy with stream synchronization
+    HIP_ERROR_CHECK(hipMemcpyAsync(host_buffer.get(), result, sizeof(T) * size, hipMemcpyDeviceToHost, stream));
+    HIP_ERROR_CHECK(hipStreamSynchronize(stream));
+
+    // Find minimum value with proper type conversion
+    float min_val = static_cast<float>(host_buffer[0]);
+    for (int i = 1; i < size; ++i) {
+        float current_val = static_cast<float>(host_buffer[i]);
+        if (current_val < min_val) {
+            min_val = current_val;
+        }
+    }
+
+    // Diagnostic output
+    LOG(INFO) << "[HIP] addr " << result << " Min: " << min_val;
+}
+
+template<typename T>
+std::tuple<float, float, float, float> GetTensorStats(const T* result, const int size, hipStream_t stream)
+{
+    // Parameter validation
+    if (size <= 0) {
+        FC_THROW(InvalidArgument("Invalid size: {}", size));
+    }
+    if (!result) {
+        FC_THROW(InvalidArgument("Null device pointer"));
+    }
+    if (!IsValidDevicePointer(result)) {
+        FC_THROW(InvalidArgument("Invalid device pointer"));
+    }
+
+    // RAII-managed host buffer
+    auto host_buffer = std::make_unique<T[]>(size);
+
+    // Asynchronous memory copy with stream synchronization
+    HIP_ERROR_CHECK(hipMemcpyAsync(host_buffer.get(), result, sizeof(T) * size, hipMemcpyDeviceToHost, stream));
+    HIP_ERROR_CHECK(hipStreamSynchronize(stream));
+
+    // Calculate statistics
+    float  min_val = static_cast<float>(host_buffer[0]);
+    float  max_val = static_cast<float>(host_buffer[0]);
+    double sum     = 0.0;
+    double sum_sq  = 0.0;
+
+    for (int i = 0; i < size; ++i) {
+        float val = static_cast<float>(host_buffer[i]);
+        min_val   = std::min(min_val, val);
+        max_val   = std::max(max_val, val);
+        sum += val;
+        sum_sq += val * val;
+    }
+
+    float mean     = static_cast<float>(sum / size);
+    float variance = static_cast<float>(sum_sq / size - mean * mean);
+    float std_dev  = std::sqrt(std::max(0.0f, variance));
+
+    LOG(INFO) << "[STATS] addr " << result << " Min: " << min_val << " Max: " << max_val << " Mean: " << mean
+              << " Std: " << std_dev;
+
+    return std::make_tuple(min_val, max_val, mean, std_dev);
+}
+
+template<typename T>
+void InspectDeviceMemory(const T* ptr, int size, const std::string& name, hipStream_t stream)
+{
+    LOG(INFO) << "=== Memory Inspection: " << (name.empty() ? "unnamed" : name) << " ===";
+
+    if (!ptr) {
+        LOG(WARNING) << "Null pointer";
         return;
     }
 
-    T* tmp = reinterpret_cast<T*>(malloc(sizeof(T) * size));
-    hipMemcpy(tmp, result, sizeof(T) * size, hipMemcpyDeviceToHost);
-    for (int i = 0; i < size; ++i) {
-        LOG(INFO) << "name: " << name << ", " << "index: " << i << ", " << "value: " << static_cast<float>(tmp[i]);
-    }
-
-    free(tmp);
-}
-
-template<>
-void PrintToScreen(const ushort* result, const int size, const std::string& name)
-{
-    LOG(INFO) << "------------------------------------------";
-
-    if (result == nullptr) {
-        LOG(WARNING) << "name: " << name << ", " << "value: " << "It is an nullptr, skip!";
+    if (!IsValidDevicePointer(ptr)) {
+        LOG(WARNING) << "Invalid device pointer";
         return;
     }
 
-    ushort* tmp = reinterpret_cast<ushort*>(malloc(sizeof(ushort) * size));
-    hipMemcpy(tmp, result, sizeof(ushort) * size, hipMemcpyDeviceToHost);
-    for (int i = 0; i < size; ++i) {
-        LOG(INFO) << "name: " << name << ", " << "index: " << i << ", "
-                  << "value: " << bf16_to_float_raw(bit_cast<uint16_t>(tmp[i]));
+    LOG(INFO) << "Type: " << GetTypeName<T>();
+    LOG(INFO) << "Address: " << ptr;
+    LOG(INFO) << "Size: " << size << " elements (" << size * sizeof(T) << " bytes)";
+
+    // Show first few elements
+    const int preview_size = std::min(size, 10);
+    auto      host_buffer  = std::make_unique<T[]>(preview_size);
+
+    HIP_ERROR_CHECK(hipMemcpyAsync(host_buffer.get(), ptr, sizeof(T) * preview_size, hipMemcpyDeviceToHost, stream));
+    HIP_ERROR_CHECK(hipStreamSynchronize(stream));
+
+    LOG(INFO) << "First " << preview_size << " elements:";
+    for (int i = 0; i < preview_size; ++i) {
+        LOG(INFO) << "  [" << i << "] = " << FormatValue(host_buffer[i]);
     }
 
-    free(tmp);
+    // Get basic statistics
+    if (size > 0) {
+        auto [min_val, max_val, mean, std_dev] = GetTensorStats(ptr, size, stream);
+        LOG(INFO) << "Statistics - Min: " << min_val << " Max: " << max_val << " Mean: " << mean << " Std: " << std_dev;
+    }
 }
 
-template void PrintToScreen(const float* result, const int size, const std::string& name);
-template void PrintToScreen(const _Float16* result, const int size, const std::string& name);
-template void PrintToScreen(const int32_t* result, const int size, const std::string& name);
-template void PrintToScreen(const int64_t* result, const int size, const std::string& name);
+template<typename T>
+int CompareTensors(
+    const T* tensor1, const T* tensor2, int size, float tolerance, const std::string& name, hipStream_t stream)
+{
+    // Parameter validation
+    if (size <= 0) {
+        FC_THROW(InvalidArgument("Invalid size: {}", size));
+    }
+    if (!tensor1 || !tensor2) {
+        FC_THROW(InvalidArgument("Null tensor pointer"));
+    }
+    if (!IsValidDevicePointer(tensor1) || !IsValidDevicePointer(tensor2)) {
+        FC_THROW(InvalidArgument("Invalid device pointer"));
+    }
+
+    // RAII-managed host buffers
+    auto buffer1 = std::make_unique<T[]>(size);
+    auto buffer2 = std::make_unique<T[]>(size);
+
+    // Asynchronous memory copies
+    HIP_ERROR_CHECK(hipMemcpyAsync(buffer1.get(), tensor1, sizeof(T) * size, hipMemcpyDeviceToHost, stream));
+    HIP_ERROR_CHECK(hipMemcpyAsync(buffer2.get(), tensor2, sizeof(T) * size, hipMemcpyDeviceToHost, stream));
+    HIP_ERROR_CHECK(hipStreamSynchronize(stream));
+
+    // Compare elements
+    int   mismatch_count = 0;
+    float max_diff       = 0.0f;
+    int   max_diff_idx   = -1;
+
+    for (int i = 0; i < size; ++i) {
+        float val1 = static_cast<float>(buffer1[i]);
+        float val2 = static_cast<float>(buffer2[i]);
+        float diff = std::abs(val1 - val2);
+
+        if (diff > tolerance) {
+            mismatch_count++;
+            if (diff > max_diff) {
+                max_diff     = diff;
+                max_diff_idx = i;
+            }
+        }
+    }
+
+    LOG(INFO) << "=== Tensor Comparison: " << (name.empty() ? "unnamed" : name) << " ===";
+    LOG(INFO) << "Elements: " << size;
+    LOG(INFO) << "Tolerance: " << tolerance;
+    LOG(INFO) << "Mismatches: " << mismatch_count << " (" << (100.0f * mismatch_count / size) << "%)";
+
+    if (mismatch_count > 0) {
+        LOG(INFO) << "Max difference: " << max_diff << " at index " << max_diff_idx;
+        LOG(INFO) << "  Tensor1[" << max_diff_idx << "] = " << FormatValue(buffer1[max_diff_idx]);
+        LOG(INFO) << "  Tensor2[" << max_diff_idx << "] = " << FormatValue(buffer2[max_diff_idx]);
+    }
+
+    return mismatch_count;
+}
+
+// ==============================================================================
+// Explicit Template Instantiations
+// ==============================================================================
+
+// ResultChecker instantiations
+template void
+ResultChecker<float>(const float* tensor, int64_t elem_cnt, const std::string& tensor_name, hipStream_t stream);
+template void
+ResultChecker<_Float16>(const _Float16* tensor, int64_t elem_cnt, const std::string& tensor_name, hipStream_t stream);
+template void
+ResultChecker<ushort>(const ushort* tensor, int64_t elem_cnt, const std::string& tensor_name, hipStream_t stream);
+template void
+ResultChecker<int32_t>(const int32_t* tensor, int64_t elem_cnt, const std::string& tensor_name, hipStream_t stream);
+template void
+ResultChecker<int64_t>(const int64_t* tensor, int64_t elem_cnt, const std::string& tensor_name, hipStream_t stream);
+
+// CheckMaxVal instantiations
+template void CheckMaxVal<float>(const float* result, const int size, hipStream_t stream);
+template void CheckMaxVal<_Float16>(const _Float16* result, const int size, hipStream_t stream);
+template void CheckMaxVal<ushort>(const ushort* result, const int size, hipStream_t stream);
+template void CheckMaxVal<int32_t>(const int32_t* result, const int size, hipStream_t stream);
+template void CheckMaxVal<int64_t>(const int64_t* result, const int size, hipStream_t stream);
+
+// CheckMinVal instantiations
+template void CheckMinVal<float>(const float* result, const int size, hipStream_t stream);
+template void CheckMinVal<_Float16>(const _Float16* result, const int size, hipStream_t stream);
+template void CheckMinVal<ushort>(const ushort* result, const int size, hipStream_t stream);
+template void CheckMinVal<int32_t>(const int32_t* result, const int size, hipStream_t stream);
+template void CheckMinVal<int64_t>(const int64_t* result, const int size, hipStream_t stream);
+
+// GetTensorStats instantiations
+template std::tuple<float, float, float, float>
+GetTensorStats<float>(const float* result, const int size, hipStream_t stream);
+template std::tuple<float, float, float, float>
+GetTensorStats<_Float16>(const _Float16* result, const int size, hipStream_t stream);
+template std::tuple<float, float, float, float>
+GetTensorStats<ushort>(const ushort* result, const int size, hipStream_t stream);
+template std::tuple<float, float, float, float>
+GetTensorStats<int32_t>(const int32_t* result, const int size, hipStream_t stream);
+template std::tuple<float, float, float, float>
+GetTensorStats<int64_t>(const int64_t* result, const int size, hipStream_t stream);
+
+// InspectDeviceMemory instantiations
+template void InspectDeviceMemory<float>(const float* ptr, int size, const std::string& name, hipStream_t stream);
+template void InspectDeviceMemory<_Float16>(const _Float16* ptr, int size, const std::string& name, hipStream_t stream);
+template void InspectDeviceMemory<ushort>(const ushort* ptr, int size, const std::string& name, hipStream_t stream);
+template void InspectDeviceMemory<int32_t>(const int32_t* ptr, int size, const std::string& name, hipStream_t stream);
+template void InspectDeviceMemory<int64_t>(const int64_t* ptr, int size, const std::string& name, hipStream_t stream);
+
+// CompareTensors instantiations
+template int CompareTensors<float>(
+    const float* tensor1, const float* tensor2, int size, float tolerance, const std::string& name, hipStream_t stream);
+template int CompareTensors<_Float16>(const _Float16*    tensor1,
+                                      const _Float16*    tensor2,
+                                      int                size,
+                                      float              tolerance,
+                                      const std::string& name,
+                                      hipStream_t        stream);
+template int CompareTensors<ushort>(const ushort*      tensor1,
+                                    const ushort*      tensor2,
+                                    int                size,
+                                    float              tolerance,
+                                    const std::string& name,
+                                    hipStream_t        stream);
+template int CompareTensors<int32_t>(const int32_t*     tensor1,
+                                     const int32_t*     tensor2,
+                                     int                size,
+                                     float              tolerance,
+                                     const std::string& name,
+                                     hipStream_t        stream);
+template int CompareTensors<int64_t>(const int64_t*     tensor1,
+                                     const int64_t*     tensor2,
+                                     int                size,
+                                     float              tolerance,
+                                     const std::string& name,
+                                     hipStream_t        stream);
+
+// PrintToScreen instantiations
+template void PrintToScreen<float>(const float* result, const int size, const std::string& name, int max_elements);
+template void
+PrintToScreen<_Float16>(const _Float16* result, const int size, const std::string& name, int max_elements);
+template void PrintToScreen<int32_t>(const int32_t* result, const int size, const std::string& name, int max_elements);
+template void PrintToScreen<int64_t>(const int64_t* result, const int size, const std::string& name, int max_elements);
+// Note: ushort specialization is already explicitly defined above
+
+// PrintToFile (const char*) instantiations
+template void PrintToFile<float>(
+    const float* result, const int size, const char* file, hipStream_t stream, std::ios::openmode open_mode);
+template void PrintToFile<_Float16>(
+    const _Float16* result, const int size, const char* file, hipStream_t stream, std::ios::openmode open_mode);
+template void PrintToFile<ushort>(
+    const ushort* result, const int size, const char* file, hipStream_t stream, std::ios::openmode open_mode);
+template void PrintToFile<int32_t>(
+    const int32_t* result, const int size, const char* file, hipStream_t stream, std::ios::openmode open_mode);
+template void PrintToFile<int64_t>(
+    const int64_t* result, const int size, const char* file, hipStream_t stream, std::ios::openmode open_mode);
+
+// PrintToFile (std::string) instantiations
+template void PrintToFile<float>(
+    const float* result, const int size, const std::string& filepath, hipStream_t stream, std::ios::openmode open_mode);
+template void PrintToFile<_Float16>(const _Float16*    result,
+                                    const int          size,
+                                    const std::string& filepath,
+                                    hipStream_t        stream,
+                                    std::ios::openmode open_mode);
+template void PrintToFile<ushort>(const ushort*      result,
+                                  const int          size,
+                                  const std::string& filepath,
+                                  hipStream_t        stream,
+                                  std::ios::openmode open_mode);
+template void PrintToFile<int32_t>(const int32_t*     result,
+                                   const int          size,
+                                   const std::string& filepath,
+                                   hipStream_t        stream,
+                                   std::ios::openmode open_mode);
+template void PrintToFile<int64_t>(const int64_t*     result,
+                                   const int          size,
+                                   const std::string& filepath,
+                                   hipStream_t        stream,
+                                   std::ios::openmode open_mode);
+
+// Utility function instantiations
+template std::string_view GetTypeName<float>();
+template std::string_view GetTypeName<_Float16>();
+template std::string_view GetTypeName<ushort>();
+template std::string_view GetTypeName<int32_t>();
+template std::string_view GetTypeName<int64_t>();
+
+template std::string FormatValue<float>(const float& value);
+template std::string FormatValue<_Float16>(const _Float16& value);
+template std::string FormatValue<ushort>(const ushort& value);
+template std::string FormatValue<int32_t>(const int32_t& value);
+template std::string FormatValue<int64_t>(const int64_t& value);
 
 }  // namespace flashck

@@ -2,160 +2,143 @@
 
 namespace flashck {
 
-bool StartsWith(const std::string& str, const std::string& prefix)
+bool StartsWith(std::string_view str, std::string_view prefix)
 {
-    return str.size() >= prefix.size() && str.compare(0, prefix.size(), prefix) == 0;
+    // Optimized: Use string_view::substr for zero-copy operation
+    return str.size() >= prefix.size() && str.substr(0, prefix.size()) == prefix;
 }
 
-bool EndsWith(const std::string& str, const std::string& suffix)
+bool EndsWith(std::string_view str, std::string_view suffix)
 {
-    return str.size() >= suffix.size() && str.compare(str.size() - suffix.size(), suffix.size(), suffix) == 0;
+    // Optimized: Use string_view::substr for zero-copy operation
+    return str.size() >= suffix.size() && str.substr(str.size() - suffix.size()) == suffix;
 }
 
-std::vector<std::string> SplitStrings(const std::string& str, const std::string& delimiter)
+std::vector<std::string> SplitStrings(std::string_view str, std::string_view delimiter)
 {
+    // Handle edge cases early for better performance
+    if (str.empty() || delimiter.empty()) {
+        return {std::string(str)};
+    }
+
     std::vector<std::string> tokens;
     size_t                   start = 0;
     size_t                   end   = str.find(delimiter);
 
-    while (end != std::string::npos) {
-        std::string token = str.substr(start, end - start);
-        // Only add non-empty tokens to avoid empty strings from leading delimiters
-        if (!token.empty()) {
-            tokens.push_back(token);
+    // Process each token found by delimiter
+    while (end != std::string_view::npos) {
+        if (end > start) {  // Only add non-empty tokens to filter out empty strings
+            tokens.emplace_back(str.substr(start, end - start));
         }
         start = end + delimiter.length();
         end   = str.find(delimiter, start);
     }
 
     // Add the last token if it's not empty
-    std::string last_token = str.substr(start);
-    if (!last_token.empty()) {
-        tokens.push_back(last_token);
+    if (start < str.length()) {
+        tokens.emplace_back(str.substr(start));
     }
 
     return tokens;
 }
 
-std::string SliceAroundSubstring(const std::string& str, const std::string& separator, const std::string& direction)
+std::string SliceAroundSubstring(std::string_view str, std::string_view separator, std::string_view direction)
 {
-    // Validate separator
+    // Validate separator early to avoid unnecessary work
     if (separator.empty()) {
         throw std::invalid_argument("Separator cannot be empty");
     }
 
-    // Normalize direction to lowercase
-    std::string dir_lower;
-    dir_lower.reserve(direction.size());
-    std::transform(direction.begin(), direction.end(), std::back_inserter(dir_lower), ::tolower);
-
     // Find separator position
     const size_t pos = str.find(separator);
-    if (pos == std::string::npos) {
-        return {};
+    if (pos == std::string_view::npos) {
+        return {};  // Separator not found, return empty string
     }
 
-    // Calculate substring based on direction
-    if (dir_lower == "left") {
-        return str.substr(0, pos);
+    // Extract substring based on direction (optimized: no case conversion)
+    if (direction == "left") {
+        return std::string(str.substr(0, pos));
     }
-    else if (dir_lower == "right") {
+    else if (direction == "right") {
         const size_t start = pos + separator.length();
-        return start <= str.length() ? str.substr(start) : std::string{};
+        return start <= str.length() ? std::string(str.substr(start)) : std::string{};
     }
 
     // Handle invalid direction
     throw std::invalid_argument("Direction must be 'left' or 'right'");
 }
 
-std::string HashToHexString(const std::string& input_str)
+std::string HashToHexString(std::string_view input_str)
 {
-    const std::size_t hash_value = std::hash<std::string>{}(input_str);
+    // Use string_view hash for better performance (no string copy)
+    const std::size_t hash_value = std::hash<std::string_view>{}(input_str);
 
-    std::stringstream ss;
+    // Convert to hex string with proper formatting
+    std::ostringstream ss;
     ss << std::hex << std::setw(sizeof(std::size_t) * 2) << std::setfill('0') << hash_value;
 
     return ss.str();
 }
 
-std::string CombinedHashToHexString(const std::string& input_str)
+std::string CombinedHashToHexString(std::string_view input_str)
 {
+    // Use two different hash functions for better uniqueness
     const std::string str_copy(input_str);
-    const auto        hash1 = std::hash<std::string>{}(str_copy);
-    const auto        hash2 = std::_Hash_impl::hash(input_str.data(), input_str.size());
+    const auto        hash1 = std::hash<std::string>{}(str_copy);        // String hash
+    const auto        hash2 = std::hash<std::string_view>{}(input_str);  // String_view hash
 
-    std::stringstream ss;
+    // Combine both hashes into a single hex string
+    std::ostringstream ss;
     ss << std::hex << std::setfill('0') << std::setw(sizeof(std::size_t) * 2) << hash1
        << std::setw(sizeof(std::size_t) * 2) << hash2;
 
     return ss.str();
-
-    return ss.str();
 }
 
-void ReplaceAll(std::string& s, const std::string& search, const std::string& replacement)
+void ReplaceAll(std::string& s, std::string_view search, std::string_view replacement)
 {
-    if (search.empty())
+    if (search.empty()) {
         return;  // Prevent infinite loop for empty search pattern
-
-    size_t       count       = 0;
-    const size_t search_len  = search.length();
-    const size_t replace_len = replacement.length();
-
-    // Phase 1: Count matches and calculate new length
-    for (size_t pos = s.find(search); pos != std::string::npos; pos = s.find(search, pos + search_len)) {
-        ++count;
-    }
-    if (count == 0)
-        return;
-
-    // Pre-allocate memory if resultant string needs expansion
-    const size_t new_len = s.length() + count * (replace_len - search_len);
-    if (replace_len > search_len) {
-        s.reserve(new_len + 1);  // +1 accounts for potential implementation-specific alignment
     }
 
-    // Phase 2: Perform replacements with offset tracking
-    size_t offset = 0;
-    for (size_t pos = s.find(search); pos != std::string::npos; pos = s.find(search, pos + search_len)) {
-        s.replace(pos + offset, search_len, replacement);
-        offset += replace_len - search_len;
+    size_t pos = 0;
+    // Optimized: Single-pass replacement without pre-counting
+    while ((pos = s.find(search, pos)) != std::string::npos) {
+        s.replace(pos, search.length(), replacement);
+        pos += replacement.length();
 
-        // Early termination if replacement contains search pattern
-        if (replacement.find(search) != std::string::npos) {
-            break;  // Prevent infinite replacement recursion
+        // Prevent infinite replacement if replacement contains search pattern
+        if (replacement.find(search) != std::string_view::npos) {
+            break;
         }
     }
 }
 
-std::map<std::string, int> ExtractWorkLoad(const std::string& key)
+std::map<std::string, int> ExtractWorkLoad(std::string_view key)
 {
     std::map<std::string, int> result;
+    const std::string          key_str(key);  // Convert to string for regex compatibility
 
     // Handle equality expressions like "M == 2"
-    std::regex  eq_pattern(R"((\w+)\s*==\s*(\d+))");
-    std::smatch match;
-    std::string remaining = key;
+    // Use static regex for better performance (compiled once)
+    static const std::regex eq_pattern(R"((\w+)\s*==\s*(\d+))");
+    std::smatch             match;
+    std::string             remaining = key_str;
 
     while (std::regex_search(remaining, match, eq_pattern)) {
-        std::string var_name = match[1].str();
-        int         value    = std::stoi(match[2].str());
-        result[var_name]     = value;
-        remaining            = match.suffix().str();
+        result[match[1].str()] = std::stoi(match[2].str());
+        remaining              = match.suffix().str();
     }
 
     // Handle range expressions like "M>=2 && M<=9"
-    // Extract the minimum value as representative for ranges
-    std::regex range_pattern(R"((\w+)\s*>=\s*(\d+)\s*&&\s*\1\s*<=\s*(\d+))");
-    remaining = key;
+    // Use static regex for better performance (compiled once)
+    static const std::regex range_pattern(R"((\w+)\s*>=\s*(\d+)\s*&&\s*\1\s*<=\s*(\d+))");
+    remaining = key_str;
 
     while (std::regex_search(remaining, match, range_pattern)) {
-        std::string var_name = match[1].str();
-        int         min_val  = std::stoi(match[2].str());
-        // int         max_val  = std::stoi(match[3].str());
         // For ranges, we'll take the minimum value as the representative
-        result[var_name] = min_val;
-        remaining        = match.suffix().str();
+        result[match[1].str()] = std::stoi(match[2].str());
+        remaining              = match.suffix().str();
     }
 
     return result;
@@ -164,11 +147,15 @@ std::map<std::string, int> ExtractWorkLoad(const std::string& key)
 std::string GenWorkLoad(const std::map<std::string, std::vector<int64_t>>& name_value_mapping)
 {
     std::vector<std::string> key_strs;
+
+    // Generate appropriate expressions for each parameter
     for (auto& [name, values] : name_value_mapping) {
         if (values.size() == 1) {
+            // Single value: generate equality expression
             key_strs.emplace_back(Sprintf("{} == {}", name, values[0]));
         }
         else if (values.size() > 1) {
+            // Multiple values: generate range expression (min to max)
             key_strs.emplace_back(Sprintf("{} >= {} && {} <= {}", name, values[0], name, values.back()));
         }
         else {
@@ -177,6 +164,7 @@ std::string GenWorkLoad(const std::map<std::string, std::vector<int64_t>>& name_
         }
     }
 
+    // Join all expressions with logical AND
     return JoinStrings(key_strs, " && ");
 }
 

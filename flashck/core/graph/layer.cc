@@ -1,15 +1,21 @@
 #include "flashck/core/graph/layer.h"
 
+#include "flashck/core/utils/enforce.h"
+
 namespace flashck {
 
 Layer::Layer(std::string name): op_vec_({})
 {
     context_ptr_ = Context::GetGlobalInstance();
+
+    // Generate unique layer name with parent prefix
     std::string layer_name =
         context_ptr_->GetLastLayer() ? (context_ptr_->GetLastLayer()->GetName() + "_" + name) : name;
+
     int idx = context_ptr_->layer_name_cnt[name];
     context_ptr_->layer_name_cnt[name] += 1;
     name_ = layer_name + "_" + std::to_string(idx);
+
     context_ptr_->EnterLayer(this, true);
 }
 
@@ -20,18 +26,16 @@ std::string Layer::GetName() const
 
 void Layer::Forward()
 {
-    // context_ptr_->BuildContext();
     context_ptr_->UpdateNodeIdx();
     ClearFwdUpdateFlag();
-    // ForwardProcess();
-    for (Variable* var : output_var_vec_) {
-        if (var == nullptr)
-            continue;
-        VLOG(1) << "layer:" << this->GetName() << ",output: " << var->GetName();
-        var->RecursiveForward();
-    }
 
-    // output_var_vec_[0]->RecursiveForward();
+    // Execute forward pass for all output variables
+    for (Variable* var : output_var_vec_) {
+        if (var != nullptr) {
+            VLOG(1) << "Layer " << GetName() << " output: " << var->GetName();
+            var->RecursiveForward();
+        }
+    }
 }
 
 void Layer::SetInputs(const std::vector<Variable*>& input_var_vec)
@@ -48,19 +52,14 @@ void Layer::SetOutputs(const std::vector<Variable*>& output_var_vec)
 
 Variable* Layer::GetInput(const int idx) const
 {
-    if (idx >= input_var_vec_.size()) {
-        LOG(ERROR) << "layer " << GetName() << " input idx is out of range!";
-        exit(0);
-    }
+    FC_ENFORCE_LT(idx, input_var_vec_.size(), InvalidArgument("Layer {} input index {} out of range", GetName(), idx));
     return input_var_vec_[idx];
 }
 
 Variable* Layer::GetOutput(const int idx) const
 {
-    if (idx >= output_var_vec_.size()) {
-        LOG(ERROR) << "layer " << GetName() << " input idx is out of range!";
-        exit(0);
-    }
+    FC_ENFORCE_LT(
+        idx, output_var_vec_.size(), InvalidArgument("Layer {} output index {} out of range", GetName(), idx));
     return output_var_vec_[idx];
 }
 

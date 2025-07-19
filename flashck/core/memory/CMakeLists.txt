@@ -1,11 +1,15 @@
-cmake_minimum_required(VERSION 3.8)
+# ==============================================================================
+# FlashCK Memory Library
+# ==============================================================================
 
-set(MemmoryFile
+# Define source files
+set(MemoryFile
     allocator.cc
-    memory_manager.cc)
-
-add_library(memory STATIC ${MemmoryFile})
-target_include_directories(memory PUBLIC
-    ${CMAKE_SOURCE_DIR}
+    memory_manager.cc
 )
+
+# Create memory library
+add_library(memory STATIC ${MemoryFile})
+
+# Link dependencies
 target_link_libraries(memory PUBLIC utils)

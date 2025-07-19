@@ -31,17 +31,6 @@ struct NormTag {
     std::string trait_tag;    ///< Template tag for kernel traits
     std::string fwd_tag;      ///< Template tag for forward implementation
     std::string pass_tag;     ///< Template tag for pipeline pass strategy
-
-    NormTag() = default;
-    NormTag(
-        std::string name, std::string problem_tag, std::string trait_tag, std::string fwd_tag, std::string pass_tag):
-        name(std::move(name)),
-        problem_tag(std::move(problem_tag)),
-        trait_tag(std::move(trait_tag)),
-        fwd_tag(std::move(fwd_tag)),
-        pass_tag(std::move(pass_tag))
-    {
-    }
 };
 
 /**
@@ -79,9 +68,6 @@ enum class NormBiasEnum : int {
 struct NormBiasInfo {
     std::string name;        ///< Full descriptive name
     std::string short_name;  ///< Abbreviated name for config strings
-
-    NormBiasInfo() = default;
-    NormBiasInfo(std::string name, std::string short_name): name(std::move(name)), short_name(std::move(short_name)) {}
 };
 
 /**
@@ -110,9 +96,6 @@ enum class FusedAddEnum : int {
 struct FusedAddInfo {
     std::string name;        ///< Full descriptive name
     std::string short_name;  ///< Abbreviated name for config strings
-
-    FusedAddInfo() = default;
-    FusedAddInfo(std::string name, std::string short_name): name(std::move(name)), short_name(std::move(short_name)) {}
 };
 
 /**
@@ -142,11 +125,6 @@ enum class FusedQuantEnum : int {
 struct FusedQuantInfo {
     std::string name;        ///< Full descriptive name
     std::string short_name;  ///< Abbreviated name for config strings
-
-    FusedQuantInfo() = default;
-    FusedQuantInfo(std::string name, std::string short_name): name(std::move(name)), short_name(std::move(short_name))
-    {
-    }
 };
 
 /**
@@ -290,51 +268,6 @@ inline bool IsValidFusedAddEnum(FusedAddEnum add)
 inline bool IsValidFusedQuantEnum(FusedQuantEnum quant)
 {
     return static_cast<int>(quant) >= 0 && static_cast<int>(quant) < static_cast<int>(FusedQuantEnum::COUNT);
-}
-
-/**
- * @brief Generates a configuration string from norm parameters
- * @param kind The norm kind
- * @param bias The bias mode
- * @param add The fused add mode
- * @param quant The fused quantization mode
- * @return Configuration string combining all parameters
- */
-inline std::string GenerateConfigString(NormKind kind, NormBiasEnum bias, FusedAddEnum add, FusedQuantEnum quant)
-{
-    std::string config;
-    config.reserve(64);  // Reserve space for efficiency
-
-    config += GetNormKindName(kind);
-    config += "_";
-
-    auto bias_it = g_norm_bias_map.find(bias);
-    if (bias_it != g_norm_bias_map.end()) {
-        config += bias_it->second.short_name;
-    }
-    else {
-        config += "unknown";
-    }
-    config += "_";
-
-    auto add_it = g_fused_add_map.find(add);
-    if (add_it != g_fused_add_map.end()) {
-        config += add_it->second.short_name;
-    }
-    else {
-        config += "unknown";
-    }
-    config += "_";
-
-    auto quant_it = g_fused_quant_map.find(quant);
-    if (quant_it != g_fused_quant_map.end()) {
-        config += quant_it->second.short_name;
-    }
-    else {
-        config += "unknown";
-    }
-
-    return config;
 }
 
 }  // namespace flashck

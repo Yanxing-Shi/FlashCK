@@ -1,7 +1,0 @@
-add_library(layer_norm_layer STATIC layer_norm_layer.cc)
-set_property(TARGET layer_norm_layer PROPERTY POSITION_INDEPENDENT_CODE  ON)
-target_link_libraries(layer_norm_layer PUBLIC layer_norm_op)
-
-# add_library(rms_norm_layer STATIC rms_norm_layer.cc)
-# set_property(TARGET rms_norm_layer PROPERTY POSITION_INDEPENDENT_CODE  ON)
-# target_link_libraries(rms_norm_layer PUBLIC rms_norm_op)

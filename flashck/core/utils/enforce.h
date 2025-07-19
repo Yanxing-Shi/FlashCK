@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <exception>
 #include <iostream>
 #include <sstream>
@@ -7,20 +8,25 @@
 #include <type_traits>
 #include <unistd.h>
 
+#include <fmt/format.h>
+
 #include "flashck/core/utils/errors.h"
-#include "flashck/core/utils/string_utils.h"
 
 namespace flashck {
+
+// ==============================================================================
+// Type Traits for Template Metaprogramming
+// ==============================================================================
 
 template<typename T>
 inline constexpr bool IsArithmetic()
 {
-    return std::is_arithmetic<T>::value;
+    return std::is_arithmetic_v<T>;
 }
 
-template<typename T1, typename T2, bool kIsArithmetic /* = true */>
+template<typename T1, typename T2, bool kIsArithmetic = true>
 struct TypeConverterImpl {
-    using Type1 = typename std::common_type<T1, T2>::type;
+    using Type1 = typename std::common_type_t<T1, T2>;
     using Type2 = Type1;
 };
 
@@ -39,13 +45,17 @@ struct TypeConverter {
 
 template<typename T1, typename T2>
 using CommonType1 =
-    typename std::add_lvalue_reference<typename std::add_const<typename TypeConverter<T1, T2>::Type1>::type>::type;
+    typename std::add_lvalue_reference_t<typename std::add_const_t<typename TypeConverter<T1, T2>::Type1>>;
 
 template<typename T1, typename T2>
 using CommonType2 =
-    typename std::add_lvalue_reference<typename std::add_const<typename TypeConverter<T1, T2>::Type2>::type>::type;
+    typename std::add_lvalue_reference_t<typename std::add_const_t<typename TypeConverter<T1, T2>::Type2>>;
 
-// Here, we use SFINAE to check whether T can be converted to std::string
+// ==============================================================================
+// String Conversion Utilities
+// ==============================================================================
+
+// SFINAE check for types that can be converted to string via std::cout
 template<typename T>
 struct CanToString {
 private:
@@ -53,7 +63,7 @@ private:
     using NoType  = uint16_t;
 
     template<typename U>
-    static YesType Check(decltype(std::cout << std::declval<U>()))
+    static YesType Check(decltype(std::cout << std::declval<U>())*)
     {
         return 0;
     }
@@ -65,40 +75,51 @@ private:
     }
 
 public:
-    static constexpr bool kValue = std::is_same<YesType, decltype(Check<T>(std::cout))>::value;
+    static constexpr bool kValue = std::is_same_v<YesType, decltype(Check<T>(nullptr))>;
 };
 
-template<bool kCanToString /* = true */>
+template<bool kCanToString = true>
 struct BinaryCompareMessageConverter {
     template<typename T>
     static std::string Convert(const char* expression, const T& value)
     {
-        return expression + std::string(":") + ToString(value);
+        return std::string(expression) + ":" + ToString(value);
     }
 };
 
 template<>
 struct BinaryCompareMessageConverter<false> {
     template<typename T>
-    static const char* Convert(const char* expression, const T& value)
+    static const char* Convert(const char* expression, const T& /* value */)
     {
         return expression;
     }
 };
 
+// ==============================================================================
+// Stack Trace and Error Formatting Functions
+// ==============================================================================
+
 int         GetCallStackLevel();
 std::string GetCurrentTraceBackString(bool for_signal = false);
 std::string SimplifyErrorTypeFormat(const std::string& str);
+void        InternalThrowWarning(const std::string& message);
+
+// ==============================================================================
+// Error Message Formatting Templates
+// ==============================================================================
 
 template<typename StrType>
-static std::string GetErrorSumaryString(StrType&& what, const char* file, int line)
+static std::string GetErrorSummaryString(StrType&& what, const char* file, int line)
 {
     std::ostringstream sout;
     if (GetCallStackLevel() > 1) {
-        sout << "\n----------------------\nError Message "
-                "Summary:\n----------------------\n";
+        sout << "\n----------------------\n"
+             << "Error Message Summary:\n"
+             << "----------------------\n";
     }
-    sout << Sprintf("{} at{} : {}", std::forward<StrType>(what), file, line) << std::endl;
+
+    sout << fmt::format("{} ({}:{})\n", std::forward<StrType>(what), file, line);
     return sout.str();
 }
 
@@ -106,11 +127,11 @@ template<typename StrType>
 std::string GetCompleteTraceBackString(StrType&& what, const char* file, int line)
 {
     std::ostringstream sout;
-    sout << "\n----------------------\nError Message "
-            "Summary:\n----------------------\n";
+    sout << "\n----------------------\n"
+         << "Error Message Summary:\n"
+         << "----------------------\n";
 
-    sout << Sprintf("{} at{} : {}", std::forward<StrType>(what), file, line) << std::endl;
-
+    sout << fmt::format("{} ({}:{})\n", std::forward<StrType>(what), file, line);
     return GetCurrentTraceBackString() + sout.str();
 }
 
@@ -118,29 +139,44 @@ template<typename StrType>
 static std::string GetTraceBackString(StrType&& what, const char* file, int line)
 {
     if (GetCallStackLevel() > 1) {
-        // FLAGS_call_stack_level>1 means showing c++ call stack
-        return GetCurrentTraceBackString() + GetErrorSumaryString(what, file, line);
+        // Show full C++ stack trace when level > 1
+        return GetCurrentTraceBackString() + GetErrorSummaryString(what, file, line);
     }
     else {
-        return GetErrorSumaryString(what, file, line);
+        // Show only error summary when level <= 1
+        return GetErrorSummaryString(what, file, line);
     }
 }
+
+// ==============================================================================
+// Utility Functions
+// ==============================================================================
 
 inline bool is_error(bool stat)
 {
     return !stat;
 }
 
-// Note: This Macro can only be used within enforce.h
-#define __THROW_ERROR_INTERNAL__(__ERROR_SUMMARY)                                                                      \
+// ==============================================================================
+// Exception Classes
+// ==============================================================================
+
+// Internal macro for throwing errors
+#define __THROW_ERROR_INTERNAL__(error_summary)                                                                        \
     do {                                                                                                               \
-        throw EnforceNotMet(__ERROR_SUMMARY, __FILE__, __LINE__);                                                      \
+        throw EnforceNotMet(error_summary, __FILE__, __LINE__);                                                        \
     } while (0)
 
-void InternalThrowWarning(const std::string& message);
-
+/**
+ * @brief Main exception class for FlashCK enforcement failures
+ *
+ * This class provides comprehensive error handling with stack traces,
+ * error categorization, and different verbosity levels based on the
+ * FC_CALL_STACK_LEVEL flag.
+ */
 class EnforceNotMet: public std::exception {
 public:
+    // Constructor from std::exception_ptr
     EnforceNotMet(std::exception_ptr e, const char* file, int line)
     {
         try {
@@ -152,22 +188,26 @@ public:
             simple_err_str_ = SimplifyErrorTypeFormat(err_str_);
         }
         catch (std::exception& e) {
+            flag_           = ErrorFlag::LEGACY;
             err_str_        = GetTraceBackString(e.what(), file, line);
             simple_err_str_ = SimplifyErrorTypeFormat(err_str_);
         }
     }
 
+    // Constructor from string message
     EnforceNotMet(const std::string& str, const char* file, int line): err_str_(GetTraceBackString(str, file, line))
     {
         simple_err_str_ = SimplifyErrorTypeFormat(err_str_);
     }
 
+    // Constructor from ErrorSummary
     EnforceNotMet(const ErrorSummary& error, const char* file, int line):
         flag_(error.GetErrorFlag()), err_str_(GetTraceBackString(error.ToString(), file, line))
     {
         simple_err_str_ = SimplifyErrorTypeFormat(err_str_);
     }
 
+    // Override what() to return appropriate error message based on call stack level
     const char* what() const noexcept override
     {
         if (GetCallStackLevel() > 1) {
@@ -178,106 +218,110 @@ public:
         }
     }
 
+    // Accessors
     ErrorFlag GetErrorFlag() const
     {
         return flag_;
     }
-
     const std::string& GetErrorStr() const
     {
         return err_str_;
     }
-
     const std::string& SimpleErrorStr() const
     {
         return simple_err_str_;
     }
 
+    // Set error string based on call stack level
     void SetErrorStr(std::string str)
     {
         if (GetCallStackLevel() > 1) {
-            err_str_ = str;
+            err_str_ = std::move(str);
         }
         else {
-            simple_err_str_ = str;
+            simple_err_str_ = std::move(str);
         }
     }
 
     ~EnforceNotMet() override = default;
 
 private:
-    // Used to determine the final type of exception thrown
-    ErrorFlag flag_ = ErrorFlag::LEGACY;
-    // Complete error message
-    // e.g. InvalidArgumentError: ***
-    std::string err_str_;
-    // Simple error message used when no C++ stack and python compile stack
-    // e.g. (InvalidArgument) ***
-    std::string simple_err_str_;
+    ErrorFlag   flag_ = ErrorFlag::LEGACY;  // Error categorization
+    std::string err_str_;                   // Full error message with stack trace
+    std::string simple_err_str_;            // Simplified error message
 };
 
+// ==============================================================================
+// Enforcement Macros
+// ==============================================================================
+
+/**
+ * @brief Throw an exception with error summary
+ * Usage: FC_THROW(ErrorFlag::INVALID_ARGUMENT, "Invalid parameter: {}", param_name);
+ */
 #define FC_THROW(...)                                                                                                  \
     do {                                                                                                               \
         throw EnforceNotMet(ErrorSummary(__VA_ARGS__), __FILE__, __LINE__);                                            \
     } while (0)
 
-#define FC_ENFORCE(_IS_NOT_ERROR, __FORMAT, ...)                                                                       \
+/**
+ * @brief Enforce that a pointer is not null
+ * Usage: FC_ENFORCE_NOT_NULL(ptr, "Pointer cannot be null");
+ */
+#define FC_ENFORCE_NOT_NULL(val, ...)                                                                                  \
     do {                                                                                                               \
-        if (!(_IS_NOT_ERROR)) {                                                                                        \
-            printf("Error: %s:%d Assertion `%s` failed. " __FORMAT "\n",                                               \
-                   __FILE__,                                                                                           \
-                   __LINE__,                                                                                           \
-                   #_IS_NOT_ERROR,                                                                                     \
-                   ##__VA_ARGS__);                                                                                     \
-            abort();                                                                                                   \
+        if (nullptr == (val)) {                                                                                        \
+            auto error_summary = ErrorSummary(__VA_ARGS__);                                                            \
+            auto message = fmt::format("{}\n  [Hint: " #val " should not be null.]", error_summary.GetErrorMessage()); \
+            __THROW_ERROR_INTERNAL__(ErrorSummary(error_summary.GetErrorFlag(), std::move(message)));                  \
         }                                                                                                              \
     } while (0)
 
-#define FC_ENFORCE_NOT_NULL(__VAL, ...)                                                                                \
+/**
+ * @brief Warn if a pointer is null (non-fatal)
+ * Usage: FC_WARN_NOT_NULL(ptr, "Warning: pointer should not be null");
+ */
+#define FC_WARN_NOT_NULL(val, ...)                                                                                     \
     do {                                                                                                               \
-        if (nullptr == (__VAL)) {                                                                                      \
-            auto __summary__ = ErrorSummary(__VA_ARGS__);                                                              \
-            auto __message__ = Sprintf("{}\n  [Hint: " #__VAL " should not be null.]", __summary__.GetErrorMessage()); \
-            __THROW_ERROR_INTERNAL__(ErrorSummary(__summary__.GetErrorFlag(), std::move(__message__)));                \
+        if (nullptr == (val)) {                                                                                        \
+            auto error_summary = ErrorSummary(__VA_ARGS__);                                                            \
+            auto message = fmt::format("{}\n  [Hint: " #val " should not be null.]", error_summary.GetErrorMessage()); \
+            InternalThrowWarning(std::move(message));                                                                  \
         }                                                                                                              \
     } while (0)
 
-#define FC_WARN_NOT_NULL(__VAL, ...)                                                                                   \
-    do {                                                                                                               \
-        if (nullptr == (__VAL)) {                                                                                      \
-            auto __summary__ = ErrorSummary(__VA_ARGS__);                                                              \
-            auto __message__ = Sprintf("{}\n  [Hint: " #__VAL " should not be null.]", __summary__.GetErrorMessage()); \
-            InternalThrowWarning(std::move(__message__));                                                              \
-        }                                                                                                              \
+/**
+ * @brief Internal binary comparison macro for type-safe comparisons
+ * This macro handles arithmetic type conversions and provides detailed error messages
+ */
+#define __FC_BINARY_COMPARE(val1, val2, op, inv_op, ...)                                                                   \
+    do {                                                                                                                   \
+        auto __val1            = (val1);                                                                                   \
+        auto __val2            = (val2);                                                                                   \
+        using __TYPE1__        = decltype(__val1);                                                                         \
+        using __TYPE2__        = decltype(__val2);                                                                         \
+        using __COMMON_TYPE1__ = CommonType1<__TYPE1__, __TYPE2__>;                                                        \
+        using __COMMON_TYPE2__ = CommonType2<__TYPE1__, __TYPE2__>;                                                        \
+        bool __is_not_error    = (static_cast<__COMMON_TYPE1__>(__val1))op(static_cast<__COMMON_TYPE2__>(__val2));         \
+        if (!__is_not_error) {                                                                                             \
+            auto           error_summary    = ErrorSummary(__VA_ARGS__);                                                   \
+            constexpr bool __kCanToString__ = CanToString<__TYPE1__>::kValue && CanToString<__TYPE2__>::kValue;            \
+            auto           message = fmt::format("{}\n  [Hint: Expected {} " #op " {}, but received {} " #inv_op " {}]",   \
+                                       error_summary.GetErrorMessage(),                                          \
+                                       #val1,                                                                    \
+                                       #val2,                                                                    \
+                                       BinaryCompareMessageConverter<__kCanToString__>::Convert(#val1, __val1),  \
+                                       BinaryCompareMessageConverter<__kCanToString__>::Convert(#val2, __val2)); \
+            __THROW_ERROR_INTERNAL__(ErrorSummary(error_summary.GetErrorFlag(), std::move(message)));                      \
+        }                                                                                                                  \
     } while (0)
 
-#define __FC_BINARY_COMPARE(__VAL1, __VAL2, __CMP, __INV_CMP, ...)                                                     \
-    do {                                                                                                               \
-        auto __val1            = (__VAL1);                                                                             \
-        auto __val2            = (__VAL2);                                                                             \
-        using __TYPE1__        = decltype(__val1);                                                                     \
-        using __TYPE2__        = decltype(__val2);                                                                     \
-        using __COMMON_TYPE1__ = CommonType1<__TYPE1__, __TYPE2__>;                                                    \
-        using __COMMON_TYPE2__ = CommonType2<__TYPE1__, __TYPE2__>;                                                    \
-        bool __is_not_error    = (static_cast<__COMMON_TYPE1__>(__val1))__CMP(static_cast<__COMMON_TYPE2__>(__val2));  \
-        if (!__is_not_error) {                                                                                         \
-            auto           __summary__      = ErrorSummary(__VA_ARGS__);                                               \
-            constexpr bool __kCanToString__ = CanToString<__TYPE1__>::kValue && CanToString<__TYPE2__>::kValue;        \
-            auto __message__ = Sprintf("{}\n  [Hint: Expected {}" #__CMP "{}], but received {}" #__INV_CMP "{}]",      \
-                                       __summary__.GetErrorMessage(),                                                  \
-                                       __val1,                                                                         \
-                                       __val2,                                                                         \
-                                       BinaryCompareMessageConverter<__kCanToString__>::Convert(#__VAL1, __val1),      \
-                                       BinaryCompareMessageConverter<__kCanToString__>::Convert(#__VAL2, __val2));     \
-            __THROW_ERROR_INTERNAL__(ErrorSummary(__summary__.GetErrorFlag(), std::move(__message__)));                \
-        }                                                                                                              \
-    } while (0)
-
-#define FC_ENFORCE_EQ(__VAL0, __VAL1, ...) __FC_BINARY_COMPARE(__VAL0, __VAL1, ==, !=, __VA_ARGS__)
-#define FC_ENFORCE_NE(__VAL0, __VAL1, ...) __FC_BINARY_COMPARE(__VAL0, __VAL1, !=, ==, __VA_ARGS__)
-#define FC_ENFORCE_GT(__VAL0, __VAL1, ...) __FC_BINARY_COMPARE(__VAL0, __VAL1, >, <=, __VA_ARGS__)
-#define FC_ENFORCE_GE(__VAL0, __VAL1, ...) __FC_BINARY_COMPARE(__VAL0, __VAL1, >=, <, __VA_ARGS__)
-#define FC_ENFORCE_LT(__VAL0, __VAL1, ...) __FC_BINARY_COMPARE(__VAL0, __VAL1, <, >=, __VA_ARGS__)
-#define FC_ENFORCE_LE(__VAL0, __VAL1, ...) __FC_BINARY_COMPARE(__VAL0, __VAL1, <=, >, __VA_ARGS__)
+// Binary comparison macros
+#define FC_ENFORCE_EQ(val1, val2, ...) __FC_BINARY_COMPARE(val1, val2, ==, !=, __VA_ARGS__)
+#define FC_ENFORCE_NE(val1, val2, ...) __FC_BINARY_COMPARE(val1, val2, !=, ==, __VA_ARGS__)
+#define FC_ENFORCE_GT(val1, val2, ...) __FC_BINARY_COMPARE(val1, val2, >, <=, __VA_ARGS__)
+#define FC_ENFORCE_GE(val1, val2, ...) __FC_BINARY_COMPARE(val1, val2, >=, <, __VA_ARGS__)
+#define FC_ENFORCE_LT(val1, val2, ...) __FC_BINARY_COMPARE(val1, val2, <, >=, __VA_ARGS__)
+#define FC_ENFORCE_LE(val1, val2, ...) __FC_BINARY_COMPARE(val1, val2, <=, >, __VA_ARGS__)
 
 }  // namespace flashck

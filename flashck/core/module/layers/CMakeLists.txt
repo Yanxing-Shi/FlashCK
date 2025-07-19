@@ -1,8 +1,15 @@
-# add_subdirectory(embedding_layers)
-# add_subdirectory(gemm_layers)
-add_subdirectory(norm_layers)
-# add_subdirectory(attention_layers)
-# add_subdirectory(llama_layers)
-# add_subdirectory(transformer_layers)
-# add_subdirectory(decoding_layers)
-# add_subdirectory(elementwise_layers)
+# ==============================================================================
+# FlashCK Layer Components
+# ==============================================================================
+
+# Collect all module source files recursively
+file(GLOB_RECURSE LAYER_SOURCES CONFIGURE_DEPENDS
+    "*.cc"
+    "norm_layers/*.cc"
+)
+
+# Create kernel
+add_library(layer STATIC ${LAYER_SOURCES})
+
+# Link dependencies
+target_link_libraries(layer PUBLIC operation)

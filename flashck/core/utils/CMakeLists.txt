@@ -1,10 +1,19 @@
-cmake_minimum_required(VERSION 3.8)
+# ==============================================================================
+# FlashCK Utils Library
+# ==============================================================================
 
-file(GLOB UtilsFile CONFIGURE_DEPENDS "*.cc")
+# Find all source files
+file(GLOB_RECURSE UtilsSourceFiles CONFIGURE_DEPENDS "*.cc")
 
-add_library(utils STATIC ${UtilsFile})
-target_include_directories(utils PUBLIC
-    ${CMAKE_SOURCE_DIR}
-)
+# Create utils library
+add_library(utils STATIC ${UtilsSourceFiles})
+
+# Link dependencies
 target_link_libraries(utils PUBLIC
-    glog::glog gflags jinja2cpp fmt::fmt hip::device sqlite3)
+    glog::glog
+    gflags
+    jinja2cpp
+    fmt::fmt
+    hip::device
+    sqlite3
+)

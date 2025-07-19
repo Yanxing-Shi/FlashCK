@@ -1,1 +1,0 @@
-torch::Tensor call_linear(Linear<float>& linear, torch::Tensor w_tensor, torch::Tensor x_tensor) {}

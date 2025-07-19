@@ -3,12 +3,14 @@
 #include "flashck/core/module/kernels/kernel.h"
 #include "flashck/core/module/kernels/kernel_registry.h"
 
+/// @brief Template for conditional code generation
 static const std::string g_norm_running_cond_tpl = R"(
     if ({{cond}}) {
         {{program}}
     }
 )";
 
+/// @brief Macro declarations for symbol visibility
 static const std::string g_norm_macro_decl = R"(
 // Symbol visibility macros
 #ifdef __GNUC__
@@ -22,6 +24,7 @@ static const std::string g_norm_macro_decl = R"(
 #endif
 )";
 
+/// @brief Template for creating argument parser
 static const std::string g_norm_create_args_tpl = R"(
 auto create_args(int argc, char* argv[])
 {
@@ -39,18 +42,23 @@ auto create_args(int argc, char* argv[])
 }
 )";
 
+/// @brief Template for kernel instance declaration
 static const std::string g_norm_instance_tpl = R"(
 {{instance_code}}
 using {{instance_alias_name}} = {{instance_name}};
 )";
 
+/// @brief Template for kernel execution runtime code
 static const std::string g_norm_running_tpl = R"(
     {{make_args}}
 
     const dim3 grids = {{instance_alias_name}}::GridSize(args);
     constexpr dim3 blocks = {{instance_alias_name}}::BlockSize();
     constexpr ck_tile::index_t kBlockPerCu = 1;
-    auto s = ck_tile::stream_config{stream, {{is_profiling}}, 0, 5/*warmup*/, 20/*repeat*/};
+    auto s = ck_tile::stream_config{stream, {{is_profiling}}/*time_kernel*/, 
+            {{log_level}}/*log_level*/, {{cold_niters}}/*cold_niters*/, 
+            {{nrepeat}}/*nrepeat*/, {{is_gpu_timer}}/*is_gpu_timer*/, 
+            {{flush_cache}}/*flush_cache*/, {{rotating_count}}/*rotating_count*/};
     auto kargs = {{instance_alias_name}}::MakeKargs(args);
     
     float ave_time = ck_tile::launch_kernel(
@@ -75,6 +83,7 @@ static const std::string g_norm_running_tpl = R"(
 {% endif %}
 )";
 
+/// @brief Template for kernel function generation
 static const std::string g_norm_kernel_func_tpl = R"(
 #include "ck_tile/core.hpp"
 #include "ck_tile/host/kernel_launch.hpp"
@@ -99,6 +108,7 @@ static const std::string g_norm_kernel_func_tpl = R"(
 }
 )";
 
+/// @brief Template for profiling main function
 static const std::string g_norm_profiling_tpl = R"(
 {{kernel_func}}
 
@@ -139,8 +149,21 @@ int main(int argc, char* argv[])
 
 namespace flashck {
 
+/**
+ * @brief Common base class for normalization kernel implementations
+ *
+ * Provides shared code generation functionality for LayerNorm, RMSNorm,
+ * and other normalization operations.
+ */
 class NormCommonKernel: public Kernel {
 public:
+    /// @brief Generate tuning code for normalization kernels
+    /// @param model_name Name of the model being tuned
+    /// @param kind_name Kind/type identifier of the normalization
+    /// @param instance_map Map of kernel instances and configurations
+    /// @param tuning_tpl Template configuration for tuning
+    /// @param folder_name Output folder for generated code
+    /// @return Vector of tuples containing source and object file paths
     std::vector<std::tuple<std::filesystem::path, std::filesystem::path>>
     CommonCodeGenForTuning(const std::string&    model_name,
                            const std::string&    kind_name,
@@ -148,6 +171,14 @@ public:
                            const TuningTpl&      tuning_tpl,
                            const std::string&    folder_name = "kernel_profile");
 
+    /// @brief Generate runtime code for normalization kernels
+    /// @param func_name Function name for the generated kernel
+    /// @param model_name Name of the model
+    /// @param running_infos Runtime configuration information
+    /// @param instance_map Map of kernel instances and configurations
+    /// @param running_tpl Template configuration for runtime
+    /// @param folder_name Output folder for generated code
+    /// @return Generated source code as string
     std::string CommonCodeGenForRunning(const std::string&                        func_name,
                                         const std::string&                        model_name,
                                         const std::map<std::string, RunningItem>& running_infos,

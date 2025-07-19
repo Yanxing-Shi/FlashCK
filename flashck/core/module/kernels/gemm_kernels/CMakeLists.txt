@@ -1,8 +1,0 @@
-cmake_minimum_required(VERSION 3.8)
-
-add_library(gemm_common_kernel STATIC gemm_common_kernel.cc)
-set_property(TARGET gemm_common_kernel PROPERTY POSITION_INDEPENDENT_CODE  ON)
-target_link_libraries(gemm_common_kernel PUBLIC flashck_profiler jinja2cpp log flags)
-
-add_subdirectory(gemm_epilogue_kernels)
-add_subdirectory(bmm_epilogue_kernels)

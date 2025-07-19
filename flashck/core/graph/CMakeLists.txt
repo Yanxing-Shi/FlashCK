@@ -1,9 +1,12 @@
-cmake_minimum_required(VERSION 3.8)
+# ==============================================================================
+# FlashCK Graph Library
+# ==============================================================================
 
+# Define source files
 file(GLOB GraphFile CONFIGURE_DEPENDS "*.cc")
 
+# Create memory library
 add_library(graph STATIC ${GraphFile})
-target_include_directories(graph PUBLIC
-    ${CMAKE_SOURCE_DIR}
-)
+
+# Link dependencies
 target_link_libraries(graph PUBLIC utils memory)

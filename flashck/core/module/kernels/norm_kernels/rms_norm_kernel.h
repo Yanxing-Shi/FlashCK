@@ -1,10 +1,10 @@
 #pragma once
 
-#include "flashck/core/module/kernels/norm_kernels/norm_common_kernel.h"
-
 #include "flashck/core/module/kernels/kernel.h"
 #include "flashck/core/module/kernels/kernel_registry.h"
+#include "flashck/core/module/kernels/norm_kernels/norm_common_kernel.h"
 
+/// @brief RMSNorm type configuration template for different data types
 static const std::string g_rms_norm_dtype_config_utils_tpl = R"(
 
 template <typename InType,
@@ -12,6 +12,18 @@ template <typename InType,
           typename SmoothScaleDataType_,
           typename YScaleDataType_>
 struct RMSNormTypeConfig;
+
+template <typename OutType, typename SmoothScaleDataType_, typename YScaleDataType_>
+struct RMSNormTypeConfig<ck_tile::fp32_t, OutType, SmoothScaleDataType_, YScaleDataType_>
+{
+    using XDataType           = ck_tile::fp32_t;
+    using YDataType           = OutType;
+    using GammaDataType       = ck_tile::fp32_t;
+    using InvRmsDataType      = ck_tile::fp32_t;
+    using ComputeDataType     = float;
+    using SmoothScaleDataType = SmoothScaleDataType_;
+    using YScaleDataType      = YScaleDataType_;
+};
 
 template <typename OutType, typename SmoothScaleDataType_, typename YScaleDataType_>
 struct RMSNormTypeConfig<ck_tile::half_t, OutType, SmoothScaleDataType_, YScaleDataType_>
@@ -39,6 +51,7 @@ struct RMSNormTypeConfig<ck_tile::bf16_t, OutType, SmoothScaleDataType_, YScaleD
 
 )";
 
+/// @brief RMSNorm data type declaration template
 static const std::string g_rms_norm_dtype_decl_tpl = R"(
 using TypeConfig = RMSNormTypeConfig<{{x_dtype}}, {{y_dtype}}, {{smooth_scale_dtype}}, {{y_scale_dtype}}>;
 
@@ -48,8 +61,7 @@ using GammaDataType     = typename TypeConfig::GammaDataType;
 using XResidualDataType = XDataType;
 using YResidualDataType = XDataType;
 
-using MeanDataType = typename TypeConfig::MeanDataType;
-using InvStdDataType = typename TypeConfig::InvStdDataType;
+using InvRmsDataType = typename TypeConfig::InvRmsDataType;
 
 using SmoothScaleDataType = typename TypeConfig::SmoothScaleDataType;
 using YScaleDataType = typename TypeConfig::YScaleDataType;
@@ -57,6 +69,7 @@ using YScaleDataType = typename TypeConfig::YScaleDataType;
 using ComputeDataType = typename TypeConfig::ComputeDataType;
 )";
 
+/// @brief RMSNorm argument creation template with conditional compilation
 static const std::string g_rms_norm_make_args_tpl = R"(
 
     ck_tile::Layernorm2dFwdHostArgs args{x_ptr,
@@ -94,6 +107,7 @@ static const std::string g_rms_norm_make_args_tpl = R"(
 
 )";
 
+/// @brief RMSNorm function call template with conditional buffer usage
 static const std::string g_rms_norm_func_call_tpl = R"(
     {{function_name}}(
         x_buf.GetDeviceBuffer(),
@@ -130,6 +144,7 @@ static const std::string g_rms_norm_func_call_tpl = R"(
     );
 )";
 
+/// @brief RMSNorm function signature template
 static const std::string g_rms_norm_func_signature_tpl = R"(
 void {{function_name}}(
     void* x_ptr,
@@ -150,6 +165,7 @@ void {{function_name}}(
 )
 )";
 
+/// @brief RMSNorm tensor declaration template for profiling
 static const std::string g_rms_norm_tensor_decl_tpl = R"(
     // host verify
     ck_tile::HostTensor<XDataType>     x_host({m, n}, {x_stride, 1});
@@ -212,23 +228,51 @@ static const std::string g_rms_norm_tensor_decl_tpl = R"(
 
 )";
 
-// namespace flashck {
+namespace flashck {
 
-// class RMSNormKernel: public NormCommonKernel {
-// public:
-//     std::vector<std::tuple<std::filesystem::path, std::filesystem::path>>
-//     GenKernelProfiler(const std::string&                                  model_name,
-//                       const Problem&                                      problem,
-//                       const std::map<std::string, std::unique_ptr<void>>& instance_map,
-//                       const TuningTpl&                                    tuning_tpl,
-//                       const std::string&                                  folder_name = "kernel_profile") override;
+/**
+ * @brief RMSNorm kernel implementation
+ *
+ * Implements Root Mean Square Normalization operation with support for:
+ * - Multiple data types (FP16, FP32, BF16)
+ * - Residual connections
+ * - Quantization support
+ * - No bias parameter (unlike LayerNorm)
+ */
+class RMSNormKernel: public NormCommonKernel {
+public:
+    /// @brief Generate tuning code for RMSNorm kernel
+    /// @param model_name Name of the model being tuned
+    /// @param kind_name Kind/type identifier ("rms_norm")
+    /// @param instance_map Map of kernel instances and configurations
+    /// @param folder_name Output folder for generated code
+    /// @return Vector of tuples containing source and object file paths
+    std::vector<std::tuple<std::filesystem::path, std::filesystem::path>>
+    CodeGenForTuning(const std::string&    model_name,
+                     const std::string&    kind_name,
+                     const instance_map_t& instance_map,
+                     const std::string&    folder_name = "kernel_profile") override;
 
-//     std::string CodeGenForRunning(const std::string&                               func_name,
-//                                   const std::string&                               model_name,
-//                                   const std::unordered_map<std::string, std::any>& kernel_func_map) override;
+    /// @brief Generate runtime code for RMSNorm kernel
+    /// @param func_name Function name for the generated kernel
+    /// @param model_name Name of the model
+    /// @param running_infos Runtime configuration information
+    /// @param instance_map Map of kernel instances and configurations
+    /// @param folder_name Output folder for generated code
+    /// @return Generated source code as string
+    std::string CodeGenForRunning(const std::string&                        func_name,
+                                  const std::string&                        model_name,
+                                  const std::map<std::string, RunningItem>& running_infos,
+                                  const instance_map_t&                     instance_map,
+                                  const std::string&                        folder_name = "kernel_profile") override;
 
-//     void KernelLauncher(const std::string& kernel_func_name, const KernelArgs& args) override;
-// };
-// }  // namespace flashck
+    /// @brief Execute RMSNorm kernel with given arguments
+    /// @param kernel_func_name Name of the kernel function to launch
+    /// @param args Kernel arguments containing tensors and parameters
+    void KernelLauncher(const std::string& kernel_func_name, const KernelArgs_t& args) override;
+};
 
-// FC_REGISTER_KERNEL(TILE, rms_norm, flashck::RMSNormKernel, ALL_LAYOUT, FP16, FP32);
+}  // namespace flashck
+
+/// @brief Register RMSNorm kernel for TILE source with FP16, FP32, BF16 support
+FC_REGISTER_KERNEL(TILE, rms_norm, flashck::RMSNormKernel, ALL_LAYOUT, FP16, FP32, BF16);

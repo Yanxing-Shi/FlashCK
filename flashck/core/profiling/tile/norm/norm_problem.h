@@ -7,45 +7,67 @@
 
 namespace flashck {
 
+/**
+ * @class NormProblem
+ * @brief Represents a normalization operation problem configuration
+ *
+ * This class encapsulates all the parameters needed to define a normalization
+ * operation, including data types, dimensions, fusion options, and bias settings.
+ * It provides serialization capabilities for problem representation and comparison.
+ */
 class NormProblem: public ProblemBase<NormProblem> {
 public:
+    /**
+     * @brief Get the type name of this problem
+     * @return String identifier for norm problems
+     */
     std::string GetTypeImpl()
     {
         return "NormProblem";
     }
 
+    /**
+     * @brief Serialize the problem configuration to JSON format
+     * @return JSON string representation of the problem parameters
+     */
     std::string SerializeImpl()
     {
         std::ostringstream oss;
         oss << "{"
+            << "\"kind\": \"" << GetNormKindName(kind_) << "\", "
             << "\"x_dtype\": \"" << DataTypeToString(x_dtype_) << "\", "
             << "\"y_dtype\": \"" << DataTypeToString(y_dtype_) << "\", "
             << "\"smooth_scale_dtype\": \"" << DataTypeToString(smooth_scale_dtype_) << "\", "
             << "\"y_scale_dtype\": \"" << DataTypeToString(y_scale_dtype_) << "\", "
             << "\"m\": " << m_ << ", "
             << "\"n\": " << n_ << ", "
-            << "\"kind\": \"" << g_norm_map.at(kind_).name << "\", "
-            << "\"is_add_bias\": \"" << g_norm_bias_map.at(is_add_bias_).name << "\", "
-            << "\"fused_add\": \"" << g_fused_add_map.at(fused_add_).name << "\", "
-            << "\"fused_quant\": \"" << g_fused_quant_map.at(fused_quant_).name << "\""
+            << "\"is_add_bias\": \"" << GetNormBiasName(is_add_bias_) << "\", "
+            << "\"fused_add\": \"" << GetFusedAddName(fused_add_) << "\", "
+            << "\"fused_quant\": \"" << GetFusedQuantName(fused_quant_) << "\""
             << "}";
         return oss.str();
     }
 
-    DataType x_dtype_;
-    DataType y_dtype_;
-    DataType smooth_scale_dtype_;
-    DataType y_scale_dtype_;
+    // ====================== Problem Configuration ======================
 
-    int64_t m_;
-    int64_t n_;
+    NormKind kind_;  ///< Type of normalization operation (LayerNorm, etc.)
 
-    NormKind kind_;
+    // Data type specifications
+    DataType x_dtype_;             ///< Input tensor data type
+    DataType y_dtype_;             ///< Output tensor data type
+    DataType smooth_scale_dtype_;  ///< Smoothing scale parameter data type
+    DataType y_scale_dtype_;       ///< Output scale parameter data type
 
-    NormBiasEnum is_add_bias_;
+    // Tensor dimensions
+    int64_t m_;  ///< First dimension size (typically batch or sequence length)
+    int64_t n_;  ///< Second dimension size (typically feature dimension)
 
-    FusedAddEnum   fused_add_;
-    FusedQuantEnum fused_quant_;
+    // Operation configuration flags
+    NormBiasEnum is_add_bias_;  ///< Whether to add bias term
+
+    // Fusion options
+    FusedAddEnum   fused_add_;    ///< Type of fused addition operation
+    FusedQuantEnum fused_quant_;  ///< Type of fused quantization operation
 };
 
 }  // namespace flashck

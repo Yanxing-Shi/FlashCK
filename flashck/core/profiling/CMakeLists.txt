@@ -1,8 +1,20 @@
-add_subdirectory(tile)
+# ==============================================================================
+# FlashCK Profiling Components
+# ==============================================================================
 
-file(GLOB ProfilingFile CONFIGURE_DEPENDS "*.cc")
-add_library(profiling_engine STATIC ${ProfilingFile})
-target_include_directories(profiling_engine PUBLIC
-    ${CMAKE_SOURCE_DIR}
+# Collect all profiling source files recursively
+file(GLOB_RECURSE PROFILING_SOURCES CONFIGURE_DEPENDS
+    "*.cc"
+    "tile/norm/*.cc"
+    "tile/fmha/*.cc"
+    "legacy/gemm/*.cc"
 )
-target_link_libraries(profiling_engine PUBLIC utils graph tile_norm)
+
+# Create single unified profiling library
+add_library(profiling STATIC ${PROFILING_SOURCES})
+
+# Link dependencies
+target_link_libraries(profiling PUBLIC
+    utils
+    graph
+)

@@ -14,4 +14,3 @@
 #include "flashck/core/utils/printf.h"
 #include "flashck/core/utils/string_utils.h"
 #include "flashck/core/utils/subprocess_utils.h"
-#include "flashck/core/utils/timer.h"

@@ -10,72 +10,60 @@
 
 namespace flashck {
 
+/**
+ * @class Tensor
+ * @brief Multi-dimensional tensor with flexible memory management
+ *
+ * Supports three memory types:
+ * - FixedMemory: Pre-allocated memory with fixed pointer
+ * - SharedMemory: Dynamically managed shared memory pool
+ * - OffsetMemory: Sub-tensor with offset from parent tensor
+ */
 class Tensor {
 public:
-    // Applies to tensors using FixedMemory and SharedMemory memory types.
-    // When the mx_shape parameter is empty, it means that the tensor uses the
-    // FixedMemory memory type, and then manually set the specific pointer address
-    // and tensor shape.
+    /// Constructor for FixedMemory (max_shape_size=0) or SharedMemory tensors
     Tensor(std::string name, DataType dtype, size_t max_shape_size = 0);
 
-    // Applicable to tensors whose video memory type is OffsetMemory.
-    // In this case the initialized tensor is a partial fragment of the original
-    // tensor. Later, the offset value and real shape info will be set through
-    // the set_offset function.
+    /// Constructor for OffsetMemory tensor (sub-tensor of original)
     Tensor(std::string name, std::shared_ptr<Tensor> original_tensor);
 
     virtual ~Tensor() = default;
 
-    void SetTensor(char* input_tensor);
-
-    void SetShape(const Shape& shape);
-
-    void SetOffset(const size_t offset, const Shape& shape);
-
+    // Memory management
+    void  SetTensor(char* input_tensor);
+    void  SetShape(const Shape& shape);
+    void  SetOffset(const size_t offset, const Shape& shape);
     char* BuildTensor(bool is_open_interval = false);
 
+    // Lifecycle management
     void UpdateLifeIdx(const int node_idx);
-
     void RemoveLifeCycle();
-
     void ResetFixed();
 
-    // Attribute
+    // Getters
     std::vector<DDim> GetShape() const;
+    size_t            GetMaxElementSize() const;
+    size_t            GetMaxSizeBytes() const;
+    std::string       GetMemoryLocationStr() const;
+    std::string       GetMemoryTypeStr() const;
+    DataType          GetDtype() const;
+    size_t            GetMaxShapeSize() const;
+    int               GetUniqueId() const;
 
-    size_t GetMaxElementSize() const;
-    size_t GetMaxSizeBytes() const;
-
-    std::string GetMemoryLocationStr() const;
-    // Tensor memory types are divided into three types: SharedMemory,
-    //  FixedMemory, OffsetMemory.
-    std::string GetMemoryTypeStr() const;
-    DataType    GetDtype() const;
-    size_t      GetMaxShapeSize() const;
-
-    // unique id of the tensor.
-    int GetUniqueId() const;
-
-    static int global_tensor_id;
+    static int global_tensor_id;  ///< Global tensor ID counter
 
 private:
-    int id_;
-
-    std::string             name_;
-    DataType                dtype_;
-    std::shared_ptr<Tensor> original_tensor_;
-    MemoryType              mem_type_;
-    size_t                  offset_ = 0;
-
-    char* data_ = nullptr;
-
-    std::shared_ptr<MemoryManager> mem_ptr_ = nullptr;
-
-    // If mx_shape is 0, then tensor's memory type is FixedMemory or OffsetMemory.
-    size_t max_shape_size_;
-    Shape  shape_;
-
-    Context* ctx_ptr_;
+    int                            id_;                 ///< Unique tensor identifier
+    std::string                    name_;               ///< Tensor name
+    DataType                       dtype_;              ///< Data type
+    std::shared_ptr<Tensor>        original_tensor_;    ///< Parent tensor for OffsetMemory
+    MemoryType                     mem_type_;           ///< Memory management type
+    size_t                         offset_  = 0;        ///< Offset in parent tensor
+    char*                          data_    = nullptr;  ///< Raw data pointer
+    std::shared_ptr<MemoryManager> mem_ptr_ = nullptr;  ///< Memory manager
+    size_t                         max_shape_size_;     ///< Maximum shape size (0 for Fixed/Offset)
+    Shape                          shape_;              ///< Tensor shape
+    Context*                       ctx_ptr_;            ///< Context pointer
 };
 
 }  // namespace flashck

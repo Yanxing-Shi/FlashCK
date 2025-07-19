@@ -71,7 +71,7 @@ std::string NormTileDesc::Emit() const
         {"vector_n", vector_n_},
     };
 
-    return TemplateLoadAndRender(tile_desc, tile_desc_value_map);
+    return TEMPLATE_CHECK(tile_desc, tile_desc_value_map, "NormTileDesc::Emit");
 }
 
 std::string NormCodeGen::GetInstanceName() const
@@ -91,7 +91,7 @@ std::string NormCodeGen::GetInstanceName() const
 
 std::string NormCodeGen::Emit() const
 {
-    std::string source = R"(
+    std::string tpl = R"(
 using PipelineProblem_{{idx}} = ck_tile::{{norm_problem}}<
     XDataType,
 {% if norm_kind == "layer_norm" %}
@@ -147,7 +147,7 @@ using {{name}} = ck_tile::{{norm_fwd}}<
     >;
 
 )";
-    static int  idx    = 0;
+    static int  idx = 0;
 
     jinja2::ValuesMap value_map{{"name", GetInstanceName()},
                                 {"idx", idx++},
@@ -166,7 +166,7 @@ using {{name}} = ck_tile::{{norm_fwd}}<
                                 {"is_smooth_quant", static_cast<int>(fused_quant_) == 1 ? true : false},
                                 {"shape", tile_desc_.Emit()}};
 
-    return TemplateLoadAndRender(source, value_map);
+    return TEMPLATE_CHECK(tpl, value_map, "NormCodeGen::Emit");
 }
 
 }  // namespace flashck

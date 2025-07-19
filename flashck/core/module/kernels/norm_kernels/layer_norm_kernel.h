@@ -1,10 +1,10 @@
 #pragma once
 
-#include "flashck/core/module/kernels/norm_kernels/norm_common_kernel.h"
-
 #include "flashck/core/module/kernels/kernel.h"
 #include "flashck/core/module/kernels/kernel_registry.h"
+#include "flashck/core/module/kernels/norm_kernels/norm_common_kernel.h"
 
+/// @brief LayerNorm type configuration template for different data types
 static const std::string g_layer_norm_dtype_config_utils_tpl = R"(
 
 template <typename InType, typename OutType, typename SmoothSScaleDataType_, typename YScaleDataType_>
@@ -57,6 +57,7 @@ struct LayerNormTypeConfig<ck_tile::bf16_t, OutType, SmoothScaleDataType_, YScal
 
 )";
 
+/// @brief LayerNorm data type declaration template
 static const std::string g_layer_norm_dtype_decl_tpl = R"(
 using TypeConfig = LayerNormTypeConfig<{{x_dtype}}, {{y_dtype}}, {{smooth_scale_dtype}}, {{y_scale_dtype}}>;
 
@@ -77,6 +78,7 @@ using YScaleDataType = typename TypeConfig::YScaleDataType;
 using ComputeDataType = typename TypeConfig::ComputeDataType;
 )";
 
+/// @brief LayerNorm argument creation template with conditional compilation
 static const std::string g_layer_norm_make_args_tpl = R"(
 
     ck_tile::Layernorm2dFwdHostArgs args{x_ptr,
@@ -260,22 +262,49 @@ static const std::string g_layer_norm_tensor_decl_tpl = R"(
 
 namespace flashck {
 
+/**
+ * @brief LayerNorm kernel implementation
+ *
+ * Implements LayerNormalization operation with support for:
+ * - Multiple data types (FP16, FP32, BF16)
+ * - Optional bias addition
+ * - Residual connections
+ * - Quantization support
+ */
 class LayerNormKernel: public NormCommonKernel {
 public:
+    /// @brief Generate tuning code for LayerNorm kernel
+    /// @param model_name Name of the model being tuned
+    /// @param kind_name Kind/type identifier ("layer_norm")
+    /// @param instance_map Map of kernel instances and configurations
+    /// @param folder_name Output folder for generated code
+    /// @return Vector of tuples containing source and object file paths
     std::vector<std::tuple<std::filesystem::path, std::filesystem::path>>
     CodeGenForTuning(const std::string&    model_name,
                      const std::string&    kind_name,
                      const instance_map_t& instance_map,
                      const std::string&    folder_name = "kernel_profile") override;
 
+    /// @brief Generate runtime code for LayerNorm kernel
+    /// @param func_name Function name for the generated kernel
+    /// @param model_name Name of the model
+    /// @param running_infos Runtime configuration information
+    /// @param instance_map Map of kernel instances and configurations
+    /// @param folder_name Output folder for generated code
+    /// @return Generated source code as string
     std::string CodeGenForRunning(const std::string&                        func_name,
                                   const std::string&                        model_name,
                                   const std::map<std::string, RunningItem>& running_infos,
                                   const instance_map_t&                     instance_map,
                                   const std::string&                        folder_name = "kernel_profile") override;
 
+    /// @brief Execute LayerNorm kernel with given arguments
+    /// @param kernel_func_name Name of the kernel function to launch
+    /// @param args Kernel arguments containing tensors and parameters
     void KernelLauncher(const std::string& kernel_func_name, const KernelArgs_t& args) override;
 };
+
 }  // namespace flashck
 
+/// @brief Register LayerNorm kernel for TILE source with FP16, FP32, BF16 support
 FC_REGISTER_KERNEL(TILE, layer_norm, flashck::LayerNormKernel, ALL_LAYOUT, FP16, FP32, BF16);

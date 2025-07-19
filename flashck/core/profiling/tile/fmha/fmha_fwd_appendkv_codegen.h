@@ -1,0 +1,107 @@
+#pragma once
+
+#include <array>
+#include <string>
+
+#include "flashck/core/profiling/tile/fmha/fmha_library.h"
+#include "flashck/core/utils/dtype.h"
+
+namespace flashck {
+
+/**
+ * @class FmhaAppendKVTileDesc
+ * @brief Describes the tiling configuration for FMHA AppendKV operations
+ *
+ * This class defines how the FMHA AppendKV computation is divided across thread blocks.
+ * AppendKV operations handle dynamic key-value cache updates in attention computation.
+ */
+class FmhaAppendKVTileDesc {
+public:
+    /**
+     * @brief Generate a unique name for this tile configuration
+     * @return String identifier based on tile parameters
+     */
+    std::string GetInstanceName() const;
+
+    // ====================== Tile Configuration ======================
+
+    int64_t bs_;   ///< Tile size along query sequence length
+    int64_t bsk_;  ///< Tile size along key sequence length
+    int64_t bd_;   ///< Tile size along Q-K GEMM unroll dimension
+    int64_t bdv_;  ///< Tile size along K-V GEMM unroll dimension
+};
+
+/**
+ * @class FmhaFwdAppendKVCodeGen
+ * @brief Code generator for Forward FMHA AppendKV operations
+ *
+ * This class encapsulates all the parameters and configuration needed to generate
+ * optimized GPU kernels for Forward Multi-Head Attention AppendKV operations.
+ * AppendKV is used for dynamic key-value cache updates during inference.
+ */
+class FmhaFwdAppendKVCodeGen {
+public:
+    /**
+     * @brief Default constructor with sensible defaults
+     */
+    FmhaFwdAppendKVCodeGen() = default;
+
+    /**
+     * @brief Generate padding configuration name
+     * @return String identifier for padding configuration
+     */
+    std::string GetPadName() const;
+
+    /**
+     * @brief Generate pipeline configuration name
+     * @return String identifier for pipeline configuration
+     */
+    std::string GetPipelineConfigName() const;
+
+    /**
+     * @brief Generate a unique instance name for this configuration
+     * @return String identifier combining operation type and parameters
+     */
+    std::string GetInstanceName() const;
+
+    /**
+     * @brief Generate the complete kernel code for this configuration
+     * @return String containing the generated GPU kernel code
+     */
+    std::string Emit() const;
+
+    // ====================== Operation Configuration ======================
+
+    FmhaKind kind_ = FmhaKind::FwdAppendKV;  ///< Type of FMHA operation (always FwdAppendKV)
+
+    // ====================== Data Type Configuration ======================
+
+    DataType dtype_ = DataType::FLOAT16;  ///< Primary data type for Q, K, V tensors
+
+    // ====================== Attention Configuration ======================
+
+    FmhaMode mode_      = FmhaMode::Batch;  ///< Batch or Group mode for attention computation
+    RopeEnum rope_type_ = RopeEnum::NONE;   ///< Type of rotary position embedding applied
+
+    // ====================== Tiling Configuration ======================
+
+    FmhaAppendKVTileDesc tile_desc_;  ///< Tile configuration for this FMHA AppendKV operation
+
+    // ====================== Memory Configuration ======================
+
+    bool is_paged_kv_ = false;  ///< Enable paged key-value cache for memory efficiency
+
+    // ====================== Padding Configuration ======================
+
+    bool is_pad_q_seq_len_    = false;  ///< Enable padding for query sequence length
+    bool is_pad_kv_seq_len_   = false;  ///< Enable padding for key-value sequence length
+    bool is_pad_qk_head_dim_  = false;  ///< Enable padding for query-key head dimension
+    bool is_pad_v_head_dim_   = false;  ///< Enable padding for value head dimension
+    bool is_pad_qkv_head_dim_ = false;  ///< Enable padding for unified QKV head dimension
+
+    // ====================== Performance Configuration ======================
+
+    int block_per_cu_ = -1;  ///< Override occupancy if not -1 (blocks per compute unit)
+};
+
+}  // namespace flashck

@@ -4,31 +4,32 @@ namespace flashck {
 
 template<typename T>
 RMSNormLayer<T>::RMSNormLayer(Shape normalized_shape, float eps, FusedAddEnum fused_add, FusedQuantEnum fused_quant):
-    Layer("RMSNormLayer"),
-    normalized_shape_(normalized_shape),
-    eps_(eps),
-    fused_add_(fused_add),
-    fused_quant_(fused_quant)
+    Layer("RMSNormLayer")
 {
-    // param node
-    gamma_var_ = std::make_unique<Variable>("weight_var", CppTypeToDataType<T>::Type());  // gamma
+    // Create learnable scale parameter with proper data type
+    gamma_var_ = std::make_unique<Variable>("weight_var", CppTypeToDataType<T>::value);
 
-    gamma_var_->SetShape(normalized_shape_);
+    // Set parameter shape to match normalization dimensions
+    gamma_var_->SetShape(normalized_shape);
 
-    rms_norm_op_ = std::make_unique<RMSNormOp<T>>(normalized_shape_, fused_add_, fused_quant_);
+    // Initialize the underlying RMSNorm operation
+    rms_norm_op_ = std::make_unique<RMSNormOp<T>>(normalized_shape, fused_add, fused_quant);
 
+    // Finalize layer construction
     this->context_ptr_->ExitLayer();
 }
 
 template<typename T>
 Variable* RMSNormLayer<T>::operator()(
-    Variable* x, Variable* x_residual, Variable* smooth_scale, Variable* y_residual, Variable* y_scale)
+    Variable* x, float eps, Variable* x_residual, Variable* smooth_scale, Variable* y_residual, Variable* y_scale)
 {
+    // Register input tensor for graph building
     SetInputs({x});
 
-    Variable* y =
-        (*rms_norm_op_)(x, gamma_var_.get(), x_residual, smooth_scale, y_residual, y_scale, normalized_shape_, eps_);
+    // Execute RMSNorm operation with all optional parameters
+    Variable* y = (*rms_norm_op_)(x, gamma_var_.get(), x_residual, smooth_scale, y_residual, y_scale, eps);
 
+    // Register output tensor for graph building
     SetOutputs({y});
     return y;
 }
@@ -36,11 +37,13 @@ Variable* RMSNormLayer<T>::operator()(
 template<typename T>
 void RMSNormLayer<T>::LoadParam(const T* gamma_ptr)
 {
-    gamma_var_->SetValue((char*)gamma_ptr);
+    // Load parameter from host memory (cast to char* for generic pointer handling)
+    gamma_var_->SetValue(reinterpret_cast<char*>(const_cast<T*>(gamma_ptr)));
 }
 
-template class RMSNormLayer<float>;
-template class RMSNormLayer<_Float16>;
-template class RMSNormLayer<ushort>;
+// Explicit template instantiations for supported data types
+template class RMSNormLayer<float>;     ///< Single precision floating point
+template class RMSNormLayer<_Float16>;  ///< Half precision floating point
+template class RMSNormLayer<ushort>;    ///< BFloat16 as unsigned short
 
 }  // namespace flashck

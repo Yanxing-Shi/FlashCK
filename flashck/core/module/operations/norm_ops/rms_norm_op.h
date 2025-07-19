@@ -4,113 +4,89 @@
 #include <vector>
 
 #include "flashck/core/graph/node.h"
-
 #include "flashck/core/module/kernels/kernel_factory.h"
 #include "flashck/core/module/kernels/norm_kernels/rms_norm_kernel.h"
-#include "flashck/core/profiling/library.h"
 
 namespace flashck {
 
+/**
+ * @brief RMSNorm operation with support for residual add and quantization
+ * @tparam T Data type (float, _Float16, ushort)
+ */
 template<typename T>
 class RMSNormOp: public Operation {
 public:
+    /// @brief Constructor with normalization configuration
+    /// @param normalized_shape Shape of the normalized dimensions
+    /// @param fused_add Enable fused residual addition
+    /// @param fused_quant Enable quantization
     RMSNormOp(Shape          normalized_shape,
               FusedAddEnum   fused_add   = FusedAddEnum::NO_ADD,
-              FusedQuantEnum fused_quant = FusedQuantEnum::NO_SWEEP,
-              std::string    op_name     = "rms_norm");
+              FusedQuantEnum fused_quant = FusedQuantEnum::NO_SWEEP);
 
-    void CheckParamShape(const Shape& x_shape, const Shape& param_shape, const std::string& param_name);
-
-    void CheckShape(const Shape& x_shape,
-                    const Shape& gamma_shape,
-                    const Shape& x_residual_shape,
-                    const Shape& smooth_scale_shape,
-                    const Shape& y_residual_shape,
-                    const Shape& y_scale_shape,
-                    const Shape& normalized_shape);
-
-    std::vector<Shape> GetInputShape(Variable* x,
-                                     Variable* gamma,
-                                     Variable* x_residual,
-                                     Variable* smooth_scale,
-                                     Variable* y_residual,
-                                     Variable* y_scale);
-
-    void SanityCheck(Variable* x,
-                     Variable* gamma,
-                     Variable* x_residual,
-                     Variable* smooth_scale,
-                     Variable* y_residual,
-                     Variable* y_scale);
-
+    /// @brief Infer output shape from input
     Shape InferShape(Variable* x);
 
+    /// @brief Execute RMS normalization operation
+    /// @param x Input tensor
+    /// @param gamma Scale parameter (required)
+    /// @param x_residual Residual tensor for addition (optional)
+    /// @param smooth_scale Smooth quantization scale (optional)
+    /// @param y_residual Output residual storage (optional)
+    /// @param y_scale Output quantization scale (optional)
+    /// @param eps Epsilon for numerical stability
+    /// @return Output variable
     Variable* operator()(Variable*   x,
                          Variable*   gamma,
-                         Variable*   x_residual,
-                         Variable*   smooth_scale,
-                         Variable*   y_residual,
-                         Variable*   y_scale,
-                         Shape       normalized_shape,
-                         const float eps = 1e-5);
+                         Variable*   x_residual   = nullptr,
+                         Variable*   smooth_scale = nullptr,
+                         Variable*   y_residual   = nullptr,
+                         Variable*   y_scale      = nullptr,
+                         const float eps          = 1e-5);
 
-    std::vector<int64_t> ExtractWorkLoad(const std::string& key);
+    /// @brief Extract profiling configurations for different strategies
+    void ExtractRunningInfo(const ProfilingStrategy& profiling_strategy = ProfilingStrategy::kMax,
+                            const int                step_value         = 1);
 
-    std::string GenWorkLoad(const std::map<std::string, std::vector<int64_t>>& name_value_mapping);
+    /// @brief Check and load existing profiling results from database
+    void IsBuildProfilingEngine();
 
-    void ExtractExecPath(const ProfilingStrategy& dynamic_profiling_strategy = ProfilingStrategy::kMax,
-                         const int                step_value                 = 1);
-
-    void IsBuildProfilingEngine(const std::vector<std::string>& workloads);
-
+    /// @brief Generate tuning code for performance profiling
     std::vector<std::tuple<std::filesystem::path, std::filesystem::path>>
-    GenOpProfiler(const ProfilingStrategy& dynamic_profiling_strategy = ProfilingStrategy::kMax) override;
+    CodeGenForTuning(const ProfilingStrategy& profiling_strategy = ProfilingStrategy::kMax) override;
 
-    std::vector<std::string> GetTuningCmd(const std::string&          profiler_prefix,
-                                          const std::string&          profiler_filename,
-                                          const std::vector<int64_t>& input_shape);
+    /// @brief Get profiling command for specific workload
+    std::vector<std::string> GetTuningCmd(const std::string&                profiling_file_prefix,
+                                          const std::string&                profiler_filename,
+                                          const std::map<std::string, int>& profiling_key_map);
 
-    void ProfileSingleWorkload(const std::string&                         profiler_prefix,
-                               const std::string&                         workload,
-                               const std::shared_ptr<GPUProfilingRunner>& profiler_runner_ptr,
-                               bool                                       force_cache);
+    /// @brief Execute profiling for single workload configuration
+    void TuningSingleWorkload(const std::string&  profiling_file_prefix,
+                              const std::string&  profiling_workload,
+                              GPUProfilingRunner& profiling_runner);
 
-    void Profile(const std::shared_ptr<GPUProfilingRunner>& profiler_runner_ptr,
-                 const std::string&                         folder_name) override;
+    /// @brief Run performance tuning across all workloads
+    void Tuning(GPUProfilingRunner& profiling_runner, const std::string& folder_name) override;
 
-    std::string GenOpFunction() override;
+    /// @brief Generate optimized runtime kernel code
+    std::string CodeGenForRunning() override;
 
-    std::unordered_map<std::string, std::any> GetAttrsMap();
-
+    /// @brief Execute forward pass computation
     void Forward() override;
 
-    std::string op_name_ = "layer_norm";
+private:
+    // Configuration
+    NormKind       op_kind_     = NormKind::RMSNorm;         ///< Operation type
+    FusedAddEnum   fused_add_   = FusedAddEnum::NO_ADD;      ///< Residual addition flag
+    FusedQuantEnum fused_quant_ = FusedQuantEnum::NO_SWEEP;  ///< Quantization flag
+    NormBiasEnum   is_add_bias_ = NormBiasEnum::NO_BIAS;     ///< Bias addition (not used in RMS)
 
-    NormKind        op_kind_     = NormKind::RMSNorm;
-    TensorOperation epilogue_op_ = TensorOperation::PassThrough;
+    Shape normalized_shape_;  ///< Current normalization dimensions
+    float eps_;               ///< Numerical stability epsilon
 
-    Shape normalized_shape_;
-    Shape default_normalized_shape_;
-
-    NormBiasEnum   is_add_bias_ = NormBiasEnum::NO_BIAS;
-    FusedAddEnum   fused_add_   = FusedAddEnum::NO_ADD;
-    FusedQuantEnum fused_quant_ = FusedQuantEnum::NO_SWEEP;
-
-    float eps_;
-
-    int64_t x_stride_  = -1;
-    int64_t xr_stride_ = -1;
-    int64_t y_stride_  = -1;
-    int64_t yr_stride_ = -1;
-
-    std::map<std::string, std::shared_ptr<RunningItem>> exec_path_;
-    std::vector<std::string>                            exec_key_;
-
-    std::shared_ptr<Kernel> register_kernel_ptr_;
-
-    std::map<std::string, std::shared_ptr<void>> kernel_instance_map_;
-
-    std::vector<Variable*> input_var_;
-    std::vector<Variable*> output_var_;
+    // Profiling and code generation
+    std::map<std::string, NormCodeGen> instance_map_;         ///< Generated kernel instances
+    std::map<std::string, RunningItem> running_infos_;        ///< Profiling configurations
+    std::shared_ptr<Kernel>            register_kernel_ptr_;  ///< Registered kernel
 };
 }  // namespace flashck
