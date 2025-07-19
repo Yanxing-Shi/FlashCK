@@ -44,11 +44,7 @@ static const std::unordered_map<NormKind, NormTag> g_norm_map = {
       "Layernorm2dFwd",
       "Layernorm2dFwdPipelineTwoPass"}},
     {NormKind::RMSNorm,
-     {"rms_norm",
-      "Rmsnorm2dFwdPipelineProblem",
-      "Rmsnorm2dFwdTraits",
-      "Rmsnorm2dFwd",
-      "Layernorm2dFwdPipelineOnePass"}},
+     {"rms_norm", "Rmsnorm2dFwdPipelineProblem", "Rmsnorm2dFwdTraits", "Rmsnorm2dFwd", "Rmsnorm2dFwdPipelineOnePass"}},
 };
 
 /**

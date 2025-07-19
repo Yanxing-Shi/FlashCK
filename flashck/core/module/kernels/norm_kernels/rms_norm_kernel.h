@@ -20,9 +20,10 @@ struct RMSNormTypeConfig<ck_tile::fp32_t, OutType, SmoothScaleDataType_, YScaleD
     using YDataType           = OutType;
     using GammaDataType       = ck_tile::fp32_t;
     using InvRmsDataType      = ck_tile::fp32_t;
-    using ComputeDataType     = float;
+    using UnquantYDataType    = ck_tile::null_type;
     using SmoothScaleDataType = SmoothScaleDataType_;
     using YScaleDataType      = YScaleDataType_;
+    using ComputeDataType     = ck_tile::fp32_t;
 };
 
 template <typename OutType, typename SmoothScaleDataType_, typename YScaleDataType_>
@@ -32,9 +33,10 @@ struct RMSNormTypeConfig<ck_tile::half_t, OutType, SmoothScaleDataType_, YScaleD
     using YDataType           = OutType;
     using GammaDataType       = ck_tile::half_t;
     using InvRmsDataType      = ck_tile::half_t;
-    using ComputeDataType     = float;
+    using UnquantYDataType    = ck_tile::null_type;
     using SmoothScaleDataType = SmoothScaleDataType_;
     using YScaleDataType      = YScaleDataType_;
+    using ComputeDataType     = ck_tile::fp32_t;
 };
 
 template <typename OutType, typename SmoothScaleDataType_, typename YScaleDataType_>
@@ -44,9 +46,10 @@ struct RMSNormTypeConfig<ck_tile::bf16_t, OutType, SmoothScaleDataType_, YScaleD
     using YDataType           = OutType;
     using GammaDataType       = ck_tile::bf16_t;
     using InvRmsDataType      = ck_tile::bf16_t;
-    using ComputeDataType     = float;
+    using UnquantYDataType    = ck_tile::null_type;
     using SmoothScaleDataType = SmoothScaleDataType_;
     using YScaleDataType      = YScaleDataType_;
+    using ComputeDataType     = ck_tile::fp32_t;
 };
 
 )";
@@ -62,6 +65,7 @@ using XResidualDataType = XDataType;
 using YResidualDataType = XDataType;
 
 using InvRmsDataType = typename TypeConfig::InvRmsDataType;
+using UnquantYDataType = typename TypeConfig::UnquantYDataType;
 
 using SmoothScaleDataType = typename TypeConfig::SmoothScaleDataType;
 using YScaleDataType = typename TypeConfig::YScaleDataType;
@@ -72,7 +76,7 @@ using ComputeDataType = typename TypeConfig::ComputeDataType;
 /// @brief RMSNorm argument creation template with conditional compilation
 static const std::string g_rms_norm_make_args_tpl = R"(
 
-    ck_tile::Layernorm2dFwdHostArgs args{x_ptr,
+    ck_tile::Rmsnorm2dFwdHostArgs args{x_ptr,
 {% if fused_add == "pre_add" or fused_add == "pre_add_store" %}
                               x_residual_ptr,
 {% else %}                              
@@ -95,8 +99,8 @@ static const std::string g_rms_norm_make_args_tpl = R"(
 {% else %}
                               nullptr,
 {% endif %}
-                              nullptr, // mean
-                              nullptr, // inv_std
+                              nullptr, // p_invRms
+                              nullptr, // p_y_unquant
                               eps,
                               static_cast<ck_tile::index_t>(m),
                               static_cast<ck_tile::index_t>(n),

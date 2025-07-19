@@ -53,7 +53,8 @@ NormCommonKernel::CommonCodeGenForTuning(const std::string&    model_name,
         std::string       make_args = TemplateLoadAndRender(tuning_tpl.make_args_tpl_, make_args_value_map);
 
         // Generate runtime execution configuration with profiling parameters
-        jinja2::ValuesMap running_value_map{{"make_args", make_args},
+        jinja2::ValuesMap running_value_map{{"kind", kind_name},
+                                            {"make_args", make_args},
                                             {"instance_alias_name", "NormInstance"},
                                             {"is_profiling", true},
                                             {"is_running", false},
@@ -70,7 +71,8 @@ NormCommonKernel::CommonCodeGenForTuning(const std::string&    model_name,
         jinja2::ValuesMap func_signature_value_map{{"function_name", "Norm"}};
         std::string func_signature = TemplateLoadAndRender(tuning_tpl.func_signature_tpl_, func_signature_value_map);
 
-        jinja2::ValuesMap func_value_map{{"dtype_decl", dtype_decl},
+        jinja2::ValuesMap func_value_map{{"kind", kind_name},
+                                         {"dtype_decl", dtype_decl},
                                          {"instance_decl", instance_decl},
                                          {"func_signature", func_signature},
                                          {"execute_func", running_program},
@@ -169,6 +171,7 @@ std::string NormCommonKernel::CommonCodeGenForRunning(const std::string&        
 
     // Extract common configuration from first instance (assumes all instances share these properties)
     auto           instance           = norm_instance_map.begin()->second;
+    auto           kind_name          = GetNormKindName(instance.kind_);
     DataType       x_dtype            = instance.x_dtype_;
     DataType       y_dtype            = instance.y_dtype_;
     DataType       smooth_scale_dtype = instance.smooth_scale_dtype_;
@@ -189,7 +192,8 @@ std::string NormCommonKernel::CommonCodeGenForRunning(const std::string&        
         std::string       make_args = TemplateLoadAndRender(running_tpl.make_args_tpl_, make_args_value_map);
 
         // Configure runtime execution (non-profiling mode)
-        jinja2::ValuesMap running_value_map{{"make_args", make_args},
+        jinja2::ValuesMap running_value_map{{"kind", kind_name},
+                                            {"make_args", make_args},
                                             {"instance_alias_name", instance_name},
                                             {"is_profiling", "false"},
                                             {"is_running", true}};
@@ -215,7 +219,8 @@ std::string NormCommonKernel::CommonCodeGenForRunning(const std::string&        
     std::string       func_signature = TemplateLoadAndRender(running_tpl.func_signature_tpl_, func_signature_value_map);
 
     // Assemble complete runtime kernel function
-    jinja2::ValuesMap kernel_func_value_map{{"macro_decl", macro_decl},
+    jinja2::ValuesMap kernel_func_value_map{{"kind", kind_name},
+                                            {"macro_decl", macro_decl},
                                             {"dtype_decl", dtype_decl},
                                             {"c_flag", "extern \"C\""},
                                             {"instance_decl", instance_decl},

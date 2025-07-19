@@ -74,8 +74,13 @@ static const std::string g_norm_running_tpl = R"(
 
 {% if not is_running %}
     std::size_t flop = std::size_t(2)  * m * n;
+    {% if kind == "layer_norm" %}
     std::size_t num_byte = sizeof(XDataType) * m * n + sizeof(GammaDataType) * n +
                            sizeof(BetaDataType) * n + sizeof(YDataType) * m * n;
+    {% else %}
+    std::size_t num_byte = sizeof(XDataType) * m * n + sizeof(GammaDataType) * n +
+                           sizeof(YDataType) * m * n;
+    {% endif %}
     float gb_per_sec = num_byte / 1.E6 / ave_time;
 
     float tflops = static_cast<float>(flop) / 1.E9 / ave_time;
@@ -91,7 +96,11 @@ static const std::string g_norm_running_tpl = R"(
 static const std::string g_norm_kernel_func_tpl = R"(
 #include "ck_tile/core.hpp"
 #include "ck_tile/host/kernel_launch.hpp"
+{% if kind == "layer_norm" %}
 #include "ck_tile/ops/layernorm2d.hpp"
+{% else %}
+#include "ck_tile/ops/rmsnorm2d.hpp"
+{% endif %}
 #include <ck_tile/ops/epilogue.hpp>
 #include <string>
 

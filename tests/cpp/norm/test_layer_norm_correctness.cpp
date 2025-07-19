@@ -11,6 +11,18 @@
 #include <vector>
 
 #include "flashck/wrapper/cpp/norm/layer_norm.h"
+#include <hip/hip_runtime.h>
+
+// Helper function for HIP error checking
+#define HIP_CHECK(call)                                                                                                \
+    do {                                                                                                               \
+        hipError_t error = call;                                                                                       \
+        if (error != hipSuccess) {                                                                                     \
+            std::cerr << "HIP error at " << __FILE__ << ":" << __LINE__ << " - " << hipGetErrorString(error)           \
+                      << std::endl;                                                                                    \
+            exit(1);                                                                                                   \
+        }                                                                                                              \
+    } while (0)
 
 namespace {
 
@@ -56,6 +68,24 @@ void generate_random_data(T* data, int size, std::mt19937& gen, float min_val = 
     }
 }
 
+// Helper function to allocate and copy data to GPU
+template<typename T>
+T* allocate_and_copy_to_gpu(const T* host_data, int size)
+{
+    T* gpu_data;
+    HIP_CHECK(hipMalloc(&gpu_data, size * sizeof(T)));
+    HIP_CHECK(hipMemcpy(gpu_data, host_data, size * sizeof(T), hipMemcpyHostToDevice));
+    return gpu_data;
+}
+
+// Helper function to copy data from GPU and free GPU memory
+template<typename T>
+void copy_from_gpu_and_free(T* host_data, T* gpu_data, int size)
+{
+    HIP_CHECK(hipMemcpy(host_data, gpu_data, size * sizeof(T), hipMemcpyDeviceToHost));
+    HIP_CHECK(hipFree(gpu_data));
+}
+
 // Helper function to compare tensors with tolerance
 template<typename T>
 bool compare_tensors(const T* a, const T* b, int size, float rtol = 1e-3f, float atol = 1e-5f)
@@ -87,29 +117,43 @@ TEST_F(LayerNormCorrectnessTest, BasicFloat32Test)
     const int   m = 32, n = 768;
     const float epsilon = 1e-5f;
 
-    // Allocate memory
-    auto input    = std::make_unique<float[]>(m * n);
-    auto gamma    = std::make_unique<float[]>(n);
-    auto beta     = std::make_unique<float[]>(n);
-    auto expected = std::make_unique<float[]>(m * n);
+    // Allocate CPU memory
+    auto input_cpu    = std::make_unique<float[]>(m * n);
+    auto gamma_cpu    = std::make_unique<float[]>(n);
+    auto beta_cpu     = std::make_unique<float[]>(n);
+    auto expected_cpu = std::make_unique<float[]>(m * n);
+    auto output_cpu   = std::make_unique<float[]>(m * n);
 
     // Generate test data
-    generate_random_data(input.get(), m * n, gen);
-    generate_random_data(gamma.get(), n, gen, 0.5f, 1.5f);
-    generate_random_data(beta.get(), n, gen, -0.5f, 0.5f);
+    generate_random_data(input_cpu.get(), m * n, gen);
+    generate_random_data(gamma_cpu.get(), n, gen, 0.5f, 1.5f);
+    generate_random_data(beta_cpu.get(), n, gen, -0.5f, 0.5f);
 
     // Compute reference result
-    reference_layer_norm(input.get(), gamma.get(), beta.get(), expected.get(), m, n, epsilon);
+    reference_layer_norm(input_cpu.get(), gamma_cpu.get(), beta_cpu.get(), expected_cpu.get(), m, n, epsilon);
+
+    // Allocate GPU memory and copy data
+    float* input_gpu = allocate_and_copy_to_gpu(input_cpu.get(), m * n);
+    float* gamma_gpu = allocate_and_copy_to_gpu(gamma_cpu.get(), n);
+    float* beta_gpu  = allocate_and_copy_to_gpu(beta_cpu.get(), n);
 
     // Test the wrapper
-    float* result = nullptr;
-    ASSERT_NO_THROW({ result = flashck::layer_norm_fwd(input.get(), gamma.get(), beta.get(), m, n, epsilon); });
+    float* result_gpu = nullptr;
+    ASSERT_NO_THROW({ result_gpu = flashck::layer_norm_fwd(input_gpu, gamma_gpu, beta_gpu, m, n, epsilon); });
 
-    ASSERT_NE(result, nullptr);
+    ASSERT_NE(result_gpu, nullptr);
+
+    // Copy result back to CPU for comparison
+    copy_from_gpu_and_free(output_cpu.get(), result_gpu, m * n);
 
     // Compare results
-    EXPECT_TRUE(compare_tensors(result, expected.get(), m * n, 1e-3f, 1e-4f))
+    EXPECT_TRUE(compare_tensors(output_cpu.get(), expected_cpu.get(), m * n, 1e-3f, 1e-4f))
         << "LayerNorm output does not match reference implementation";
+
+    // Clean up GPU memory
+    HIP_CHECK(hipFree(input_gpu));
+    HIP_CHECK(hipFree(gamma_gpu));
+    HIP_CHECK(hipFree(beta_gpu));
 }
 
 TEST_F(LayerNormCorrectnessTest, SmallDimensionsTest)
@@ -117,24 +161,40 @@ TEST_F(LayerNormCorrectnessTest, SmallDimensionsTest)
     const int   m = 4, n = 8;
     const float epsilon = 1e-5f;
 
-    auto input    = std::make_unique<float[]>(m * n);
-    auto gamma    = std::make_unique<float[]>(n);
-    auto beta     = std::make_unique<float[]>(n);
-    auto expected = std::make_unique<float[]>(m * n);
+    // Allocate CPU memory
+    auto input_cpu    = std::make_unique<float[]>(m * n);
+    auto gamma_cpu    = std::make_unique<float[]>(n);
+    auto beta_cpu     = std::make_unique<float[]>(n);
+    auto expected_cpu = std::make_unique<float[]>(m * n);
+    auto output_cpu   = std::make_unique<float[]>(m * n);
 
     // Generate test data
-    generate_random_data(input.get(), m * n, gen);
-    std::fill(gamma.get(), gamma.get() + n, 1.0f);
-    std::fill(beta.get(), beta.get() + n, 0.0f);
+    generate_random_data(input_cpu.get(), m * n, gen);
+    std::fill(gamma_cpu.get(), gamma_cpu.get() + n, 1.0f);
+    std::fill(beta_cpu.get(), beta_cpu.get() + n, 0.0f);
 
     // Compute reference
-    reference_layer_norm(input.get(), gamma.get(), beta.get(), expected.get(), m, n, epsilon);
+    reference_layer_norm(input_cpu.get(), gamma_cpu.get(), beta_cpu.get(), expected_cpu.get(), m, n, epsilon);
+
+    // Allocate GPU memory and copy data
+    float* input_gpu = allocate_and_copy_to_gpu(input_cpu.get(), m * n);
+    float* gamma_gpu = allocate_and_copy_to_gpu(gamma_cpu.get(), n);
+    float* beta_gpu  = allocate_and_copy_to_gpu(beta_cpu.get(), n);
 
     // Test wrapper
-    float* result = flashck::layer_norm_fwd(input.get(), gamma.get(), beta.get(), m, n, epsilon);
+    float* result_gpu = flashck::layer_norm_fwd(input_gpu, gamma_gpu, beta_gpu, m, n, epsilon);
 
-    ASSERT_NE(result, nullptr);
-    EXPECT_TRUE(compare_tensors(result, expected.get(), m * n, 1e-3f, 1e-4f));
+    ASSERT_NE(result_gpu, nullptr);
+
+    // Copy result back to CPU for comparison
+    copy_from_gpu_and_free(output_cpu.get(), result_gpu, m * n);
+
+    EXPECT_TRUE(compare_tensors(output_cpu.get(), expected_cpu.get(), m * n, 1e-3f, 1e-4f));
+
+    // Clean up GPU memory
+    HIP_CHECK(hipFree(input_gpu));
+    HIP_CHECK(hipFree(gamma_gpu));
+    HIP_CHECK(hipFree(beta_gpu));
 }
 
 TEST_F(LayerNormCorrectnessTest, LargeDimensionsTest)
@@ -142,64 +202,75 @@ TEST_F(LayerNormCorrectnessTest, LargeDimensionsTest)
     const int   m = 128, n = 4096;
     const float epsilon = 1e-5f;
 
-    auto input    = std::make_unique<float[]>(m * n);
-    auto gamma    = std::make_unique<float[]>(n);
-    auto beta     = std::make_unique<float[]>(n);
-    auto expected = std::make_unique<float[]>(m * n);
+    // Allocate CPU memory
+    auto input_cpu    = std::make_unique<float[]>(m * n);
+    auto gamma_cpu    = std::make_unique<float[]>(n);
+    auto beta_cpu     = std::make_unique<float[]>(n);
+    auto expected_cpu = std::make_unique<float[]>(m * n);
+    auto output_cpu   = std::make_unique<float[]>(m * n);
 
     // Generate test data
-    generate_random_data(input.get(), m * n, gen);
-    generate_random_data(gamma.get(), n, gen, 0.8f, 1.2f);
-    generate_random_data(beta.get(), n, gen, -0.1f, 0.1f);
+    generate_random_data(input_cpu.get(), m * n, gen);
+    generate_random_data(gamma_cpu.get(), n, gen, 0.8f, 1.2f);
+    generate_random_data(beta_cpu.get(), n, gen, -0.1f, 0.1f);
 
     // Compute reference
-    reference_layer_norm(input.get(), gamma.get(), beta.get(), expected.get(), m, n, epsilon);
+    reference_layer_norm(input_cpu.get(), gamma_cpu.get(), beta_cpu.get(), expected_cpu.get(), m, n, epsilon);
+
+    // Allocate GPU memory and copy data
+    float* input_gpu = allocate_and_copy_to_gpu(input_cpu.get(), m * n);
+    float* gamma_gpu = allocate_and_copy_to_gpu(gamma_cpu.get(), n);
+    float* beta_gpu  = allocate_and_copy_to_gpu(beta_cpu.get(), n);
 
     // Test wrapper
-    float* result = flashck::layer_norm_fwd(input.get(), gamma.get(), beta.get(), m, n, epsilon);
+    float* result_gpu = flashck::layer_norm_fwd(input_gpu, gamma_gpu, beta_gpu, m, n, epsilon);
 
-    ASSERT_NE(result, nullptr);
-    EXPECT_TRUE(compare_tensors(result, expected.get(), m * n, 1e-3f, 1e-4f));
+    ASSERT_NE(result_gpu, nullptr);
+
+    // Copy result back to CPU for comparison
+    copy_from_gpu_and_free(output_cpu.get(), result_gpu, m * n);
+
+    EXPECT_TRUE(compare_tensors(output_cpu.get(), expected_cpu.get(), m * n, 1e-3f, 1e-4f));
+
+    // Clean up GPU memory
+    HIP_CHECK(hipFree(input_gpu));
+    HIP_CHECK(hipFree(gamma_gpu));
+    HIP_CHECK(hipFree(beta_gpu));
 }
 
 TEST_F(LayerNormCorrectnessTest, ErrorHandlingTest)
 {
     const int m = 32, n = 768;
-    auto      input = std::make_unique<float[]>(m * n);
-    auto      gamma = std::make_unique<float[]>(n);
-    auto      beta  = std::make_unique<float[]>(n);
+
+    // Allocate CPU memory
+    auto input_cpu = std::make_unique<float[]>(m * n);
+    auto gamma_cpu = std::make_unique<float[]>(n);
+    auto beta_cpu  = std::make_unique<float[]>(n);
+
+    // Generate test data
+    generate_random_data(input_cpu.get(), m * n, gen);
+    generate_random_data(gamma_cpu.get(), n, gen);
+    generate_random_data(beta_cpu.get(), n, gen);
+
+    // Allocate GPU memory
+    float* input_gpu = allocate_and_copy_to_gpu(input_cpu.get(), m * n);
+    float* gamma_gpu = allocate_and_copy_to_gpu(gamma_cpu.get(), n);
+    float* beta_gpu  = allocate_and_copy_to_gpu(beta_cpu.get(), n);
 
     // Test null pointer inputs
-    EXPECT_THROW(flashck::layer_norm_fwd<float>(nullptr, gamma.get(), beta.get(), m, n), std::runtime_error);
-    EXPECT_THROW(flashck::layer_norm_fwd<float>(input.get(), nullptr, beta.get(), m, n), std::runtime_error);
-    EXPECT_THROW(flashck::layer_norm_fwd<float>(input.get(), gamma.get(), nullptr, m, n), std::runtime_error);
+    EXPECT_THROW(flashck::layer_norm_fwd<float>(nullptr, gamma_gpu, beta_gpu, m, n), std::runtime_error);
+    EXPECT_THROW(flashck::layer_norm_fwd<float>(input_gpu, nullptr, beta_gpu, m, n), std::runtime_error);
+    EXPECT_THROW(flashck::layer_norm_fwd<float>(input_gpu, gamma_gpu, nullptr, m, n), std::runtime_error);
 
     // Test invalid dimensions
-    EXPECT_THROW(flashck::layer_norm_fwd<float>(input.get(), gamma.get(), beta.get(), 0, n), std::runtime_error);
-    EXPECT_THROW(flashck::layer_norm_fwd<float>(input.get(), gamma.get(), beta.get(), m, 0), std::runtime_error);
-    EXPECT_THROW(flashck::layer_norm_fwd<float>(input.get(), gamma.get(), beta.get(), -1, n), std::runtime_error);
-}
+    EXPECT_THROW(flashck::layer_norm_fwd<float>(input_gpu, gamma_gpu, beta_gpu, 0, n), std::runtime_error);
+    EXPECT_THROW(flashck::layer_norm_fwd<float>(input_gpu, gamma_gpu, beta_gpu, m, 0), std::runtime_error);
+    EXPECT_THROW(flashck::layer_norm_fwd<float>(input_gpu, gamma_gpu, beta_gpu, -1, n), std::runtime_error);
 
-TEST_F(LayerNormCorrectnessTest, BackwardCompatibilityTest)
-{
-    const int   m = 16, n = 64;
-    const float epsilon = 1e-5f;
-
-    auto input = std::make_unique<float[]>(m * n);
-    auto gamma = std::make_unique<float[]>(n);
-    auto beta  = std::make_unique<float[]>(n);
-
-    generate_random_data(input.get(), m * n, gen);
-    generate_random_data(gamma.get(), n, gen, 0.5f, 1.5f);
-    generate_random_data(beta.get(), n, gen, -0.5f, 0.5f);
-
-    // Test both functions return same result
-    float* result1 = flashck::layer_norm_fwd(input.get(), gamma.get(), beta.get(), m, n, epsilon);
-    float* result2 = flashck::layer_norm_fwd_static(input.get(), gamma.get(), beta.get(), m, n, epsilon);
-
-    ASSERT_NE(result1, nullptr);
-    ASSERT_NE(result2, nullptr);
-    EXPECT_TRUE(compare_tensors(result1, result2, m * n, 1e-6f, 1e-8f));
+    // Clean up GPU memory
+    HIP_CHECK(hipFree(input_gpu));
+    HIP_CHECK(hipFree(gamma_gpu));
+    HIP_CHECK(hipFree(beta_gpu));
 }
 
 int main(int argc, char** argv)

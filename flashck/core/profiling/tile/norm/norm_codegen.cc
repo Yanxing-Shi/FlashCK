@@ -98,11 +98,22 @@ using PipelineProblem_{{idx}} = ck_tile::{{norm_problem}}<
     XBiasDataType,
 {% endif %}
     GammaDataType,
+{% if norm_kind == "layer_norm" %}
     BetaDataType,
+{% endif %}
     ComputeDataType,
     YDataType,
+{% if norm_kind == "layer_norm" %}
     MeanDataType,
+{% endif %}
+{% if norm_kind == "layer_norm" %}
     InvStdDataType,
+{% else %}
+    InvRmsDataType,
+{% endif %}
+{% if norm_kind == "rms_norm" %}
+    UnquantYDataType,
+{% endif %}
     SmoothScaleDataType,
     YScaleDataType,
     {{shape}}
@@ -111,13 +122,19 @@ using PipelineProblem_{{idx}} = ck_tile::{{norm_problem}}<
                                 {% if norm_kind == "layer_norm" %}
                                     {{is_fast_div}} /*kFastFDiv*/,
                                     {{is_welford}} /*kWelford*/,
+                                {% else %}
+                                    false /*kSaveUnquantY*/,
                                 {% endif %}
                                     {{is_two_pass}} /*kTwoPass*/,
                                 {% if norm_kind == "layer_norm" %}
                                     static_cast<ck_tile::Layernorm2dXBiasEnum>({{is_add_bias}}) /*kisaddbias*/,
-                                {% endif %}
                                     static_cast<ck_tile::Layernorm2dFusedAddEnum>({{fused_add}}) /*kFusedAdd*/,
                                     static_cast<ck_tile::Layernorm2dFusedQuantEnum>({{fused_quant}}) /*kFusedQuant*/>>;
+                                {% else %}
+                                    static_cast<ck_tile::Rmsnorm2dFusedAddEnum>({{fused_add}}) /*kFusedAdd*/,
+                                    static_cast<ck_tile::Rmsnorm2dFusedQuantEnum>({{fused_quant}}) /*kFusedQuant*/,
+                                    static_cast<ck_tile::Rmsnorm2dSensitiveEnum>(0) /*USEModelSensitive*/>>;
+                                {% endif %}
 
 {% if is_smooth_quant %}
 using DynamicQuantEpilogueProblem_{{idx}}         = ck_tile::DynamicQuantEpilogueProblem<
