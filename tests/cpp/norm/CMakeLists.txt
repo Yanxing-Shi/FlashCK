@@ -1,60 +1,35 @@
 # ==============================================================================
-# Norm Header-Only Wrapper Tests
+# Unified Norm Test Framework
 # ==============================================================================
 
-# Find required packages
-find_package(GTest REQUIRED)
-
-# Correctness test for LayerNorm
-add_executable(test_layer_norm_correctness test_layer_norm_correctness.cpp)
-target_link_libraries(test_layer_norm_correctness PRIVATE
-    layernorm_cpp_wrapper
-    GTest::gtest_main
+# Include paths for the test framework and wrappers
+set(TEST_INCLUDE_DIRS
+    ${PROJECT_SOURCE_DIR}/flashck/wrapper/cpp
+    ${PROJECT_SOURCE_DIR}/tests/cpp/common
+    ${PROJECT_SOURCE_DIR}
 )
 
-# Performance benchmark for LayerNorm
-add_executable(bench_layer_norm_performance bench_layer_norm_performance.cpp)
-target_link_libraries(bench_layer_norm_performance PRIVATE
-    layernorm_cpp_wrapper
-    GTest::gtest_main
-)
+# Common properties for all norm tests
+function(setup_norm_test target_name)
+    target_link_libraries(${target_name} PRIVATE
+        layernorm_cpp_wrapper
+        rmsnorm_cpp_wrapper
+        GTest::gtest_main
+    )
+    target_include_directories(${target_name} PRIVATE ${TEST_INCLUDE_DIRS})
 
-# Correctness test for RMSNorm
-add_executable(test_rms_norm_correctness test_rms_norm_correctness.cpp)
-target_link_libraries(test_rms_norm_correctness PRIVATE
-    rmsnorm_cpp_wrapper
-    GTest::gtest_main
-)
+    # Set output directory
+    set_target_properties(${target_name} PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/norm"
+    )
 
-# Performance benchmark for RMSNorm
-add_executable(bench_rms_norm_performance bench_rms_norm_performance.cpp)
-target_link_libraries(bench_rms_norm_performance PRIVATE
-    rmsnorm_cpp_wrapper
-    GTest::gtest_main
-)
+    # Add to CTest
+    gtest_discover_tests(${target_name})
+endfunction()
 
-# Specific optimizations for benchmarks (only where needed)
-target_compile_options(bench_layer_norm_performance PRIVATE
-    $<$<CXX_COMPILER_ID:GNU,Clang>:-O3 -march=native -DNDEBUG>
-    $<$<CXX_COMPILER_ID:MSVC>:/O2 /DNDEBUG>
-)
+# Unified norm tests
+add_executable(test_layer_norm test_layer_norm.cc)
+setup_norm_test(test_layer_norm)
 
-target_compile_options(bench_rms_norm_performance PRIVATE
-    $<$<CXX_COMPILER_ID:GNU,Clang>:-O3 -march=native -DNDEBUG>
-    $<$<CXX_COMPILER_ID:MSVC>:/O2 /DNDEBUG>
-)
-
-# Add tests to CTest
-include(GoogleTest)
-gtest_discover_tests(test_layer_norm_correctness)
-gtest_discover_tests(test_rms_norm_correctness)
-
-# Set output directory
-set_target_properties(
-    test_layer_norm_correctness
-    bench_layer_norm_performance
-    test_rms_norm_correctness
-    bench_rms_norm_performance
-    PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/tests/norm"
-)
+add_executable(test_rms_norm test_rms_norm.cc)
+setup_norm_test(test_rms_norm)

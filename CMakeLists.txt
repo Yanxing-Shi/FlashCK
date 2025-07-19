@@ -17,10 +17,8 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 # Build Options
 # ==============================================================================
 option(BUILD_EXAMPLES "Build examples" ON)
-option(BUILD_TESTS "Build tests" OFF)
-option(BUILD_WRAPPER "Build Cpp wrapper" ON)
+option(BUILD_TESTS "Build tests" ON)
 option(BUILD_PYTHON_BINDINGS "Build Python bindings" OFF)
-option(BUILD_BENCHMARKS "Build benchmarks" OFF)
 option(BUILD_SHARED_LIBS "Build shared libraries instead of static" OFF)
 
 # ==============================================================================
@@ -170,7 +168,6 @@ message(STATUS "")
 message(STATUS "Build Options:")
 message(STATUS "  Examples: ${BUILD_EXAMPLES}")
 message(STATUS "  Tests: ${BUILD_TESTS}")
-message(STATUS "  Wrapper: ${BUILD_WRAPPER}")
 message(STATUS "  Python bindings: ${BUILD_PYTHON_BINDINGS}")
 message(STATUS "  Benchmarks: ${BUILD_BENCHMARKS}")
 message(STATUS "  Shared libraries: ${BUILD_SHARED_LIBS}")

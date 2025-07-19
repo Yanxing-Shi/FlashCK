@@ -213,15 +213,16 @@ void Context::BuildContext()
     VLOG(1) << "Finish context build success ";
 }
 
-int Context::CreateGlobalContext(const std::string& context_name, const int device_id)
+int Context::CreateGlobalContext(std::string& context_name)
 {
     global_context_id_++;
-    std::shared_ptr<Context> context_ptr = std::make_shared<Context>(context_name, device_id);
+    std::shared_ptr<Context> context_ptr = std::make_shared<Context>(context_name);
     global_context_ptr_                  = context_ptr;
     if (global_contexts_map_.find(context_name) != global_contexts_map_.end()) {
         LOG(ERROR) << "Error occured! context_id " << context_name << " already exists!";
         exit(-1);
     }
+    context_name = context_name + "_" + std::to_string(global_context_id_);
     global_contexts_map_.emplace(context_name, context_ptr);
     LOG(INFO) << "create global context success" << "context name: " << context_name
               << "context_id:" << global_context_id_;

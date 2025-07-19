@@ -6,9 +6,7 @@
 add_subdirectory(core)
 
 # Add wrapper components
-if(BUILD_WRAPPER)
-    add_subdirectory(wrapper)
-endif()
+add_subdirectory(wrapper)
 
 # # Create main FlashCK target
 # add_library(flashck_main INTERFACE)
