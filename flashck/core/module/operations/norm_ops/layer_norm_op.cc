@@ -16,14 +16,7 @@ LayerNormOp<T>::LayerNormOp(Shape          normalized_shape,
                             FusedQuantEnum fused_quant):
     Operation("layer_norm"), is_add_bias_(is_add_bias), fused_add_(fused_add), fused_quant_(fused_quant)
 {
-    fprintf(stderr, ">>> LayerNormOp CONSTRUCTOR START <<<\n");
-    fflush(stderr);
-    std::cerr << "LayerNormOp constructor called!" << std::endl;
-
     normalized_shape_ = normalized_shape;
-
-    fprintf(stderr, ">>> LayerNormOp CONSTRUCTOR END <<<\n");
-    fflush(stderr);
 }
 
 template<typename T>
@@ -56,7 +49,7 @@ Variable* LayerNormOp<T>::operator()(Variable*   x,
     // Create output variable
     Shape output_shape    = InferShape(x);
     auto  max_output_size = std::get<1>(output_shape.GetElementSizeTuple());
-    output_var_           = {new Variable("layer_norm_output", max_output_size, CppTypeToDataType<T>::value)};
+    output_var_ = {new Variable("layer_norm_output", max_output_size, CppTypeToDataType<T>::value, VarType::FixedVar)};
     output_var_[0]->SetShape(output_shape);
 
     // Build computation graph connections

@@ -29,12 +29,15 @@ template<typename T>
 T* layer_norm_fwd(T* x, T* gamma, T* beta, int m, int n, float epsilon = 1e-5f)
 {
     // Input validation
-    if (!x || !gamma || !beta) {
-        throw std::runtime_error("LayerNorm: null pointer input");
-    }
-    if (m <= 0 || n <= 0) {
-        throw std::runtime_error("LayerNorm: invalid dimensions");
-    }
+    FC_ENFORCE_NOT_NULL(x, "LayerNorm: null input tensor x");
+    FC_ENFORCE_NOT_NULL(gamma, "LayerNorm: null scale parameter gamma");
+    FC_ENFORCE_NOT_NULL(beta, "LayerNorm: null bias parameter beta");
+
+    FC_ENFORCE_EQ(IsGpuPointer(x), true, Unavailable("LayerNorm: input tensor x must be a GPU pointer"));
+    FC_ENFORCE_EQ(IsGpuPointer(gamma), true, Unavailable("LayerNorm: scale parameter gamma must be a GPU pointer"));
+    FC_ENFORCE_EQ(IsGpuPointer(beta), true, Unavailable("LayerNorm: bias parameter beta must be a GPU pointer"));
+
+    FC_ENFORCE_EQ(m > 0 && n > 0, true, Unavailable("LayerNorm: invalid dimensions m = {}, n = {}", m, n));
 
     try {
         // Create unique context
@@ -53,20 +56,18 @@ T* layer_norm_fwd(T* x, T* gamma, T* beta, int m, int n, float epsilon = 1e-5f)
         Variable* out              = (*layer_norm_layer)(x_var.get(), epsilon);
 
         // Build computation graph
-        // context_ptr->BuildContext();
+        context_ptr->BuildContext();
 
         // Generate optimized kernels
         ProfilingEngine::GetInstance()->GetGraphCodeGen()->CodeGenAndProfiling(context_ptr->GetModelOps(),
                                                                                context_name);
 
         // Load parameters and execute
-        // layer_norm_layer->LoadParam(gamma, beta);
-        // x_var->SetValue(reinterpret_cast<char*>(x));
-        // layer_norm_layer->Forward();
+        layer_norm_layer->LoadParam(gamma, beta);
+        x_var->SetValue(reinterpret_cast<char*>(x));
+        layer_norm_layer->Forward();
 
-        // return reinterpret_cast<T*>(out->GetValue());
-
-        return nullptr;  // Placeholder return, actual return is handled in the layer
+        return reinterpret_cast<T*>(out->GetValue());
     }
     catch (const std::exception& e) {
         throw std::runtime_error("LayerNorm execution failed: " + std::string(e.what()));

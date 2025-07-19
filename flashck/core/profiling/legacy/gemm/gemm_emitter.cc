@@ -129,7 +129,7 @@ std::vector<GemmTileDesc> GemmEmitter::HeuristicFilter(const std::vector<GemmTil
 
 void GemmEmitter::ValidateMode(int mode) const
 {
-    FC_ENFORCE_EQ(mode < 0 || mode > 2,
+    FC_ENFORCE_EQ(mode == 0 || mode == 1 || mode == 2,
                   true,
                   Unavailable("Unsupported mode: {}, valid modes are 0 (heuristic), 1 (autotuning), 2 (hybrid)", mode));
 }

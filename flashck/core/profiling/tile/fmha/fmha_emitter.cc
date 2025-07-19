@@ -176,7 +176,7 @@ FmhaEmitter::HeuristicFilter(const std::vector<FmhaSplitKVCombineTileDesc>& fmha
 
 void FmhaEmitter::ValidateMode(int mode) const
 {
-    FC_ENFORCE_EQ(mode < 0 || mode > 2,
+    FC_ENFORCE_EQ(mode == 0 || mode == 1 || mode == 2,
                   true,
                   Unavailable("Unsupported mode: {}, valid modes are 0 (heuristic), 1 (autotuning), 2 (hybrid)", mode));
 }

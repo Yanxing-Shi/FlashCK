@@ -55,10 +55,14 @@ static const std::string g_norm_running_tpl = R"(
     const dim3 grids = {{instance_alias_name}}::GridSize(args);
     constexpr dim3 blocks = {{instance_alias_name}}::BlockSize();
     constexpr ck_tile::index_t kBlockPerCu = 1;
+{% if is_running %}
+    auto s = ck_tile::stream_config{stream, {{is_profiling}}/*time_kernel*/};
+{% else %}
     auto s = ck_tile::stream_config{stream, {{is_profiling}}/*time_kernel*/, 
             {{log_level}}/*log_level*/, {{cold_niters}}/*cold_niters*/, 
             {{nrepeat}}/*nrepeat*/, {{is_gpu_timer}}/*is_gpu_timer*/, 
             {{flush_cache}}/*flush_cache*/, {{rotating_count}}/*rotating_count*/};
+{% endif %}
     auto kargs = {{instance_alias_name}}::MakeKargs(args);
     
     float ave_time = ck_tile::launch_kernel(
