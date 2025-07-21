@@ -186,8 +186,8 @@ void NormEmitter::GenerateInstances(NormProblem& norm_problem)
         VLOG(2) << "Generated norm instance: " << instance_name;
     }
 
-    LOG(INFO) << "Generated " << selected_tile_desc.size() << " norm operation instances for mode "
-              << FLAGS_FC_TUNING_MODE;
+    VLOG(1) << "Generated " << selected_tile_desc.size() << " norm operation instances for mode "
+            << FLAGS_FC_TUNING_MODE;
 }
 
 int64_t NormEmitter::GetNumInstances() const

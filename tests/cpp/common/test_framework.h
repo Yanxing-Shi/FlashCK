@@ -144,64 +144,6 @@ struct PerformanceResult {
         std::cout << "  TFLOPs: " << tflops << " TFlops\n";
         std::cout << "  Bandwidth: " << bandwidth << " GB/s\n\n";
     }
-
-    // For sorting results by performance (using default_metric)
-    bool operator<(const PerformanceResult& other) const
-    {
-        return compare_by_metric(*this, other, default_metric);
-    }
-
-    // Compare by specific metric
-    static bool compare_by_metric(const PerformanceResult& a, const PerformanceResult& b, PerformanceMetric metric)
-    {
-        switch (metric) {
-            case PerformanceMetric::LATENCY:
-                return a.latency < b.latency;  // Lower latency is better
-            case PerformanceMetric::TFLOPS:
-                return a.tflops > b.tflops;  // Higher TFLOPs is better
-            case PerformanceMetric::BANDWIDTH:
-                return a.bandwidth > b.bandwidth;  // Higher bandwidth is better
-            default:
-                return a.latency < b.latency;  // Default to latency
-        }
-    }
-
-    // Additional comparison methods for different sorting criteria
-    static bool compare_by_bandwidth(const PerformanceResult& a, const PerformanceResult& b)
-    {
-        return a.bandwidth > b.bandwidth;
-    }
-
-    static bool compare_by_tflops(const PerformanceResult& a, const PerformanceResult& b)
-    {
-        return a.tflops > b.tflops;
-    }
-
-    static bool compare_by_latency(const PerformanceResult& a, const PerformanceResult& b)
-    {
-        return a.latency < b.latency;  // Lower latency is better
-    }
-
-    // Set the default comparison metric
-    static void set_default_metric(PerformanceMetric metric)
-    {
-        default_metric = metric;
-    }
-
-    // Get string representation of performance metric
-    static std::string metric_to_string(PerformanceMetric metric)
-    {
-        switch (metric) {
-            case PerformanceMetric::LATENCY:
-                return "Latency";
-            case PerformanceMetric::TFLOPS:
-                return "TFLOPs";
-            case PerformanceMetric::BANDWIDTH:
-                return "Bandwidth";
-            default:
-                return "Unknown";
-        }
-    }
 };
 
 /**
@@ -617,29 +559,19 @@ protected:
      * @param flashck_impl FlashCK implementation function
      * @param num_runs Number of benchmark runs
      * @param warmup_runs Number of warmup runs
-     * @param sort_results Sort results by the specified metric
-     * @param sort_metric Metric to use for sorting (default: LATENCY)
      * @return Vector of performance results
      *
      * Example usage:
-     *   // Sort by latency (default)
      *   auto results1 = run_performance_test(configs, impl);
      *
-     *   // Sort by bandwidth
-     *   auto results2 = run_performance_test(configs, impl, 10, 3, true, PerformanceMetric::BANDWIDTH);
-     *
-     *   // Sort by TFLOPs
-     *   auto results3 = run_performance_test(configs, impl, 10, 3, true, PerformanceMetric::TFLOPS);
      */
 
     template<typename ConfigType>
     std::vector<PerformanceResult>
     run_performance_test(const std::vector<std::shared_ptr<ConfigType>>&            test_configs,
                          std::function<T*(const ConfigType&, GpuMemoryManager<T>&)> flashck_impl,
-                         int                                                        num_runs     = 10,
-                         int                                                        warmup_runs  = 3,
-                         bool                                                       sort_results = true,
-                         PerformanceMetric sort_metric = PerformanceMetric::LATENCY)
+                         int                                                        num_runs    = 10,
+                         int                                                        warmup_runs = 3)
     {
         std::cout << "\n=== PERFORMANCE BENCHMARKING ===\n";
         std::vector<PerformanceResult> results;
@@ -694,48 +626,39 @@ protected:
 
                 // Compute memory bandwidth (GB/s)
                 size_t total_bytes = config->total_bytes();
-                double bandwidth   = (total_bytes / 1e9) / (min_time / 1000.0);
+                double bandwidth   = (total_bytes / 1e9) / (avg_time / 1000.0);
 
                 // Compute TFLOPs - this needs to be operation-specific
                 // For now, use a basic estimate based on operation type
-                double tflops = compute_tflops(*config, min_time);
+                double tflops = compute_tflops(*config, avg_time);
 
                 results.push_back({latency, tflops, bandwidth, config->name(), config->operation_type()});
 
-                std::cout << " " << std::fixed << std::setprecision(3) << bandwidth << " GB/s\n";
+                std::cout << " DONE\n";
+                std::cout << "  Latency: " << std::fixed << std::setprecision(3) << latency << " ms";
+                std::cout << ", TFLOPs: " << std::fixed << std::setprecision(3) << tflops;
+                std::cout << ", Bandwidth: " << std::fixed << std::setprecision(3) << bandwidth << " GB/s\n";
             }
             else {
                 std::cout << " FAILED\n";
             }
         }
 
-        // Sort results by specified metric if requested
-        if (sort_results) {
-            // Temporarily set the default metric for sorting
-            PerformanceMetric old_metric      = PerformanceResult::default_metric;
-            PerformanceResult::default_metric = sort_metric;
-            std::sort(results.begin(), results.end());
-            PerformanceResult::default_metric = old_metric;  // Restore original metric
-        }
-
         // Print summary
-        print_performance_summary(results, sort_metric);
+        print_performance_summary(results);
         return results;
     }
 
     /**
      * @brief Print performance summary table
      * @param results Performance results to display
-     * @param sort_metric Metric used for sorting (for display purposes)
      */
-    void print_performance_summary(const std::vector<PerformanceResult>& results,
-                                   PerformanceMetric                     sort_metric = PerformanceMetric::LATENCY)
+    void print_performance_summary(const std::vector<PerformanceResult>& results)
     {
         if (results.empty())
             return;
 
         std::cout << "\n=== PERFORMANCE SUMMARY ===\n";
-        std::cout << "Sorted by: " << PerformanceResult::metric_to_string(sort_metric) << "\n";
         std::cout << std::left << std::setw(25) << "Configuration" << std::right << std::setw(12) << "Latency (ms)"
                   << std::setw(12) << "TFLOPs" << std::setw(15) << "Bandwidth" << "\n";
         std::cout << std::string(75, '-') << "\n";
@@ -787,9 +710,6 @@ private:
 protected:
     DataGenerator<T> data_gen_;
 };
-
-// Define the default metric for PerformanceResult comparison (default: LATENCY)
-PerformanceMetric PerformanceResult::default_metric = PerformanceMetric::LATENCY;
 
 }  // namespace test
 }  // namespace flashck

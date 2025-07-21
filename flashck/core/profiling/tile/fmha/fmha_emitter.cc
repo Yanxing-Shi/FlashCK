@@ -327,9 +327,9 @@ void FmhaEmitter::CreateFwdInstances(const FmhaProblem& fmha_problem, const std:
     }
 
     num_instances_ += generated_count;
-    LOG(INFO) << "Generated " << generated_count
-              << " FMHA Forward instances for kind: " << GetFmhaKindName(fmha_problem.kind_)
-              << " (total: " << num_instances_ << ")";
+    VLOG(1) << "Generated " << generated_count
+            << " FMHA Forward instances for kind: " << GetFmhaKindName(fmha_problem.kind_)
+            << " (total: " << num_instances_ << ")";
 }
 
 void FmhaEmitter::CreateSplitKVInstances(const FmhaProblem&               fmha_problem,
@@ -360,9 +360,9 @@ void FmhaEmitter::CreateSplitKVInstances(const FmhaProblem&               fmha_p
     }
 
     num_instances_ += generated_count;
-    LOG(INFO) << "Generated " << generated_count
-              << " FMHA SplitKV instances for kind: " << GetFmhaKindName(fmha_problem.kind_)
-              << " (total: " << num_instances_ << ")";
+    VLOG(1) << "Generated " << generated_count
+            << " FMHA SplitKV instances for kind: " << GetFmhaKindName(fmha_problem.kind_)
+            << " (total: " << num_instances_ << ")";
 }
 
 void FmhaEmitter::CreateSplitKVCombineInstances(const FmhaProblem&                             fmha_problem,
@@ -393,9 +393,9 @@ void FmhaEmitter::CreateSplitKVCombineInstances(const FmhaProblem&              
     }
 
     num_instances_ += generated_count;
-    LOG(INFO) << "Generated " << generated_count
-              << " FMHA SplitKV Combine instances for kind: " << GetFmhaKindName(fmha_problem.kind_)
-              << " (total: " << num_instances_ << ")";
+    VLOG(1) << "Generated " << generated_count
+            << " FMHA SplitKV Combine instances for kind: " << GetFmhaKindName(fmha_problem.kind_)
+            << " (total: " << num_instances_ << ")";
 }
 
 void FmhaEmitter::CreateAppendKVInstances(const FmhaProblem&                       fmha_problem,
@@ -426,9 +426,9 @@ void FmhaEmitter::CreateAppendKVInstances(const FmhaProblem&                    
     }
 
     num_instances_ += generated_count;
-    LOG(INFO) << "Generated " << generated_count
-              << " FMHA AppendKV instances for kind: " << GetFmhaKindName(fmha_problem.kind_)
-              << " (total: " << num_instances_ << ")";
+    VLOG(1) << "Generated " << generated_count
+            << " FMHA AppendKV instances for kind: " << GetFmhaKindName(fmha_problem.kind_)
+            << " (total: " << num_instances_ << ")";
 }
 
 FmhaFwdCodeGen FmhaEmitter::GenFmhaFwdInstance(const FmhaProblem& fmha_problem, const FmhaTileDesc& tile_desc) const

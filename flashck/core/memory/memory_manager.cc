@@ -54,7 +54,8 @@ void MemoryManager::UpdateTensorLifeIdx(int unique_id, int node_idx, size_t size
             usage.size_ = std::max(usage.size_, size);  // Use larger size for safety
         }
 
-        VLOG(3) << "Updated tensor " << unique_id << " lifecycle: [" << usage.first_idx_ << ", " << usage.last_idx_ << "]";
+        VLOG(3) << "Updated tensor " << unique_id << " lifecycle: [" << usage.first_idx_ << ", " << usage.last_idx_
+                << "]";
     }
     else {
         // Create new tensor usage record
@@ -73,14 +74,14 @@ bool MemoryManager::RemoveLifeCycle(int unique_id)
         return true;
     }
 
-    LOG(WARNING) << "Failed to remove tensor " << unique_id << ": not found";
+    // LOG(WARNING) << "Failed to remove tensor " << unique_id << ": not found";
     return false;
 }
 
 void MemoryManager::CalculateBuffer()
 {
     if (tensor_usages_map_.empty()) {
-        LOG(WARNING) << "No tensors to allocate memory for";
+        // LOG(WARNING) << "No tensors to allocate memory for";
         return;
     }
 
@@ -104,8 +105,8 @@ void MemoryManager::CalculateBuffer()
     // Step 5: Validate allocations for correctness
     ValidateAllocations(assignments);
 
-    VLOG(1) << "Memory allocation completed. Total size: " << total_size << " bytes ("
-            << (total_size / 1024.0 / 1024.0) << " MB)";
+    VLOG(1) << "Memory allocation completed. Total size: " << total_size << " bytes (" << (total_size / 1024.0 / 1024.0)
+            << " MB)";
 }
 
 std::vector<std::pair<TensorUsage, size_t>> MemoryManager::GreedyBySizeAllocation()
@@ -140,8 +141,7 @@ std::vector<std::pair<TensorUsage, size_t>> MemoryManager::GreedyBySizeAllocatio
         assignments.emplace_back(tensor, offset);
         active_blocks_.emplace_back(offset, aligned_size, tensor.last_idx_);
 
-        VLOG(3) << "Tensor " << tensor.unique_id_ << " (size: " << tensor.size_ 
-                << ") assigned to offset " << offset;
+        VLOG(3) << "Tensor " << tensor.unique_id_ << " (size: " << tensor.size_ << ") assigned to offset " << offset;
     }
 
     return assignments;
@@ -157,10 +157,9 @@ size_t MemoryManager::FindBestOffset(size_t size, int start_time, int end_time)
         active_blocks_.end());
 
     // Sort remaining blocks by offset for gap detection
-    std::sort(active_blocks_.begin(), active_blocks_.end(), 
-              [](const MemoryBlock& a, const MemoryBlock& b) {
-                  return a.offset_ < b.offset_;
-              });
+    std::sort(active_blocks_.begin(), active_blocks_.end(), [](const MemoryBlock& a, const MemoryBlock& b) {
+        return a.offset_ < b.offset_;
+    });
 
     // Find the first available gap that can fit this tensor
     size_t current_offset = 0;
@@ -181,7 +180,7 @@ void MemoryManager::AllocatePhysicalMemory(size_t total_size)
     // Free existing memory if already allocated
     if (is_allocated_ && memory_pool_ != nullptr) {
         allocator_ptr_->Free(memory_pool_, true);
-        memory_pool_ = nullptr;
+        memory_pool_  = nullptr;
         is_allocated_ = false;
     }
 
@@ -193,8 +192,7 @@ void MemoryManager::AllocatePhysicalMemory(size_t total_size)
             throw std::runtime_error("Failed to allocate memory pool of size " + std::to_string(total_size));
         }
         is_allocated_ = true;
-        VLOG(2) << "Allocated memory pool: " << total_size << " bytes ("
-                << (total_size / 1024.0 / 1024.0) << " MB)";
+        VLOG(2) << "Allocated memory pool: " << total_size << " bytes (" << (total_size / 1024.0 / 1024.0) << " MB)";
     }
 }
 
@@ -216,11 +214,11 @@ void MemoryManager::ValidateAllocations(const std::vector<std::pair<TensorUsage,
     // Check for memory conflicts between overlapping tensor lifetimes
     for (size_t i = 0; i < assignments.size(); ++i) {
         const auto& [usage1, offset1] = assignments[i];
-        size_t end1 = offset1 + AlignSize(usage1.size_);
+        size_t end1                   = offset1 + AlignSize(usage1.size_);
 
         for (size_t j = i + 1; j < assignments.size(); ++j) {
             const auto& [usage2, offset2] = assignments[j];
-            size_t end2 = offset2 + AlignSize(usage2.size_);
+            size_t end2                   = offset2 + AlignSize(usage2.size_);
 
             // Check for spatial overlap in memory
             bool spatial_overlap = (offset1 < end2) && (offset2 < end1);
@@ -229,10 +227,9 @@ void MemoryManager::ValidateAllocations(const std::vector<std::pair<TensorUsage,
                 // Memory conflict detected - same memory used by overlapping tensors
                 std::stringstream ss;
                 ss << "Memory conflict: tensors " << usage1.unique_id_ << " and " << usage2.unique_id_
-                   << " overlap in both space and time. Tensor " << usage1.unique_id_ 
-                   << " uses [" << offset1 << ", " << end1 << ") during [" << usage1.first_idx_ 
-                   << ", " << usage1.last_idx_ << "], tensor " << usage2.unique_id_ 
-                   << " uses [" << offset2 << ", " << end2 << ") during [" << usage2.first_idx_ 
+                   << " overlap in both space and time. Tensor " << usage1.unique_id_ << " uses [" << offset1 << ", "
+                   << end1 << ") during [" << usage1.first_idx_ << ", " << usage1.last_idx_ << "], tensor "
+                   << usage2.unique_id_ << " uses [" << offset2 << ", " << end2 << ") during [" << usage2.first_idx_
                    << ", " << usage2.last_idx_ << "]";
                 throw std::runtime_error(ss.str());
             }

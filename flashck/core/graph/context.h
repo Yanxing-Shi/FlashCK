@@ -48,7 +48,7 @@ public:
     // Context
     void BuildContext();
 
-    static int                      CreateGlobalContext(std::string& context_name);
+    static int                      CreateGlobalContext(const std::string& context_name);
     static std::shared_ptr<Context> GetGlobalInstance();
     static void                     SetGlobalContext(const std::string& context_name);
 

@@ -10,7 +10,7 @@ Context::Context(std::string context_name, int dev_id):
     mem_manager_ptr_(new MemoryManager()),
     allocator_ptr_(mem_manager_ptr_->GetAllocator())
 {
-    LOG(INFO) << "Initial Context\n";
+    VLOG(1) << "Initial Context\n";
 }
 
 Context::~Context()
@@ -173,18 +173,18 @@ void Context::BuildContext()
     VLOG(1)
         << "Please pay attention to whether the build order of the layer is consistent with the actual execution order ";
 
-    try {
-        // Before the memory allocation, the tensor is not allocated the actual
-        // effective address space, so it is necessary to give a temporary space for
-        // some steps to test.
-        tmp_buff_ = allocator_ptr_->Malloc(max_tensor_size_);
-    }
-    catch (...) {
-        FC_THROW(ResourceExhausted(
-            "allocate temporary buffer failed!\n, max_tensor_name_ is: {}, max_tensor_size_ is: {} MB",
-            max_tensor_name_,
-            max_tensor_size_ / (1024 * 1024)));
-    }
+    // try {
+    //     // Before the memory allocation, the tensor is not allocated the actual
+    //     // effective address space, so it is necessary to give a temporary space for
+    //     // some steps to test.
+    //     tmp_buff_ = allocator_ptr_->Malloc(max_tensor_size_);
+    // }
+    // catch (...) {
+    //     FC_THROW(ResourceExhausted(
+    //         "allocate temporary buffer failed!\n, max_tensor_name_ is: {}, max_tensor_size_ is: {} MB",
+    //         max_tensor_name_,
+    //         max_tensor_size_ / (1024 * 1024)));
+    // }
 
     for (int idx = 0; idx < model_ops_.size(); idx++) {
         model_ops_[idx]->RecursiveForward();
@@ -197,35 +197,33 @@ void Context::BuildContext()
 
     VLOG(1) << "Context has build layer ";
 
-    try {
-        allocator_ptr_->Free(tmp_buff_);
-    }
-    catch (...) {
-        FC_THROW(ResourceExhausted("free temporary buffer {} failed!", tmp_buff_));
-    }
+    // try {
+    //     allocator_ptr_->Free(tmp_buff_);
+    // }
+    // catch (...) {
+    //     FC_THROW(ResourceExhausted("free temporary buffer {} failed!", tmp_buff_));
+    // }
 
     mem_manager_ptr_->CalculateBuffer();
 
     is_context_built_ = true;
 
-    HIP_ERROR_CHECK(hipStreamSynchronize(stream_));
+    // HIP_ERROR_CHECK(hipStreamSynchronize(stream_));
 
     VLOG(1) << "Finish context build success ";
 }
 
-int Context::CreateGlobalContext(std::string& context_name)
+int Context::CreateGlobalContext(const std::string& context_name)
 {
     global_context_id_++;
     std::shared_ptr<Context> context_ptr = std::make_shared<Context>(context_name);
     global_context_ptr_                  = context_ptr;
     if (global_contexts_map_.find(context_name) != global_contexts_map_.end()) {
-        LOG(ERROR) << "Error occured! context_id " << context_name << " already exists!";
-        exit(-1);
+        // LOG(WARNING) << "Error occured! context_id " << context_name << " already exists!";
     }
-    context_name = context_name + "_" + std::to_string(global_context_id_);
     global_contexts_map_.emplace(context_name, context_ptr);
-    LOG(INFO) << "create global context success" << "context name: " << context_name
-              << "context_id:" << global_context_id_;
+    VLOG(1) << "create global context success" << "context name: " << context_name
+            << "context_id:" << global_context_id_;
     return global_context_id_;
 }
 
@@ -233,8 +231,8 @@ void Context::SetGlobalContext(const std::string& context_name)
 {
     auto iter = global_contexts_map_.find(context_name);
     if (iter == global_contexts_map_.end()) {
-        LOG(ERROR) << "Error occured! context_id " << context_name << " does not exist!";
-        exit(-1);
+        LOG(WARNING) << "Error occured! context_id " << context_name << " does not exist!";
+        return;
     }
 
     global_context_ptr_ = iter->second;

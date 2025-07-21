@@ -36,6 +36,7 @@ std::string LayerNormKernel::CodeGenForRunning(const std::string&               
 
 void LayerNormKernel::KernelLauncher(const std::string& kernel_func_name, const KernelArgs_t& args)
 {
+    VLOG(1) << "Launching LayerNorm kernel: " << kernel_func_name;
     const auto& kernel_args = std::get<NormKernelArgs>(args);
 
     // Load kernel function symbol dynamically

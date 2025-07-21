@@ -10,12 +10,12 @@ namespace flashck {
 
 ProfilingEngine::ProfilingEngine()
 {
-    LOG(INFO) << "Initializing Profiling Engine on device: " << GetDeviceName();
+    VLOG(1) << "Initializing Profiling Engine on device: " << GetDeviceName();
 
     // Initialize graph code generation orchestrator
     try {
         graph_codegen_ = std::make_unique<GraphCodeGen>();
-        LOG(INFO) << "Graph code generator initialized successfully";
+        VLOG(1) << "Graph code generator initialized successfully";
     }
     catch (const std::exception& e) {
         LOG(ERROR) << "Graph code generator initialization failed: " << e.what();
@@ -86,7 +86,7 @@ void ProfilingEngine::LoadProfilingDB()
     try {
         db_path_      = db_path;  // Store the path for later reference
         profiling_db_ = std::make_unique<ProfilingDB>(db_path);
-        LOG(INFO) << "Successfully initialized profiling database at: " << db_path.string();
+        VLOG(1) << "Successfully initialized profiling database at: " << db_path.string();
     }
     catch (const std::exception& e) {
         db_path_.clear();  // Clear path on failure
@@ -110,11 +110,11 @@ std::filesystem::path ProfilingEngine::GetProfilingDBPath()
     std::filesystem::path cache_dir;
     if (!FLAGS_FC_TUNING_DB_DIR.empty()) {
         cache_dir = std::filesystem::path(FLAGS_FC_TUNING_DB_DIR);
-        LOG(INFO) << "Using custom tuning database directory: " << cache_dir.string();
+        VLOG(1) << "Using custom tuning database directory: " << cache_dir.string();
     }
     else {
         cache_dir = std::filesystem::path(FLAGS_FC_HOME_PATH) / ".flashck";
-        LOG(INFO) << "Using default cache directory: " << cache_dir.string();
+        VLOG(1) << "Using default cache directory: " << cache_dir.string();
     }
 
     // Ensure directory existence with proper error handling
@@ -139,7 +139,7 @@ std::filesystem::path ProfilingEngine::GetProfilingDBPath()
         FlushExistingDB(db_full_path);
     }
 
-    LOG(INFO) << "Profiling database path configured: " << db_full_path.string();
+    VLOG(1) << "Profiling database path configured: " << db_full_path.string();
     return db_full_path;
 }
 
@@ -186,14 +186,14 @@ void ProfilingEngine::FlushExistingDB(const std::filesystem::path& path)
             LOG(WARNING) << "Error checking database existence for " << path.string() << ": " << ec.message();
         }
         else {
-            LOG(INFO) << "Database flush: file does not exist at " << path.string();
+            VLOG(1) << "Database flush: file does not exist at " << path.string();
         }
         return;
     }
 
     // Attempt database file removal
     if (std::filesystem::remove(path, ec)) {
-        LOG(INFO) << "Successfully flushed profiling database: " << path.string();
+        VLOG(1) << "Successfully flushed profiling database: " << path.string();
     }
     else {
         const std::string error_msg = ec ? ec.message() : "Unknown filesystem error";
@@ -222,7 +222,7 @@ void ProfilingEngine::LoadKernelLibrary(const std::string& folder_name,
     const std::filesystem::path lib_path =
         std::filesystem::path(FLAGS_FC_HOME_PATH) / folder_name / context_name / so_file_name;
 
-    LOG(INFO) << "Attempting to load kernel library: " << lib_path.string();
+    VLOG(1) << "Attempting to load kernel library: " << lib_path.string();
 
     // Verify library file existence with detailed error reporting
     std::error_code ec;
@@ -246,7 +246,7 @@ void ProfilingEngine::LoadKernelLibrary(const std::string& folder_name,
         kernel_lib_ = std::make_unique<dylib>(
             lib_path.parent_path().string(), lib_path.filename().string(), dylib::NO_DECORATIONS);
 
-        LOG(INFO) << "Successfully loaded kernel library: " << lib_path.string();
+        VLOG(1) << "Successfully loaded kernel library: " << lib_path.string();
     }
     catch (const dylib::load_error& e) {
         FC_THROW(Fatal("Failed to dynamically load kernel library {}: {}", lib_path.string(), e.what()));

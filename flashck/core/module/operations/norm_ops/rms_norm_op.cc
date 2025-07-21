@@ -14,6 +14,10 @@ RMSNormOp<T>::RMSNormOp(Shape normalized_shape, FusedAddEnum fused_add, FusedQua
     Operation("rms_norm"), fused_add_(fused_add), fused_quant_(fused_quant)
 {
     normalized_shape_ = normalized_shape;
+
+    // Initialize kernel and extract profiling configurations
+    KernelKey kernel_key(SourceType::TILE, DataLayout::ALL_LAYOUT, CppTypeToDataType<T>::value);
+    register_kernel_ptr_ = KernelFactory::Instance().SelectKernel(GetNormKindName(op_kind_), kernel_key);
 }
 
 template<typename T>
@@ -146,16 +150,16 @@ void RMSNormOp<T>::IsBuildProfilingEngine()
         auto [instance_name, perf_result] = ProfilingEngine::GetInstance()->GetProfilingDB()->Query(instance_data);
 
         if (!instance_name.empty() && perf_result.IsValid() && !FLAGS_FC_FORCE_PROFILING) {
-            LOG(INFO) << "Loaded cached profiling result: " << instance_name << " [latency: " << perf_result.latency_
-                      << "ms, "
-                      << "tflops: " << perf_result.tflops_ << ", "
-                      << "bandwidth: " << perf_result.bandwidth_ << "GB/s]";
+            VLOG(1) << "Loaded cached profiling result: " << instance_name << " [latency: " << perf_result.latency_
+                    << "ms, "
+                    << "tflops: " << perf_result.tflops_ << ", "
+                    << "bandwidth: " << perf_result.bandwidth_ << "GB/s]";
 
             running_infos_[profiling_workload].instance_name_ = instance_name;
             running_infos_[profiling_workload].perf_result_   = perf_result;
         }
         else {
-            LOG(INFO) << "No cached profiling result found, will generate new profile";
+            VLOG(1) << "No cached profiling result found, will generate new profile";
         }
     }
 }
@@ -164,10 +168,6 @@ template<typename T>
 std::vector<std::tuple<std::filesystem::path, std::filesystem::path>>
 RMSNormOp<T>::CodeGenForTuning(const ProfilingStrategy& profiling_strategy)
 {
-    // Initialize kernel and extract profiling configurations
-    KernelKey kernel_key(SourceType::TILE, DataLayout::ALL_LAYOUT, CppTypeToDataType<T>::value);
-    register_kernel_ptr_ = KernelFactory::Instance().SelectKernel(GetNormKindName(op_kind_), kernel_key);
-
     ExtractRunningInfo(profiling_strategy);
 
     if (!FLAGS_FC_FORCE_PROFILING) {
@@ -178,10 +178,6 @@ RMSNormOp<T>::CodeGenForTuning(const ProfilingStrategy& profiling_strategy)
 
     // Generate tuning code for each workload
     for (const auto& [workload_key, running_info] : running_infos_) {
-        if (running_info.IsInstanceExist()) {
-            LOG(INFO) << "RMSNorm instance already exists, skipping profiling";
-            continue;
-        }
 
         std::map<std::string, int> profiling_key_map = ExtractWorkLoad(workload_key);
         NormProblem                problem;
@@ -198,6 +194,11 @@ RMSNormOp<T>::CodeGenForTuning(const ProfilingStrategy& profiling_strategy)
 
         instance_map_ = NormEmitter::GetInstance()->GetInstanceMap(problem);
         FC_ENFORCE_NE(instance_map_.size(), 0, Fatal("No RMSNorm instances generated"));
+
+        if (running_info.IsInstanceExist()) {
+            VLOG(1) << "RMSNorm instance already exists, skipping profiling";
+            continue;
+        }
 
         generated_files =
             register_kernel_ptr_->CodeGenForTuning(context_ptr_->GetName(), GetNormKindName(op_kind_), instance_map_);
@@ -256,7 +257,7 @@ void RMSNormOp<T>::TuningSingleWorkload(const std::string&  profiling_file_prefi
     auto [instance_name, perf_result] = ProfilingEngine::GetInstance()->GetProfilingDB()->Query(instance_data);
 
     if (!instance_name.empty() && perf_result.IsValid() && !FLAGS_FC_FORCE_PROFILING) {
-        LOG(INFO) << "Using cached profiling result: " << instance_name;
+        VLOG(1) << "Using cached profiling result: " << instance_name;
         return;
     }
 
@@ -272,7 +273,7 @@ void RMSNormOp<T>::TuningSingleWorkload(const std::string&  profiling_file_prefi
             postprocesser.AddInstance(instance_data, running_infos_);
         };
 
-        LOG(INFO) << "RMSNorm tuning command: " << JoinStrings(command, " ");
+        VLOG(1) << "RMSNorm tuning command: " << JoinStrings(command, " ");
         profiling_runner.Push(command, callback);
     }
 }
@@ -289,7 +290,7 @@ void RMSNormOp<T>::Tuning(GPUProfilingRunner& profiling_runner, const std::strin
             TuningSingleWorkload(profiling_file_prefix, profiling_workload, profiling_runner);
         }
         else {
-            LOG(INFO) << "RMSNorm instance already exists, skipping tuning";
+            VLOG(1) << "RMSNorm instance already exists, skipping tuning";
         }
     }
 }

@@ -5,7 +5,8 @@
 #include "flashck/core/profiling/profiling_engine.h"
 
 // Global configuration flags
-FC_DECLARE_string(FC_HOME_PATH);  ///< FlashCK installation home directory
+FC_DECLARE_string(FC_HOME_PATH);      ///< FlashCK installation home directory
+FC_DECLARE_bool(FC_FORCE_PROFILING);  ///< Force re-profiling flag
 
 namespace flashck {
 
@@ -53,62 +54,73 @@ GenProfilerResult GraphCodeGen::CodeGenForTuning(const std::vector<Operation*>& 
 void GraphCodeGen::CodeGenAndProfiling(const std::vector<Operation*>& model_ops,
                                        const std::string&             context_name,
                                        const ProfilingStrategy&       strategy,
-                                       const std::string&             folder_name)
+                                       const std::string&             folder_name,
+                                       const std::string&             so_file_name)
 {
     VLOG(1) << "Starting complete code generation and profiling pipeline";
     VLOG(1) << "Context: " << context_name << ", Strategy: " << ProfilingStrategyToString(strategy)
             << ", Output folder: " << folder_name;
 
-    // Phase 1: Generate profiling instances for all operations
-    VLOG(1) << "Phase 1: Generating kernel instances for profiling";
-    std::vector<std::vector<std::tuple<std::filesystem::path, std::filesystem::path>>> instance_files =
-        CodeGenForTuning(model_ops, strategy);
+    // Construct full library path with proper path handling
+    const std::filesystem::path lib_path =
+        std::filesystem::path(FLAGS_FC_HOME_PATH) / folder_name / context_name / so_file_name;
 
-    // Count total instances across all operations
-    size_t total_instances = 0;
-    for (const auto& op_instances : instance_files) {
-        total_instances += op_instances.size();
-    }
-    VLOG(1) << "Generated " << total_instances << " total kernel instances across " << instance_files.size()
-            << " operations";
+    if (!FileManager::FileExists(lib_path) && FLAGS_FC_FORCE_PROFILING) {
+        VLOG(1) << "Shared library does not exist: " << lib_path.string();
+        // Phase 1: Generate profiling instances for all operations
+        VLOG(1) << "Phase 1: Generating kernel instances for profiling";
+        std::vector<std::vector<std::tuple<std::filesystem::path, std::filesystem::path>>> instance_files =
+            CodeGenForTuning(model_ops, strategy);
 
-    // Phase 2: Build profiling binaries
-    VLOG(1) << "Phase 2: Building profiling binaries";
-    Builder builder;
-    builder.MakeTuning(instance_files, context_name);
-
-    // Phase 3: Execute profiling and collect performance metrics
-    VLOG(1) << "Phase 3: Executing profiling for performance measurement";
-    auto profiling_runner = GPUProfilingRunner{Postprocesser{}};
-
-    size_t profiled_ops = 0;
-    for (Operation* op : model_ops) {
-        if (op->has_profiling_engine_) {
-            VLOG(2) << "Profiling operation: " << op->GetName();
-            op->Tuning(profiling_runner);
-            profiled_ops++;
+        // Count total instances across all operations
+        size_t total_instances = 0;
+        for (const auto& op_instances : instance_files) {
+            total_instances += op_instances.size();
         }
+        VLOG(1) << "Generated " << total_instances << " total kernel instances across " << instance_files.size()
+                << " operations";
+
+        // Phase 2: Build profiling binaries
+        VLOG(1) << "Phase 2: Building profiling binaries";
+        Builder builder;
+        builder.MakeTuning(instance_files, context_name);
+
+        // Phase 3: Execute profiling and collect performance metrics
+        VLOG(1) << "Phase 3: Executing profiling for performance measurement";
+        auto profiling_runner = GPUProfilingRunner{Postprocesser{}};
+
+        size_t profiled_ops = 0;
+        for (Operation* op : model_ops) {
+            if (op->has_profiling_engine_) {
+                VLOG(2) << "Profiling operation: " << op->GetName();
+                op->Tuning(profiling_runner);
+                profiled_ops++;
+            }
+        }
+
+        VLOG(1) << "Profiling execution completed for " << profiled_ops << " operations";
+
+        // Wait for all profiling tasks to complete and process results
+        VLOG(1) << "Processing profiling results and selecting optimal configurations";
+        profiling_runner.Join();
+
+        // Phase 4: Generate optimized runtime kernel functions
+        VLOG(1) << "Phase 4: Generating optimized runtime kernel functions";
+        std::vector<std::tuple<std::filesystem::path, std::filesystem::path>> file_tuples =
+            CodeGenForRunning(model_ops, context_name, folder_name);
+
+        // Phase 5: Build final shared library
+        VLOG(1) << "Phase 5: Building final shared library";
+        builder.MakeRunning(file_tuples, so_file_name, context_name);
     }
-
-    VLOG(1) << "Profiling execution completed for " << profiled_ops << " operations";
-
-    // Wait for all profiling tasks to complete and process results
-    VLOG(1) << "Processing profiling results and selecting optimal configurations";
-    profiling_runner.Join();
-
-    // Phase 4: Generate optimized runtime kernel functions
-    VLOG(1) << "Phase 4: Generating optimized runtime kernel functions";
-    std::vector<std::tuple<std::filesystem::path, std::filesystem::path>> file_tuples =
-        CodeGenForRunning(model_ops, context_name, folder_name);
-
-    // Phase 5: Build final shared library
-    VLOG(1) << "Phase 5: Building final shared library";
-    const std::string so_filename = "generated_kernel.so";
-    builder.MakeRunning(file_tuples, so_filename, context_name);
+    else {
+        VLOG(1) << "Shared library already exists: " << so_file_name
+                << ", Skipping code generation and profiling as the library is already available";
+    }
 
     // Phase 6: Load kernel library for immediate runtime availability
     VLOG(1) << "Phase 6: Loading kernel library for runtime use";
-    ProfilingEngine::GetInstance()->LoadKernelLibrary(folder_name, context_name, so_filename);
+    ProfilingEngine::GetInstance()->LoadKernelLibrary(folder_name, context_name, so_file_name);
 
     VLOG(1) << "Complete code generation and profiling pipeline finished successfully";
 }

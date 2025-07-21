@@ -64,8 +64,8 @@ void Postprocesser::PostProcessResults()
 
         auto& best_instance_data = std::get<0>(best_instance);
 
-        LOG(INFO) << "According to given metrics: " << MetricToString(metric) << "\n"
-                  << "Profiling engine selected the best instance is: " << best_instance_data.Serialize() << std::endl;
+        VLOG(1) << "According to given metrics: " << MetricToString(metric) << "\n"
+                << "Profiling engine selected the best instance is: " << best_instance_data.Serialize() << std::endl;
 
         // Update all running items in this group with the best instance information
         for (auto& [instance_data, running_info_ref] : group) {

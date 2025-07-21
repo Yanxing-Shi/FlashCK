@@ -34,15 +34,15 @@ void Tensor::SetTensor(char* input_tensor)
 {
     if (mem_type_ == MemoryType::Fixed) {
         data_ = input_tensor;
-        // LOG(INFO) << "set_tensor for " << name_ << ", which is FixedMemory!";
+        // VLOG(1) << "set_tensor for " << name_ << ", which is FixedMemory!";
         return;
     }
     else if (mem_type_ == MemoryType::Shared) {
-        LOG(INFO) << "set_tensor for " << name_ << ", which is SharedMemory!";
+        VLOG(1) << "set_tensor for " << name_ << ", which is SharedMemory!";
         return;
     }
     else if (mem_type_ == MemoryType::Offset) {
-        LOG(INFO) << "set_tensor for " << name_ << ", which is OffsetMemory!";
+        VLOG(1) << "set_tensor for " << name_ << ", which is OffsetMemory!";
         return;
     }
 }

@@ -218,8 +218,8 @@ void GemmEmitter::GenerateInstances(GemmProblem& gemm_problem)
     }
 
     num_instances_ += generated_count;
-    LOG(INFO) << "Generated " << generated_count << " GEMM instances for kind: " << GetGemmKindName(gemm_problem.kind_)
-              << " (total: " << num_instances_ << ")";
+    VLOG(1) << "Generated " << generated_count << " GEMM instances for kind: " << GetGemmKindName(gemm_problem.kind_)
+            << " (total: " << num_instances_ << ")";
 }
 
 GemmCodegen GemmEmitter::CreateGemmCodegen(const GemmProblem& gemm_problem, const GemmTileDesc& tile_desc) const

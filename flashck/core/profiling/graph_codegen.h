@@ -100,8 +100,9 @@ public:
      */
     void CodeGenAndProfiling(const std::vector<Operation*>& model_ops,
                              const std::string&             context_name,
-                             const ProfilingStrategy&       strategy    = ProfilingStrategy::kMax,
-                             const std::string&             folder_name = "kernel_profile");
+                             const ProfilingStrategy&       strategy     = ProfilingStrategy::kMax,
+                             const std::string&             folder_name  = "kernel_profile",
+                             const std::string&             so_file_name = "generated_kernel.so");
 
     /**
      * @brief Generate optimized runtime kernel functions from profiled results

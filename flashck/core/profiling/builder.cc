@@ -280,12 +280,12 @@ Builder::GenMakefileForTuning(const std::vector<std::tuple<std::filesystem::path
         };
 
     if (FLAGS_FC_COMBINE_PROFILING_SOURCES) {
-        LOG(INFO) << "enable combine profiling sources";
+        VLOG(1) << "enable combine profiling sources";
         int  num_sources_before        = calculate_num_sources(target_to_sources);
         auto combine_target_to_sources = CombineTuningSources(target_to_sources, num_jobs_);
         int  num_sources_after         = calculate_num_sources(combine_target_to_sources);
         if (num_sources_after <= num_sources_before) {
-            LOG(INFO) << "Combined " << num_sources_before << " sources into " << num_sources_after << " sources";
+            VLOG(1) << "Combined " << num_sources_before << " sources into " << num_sources_after << " sources";
         }
     }
 
@@ -361,8 +361,8 @@ Builder::GenMakefileForTuning(const std::vector<std::tuple<std::filesystem::path
         }
     }
 
-    LOG(INFO) << "compiling " << num_compiled_sources << " profiling sources";
-    LOG(INFO) << "linking " << target_names.size() << " profiling executables";
+    VLOG(1) << "compiling " << num_compiled_sources << " profiling sources";
+    VLOG(1) << "linking " << target_names.size() << " profiling executables";
 
     jinja2::ValuesMap makefile_value_map{{"targets", JoinStrings(targets, " ")},
                                          {"commands", JoinStrings(commands, "\n")}};
@@ -389,7 +389,7 @@ void Builder::MakeTuning(
     bool is_empty = std::all_of(
         generated_profiling_files.begin(), generated_profiling_files.end(), [](const auto& v) { return v.empty(); });
     if (is_empty) {
-        LOG(INFO) << "model all kernel profiler using cache, not generate makefile to build";
+        VLOG(1) << "model all kernel profiler using cache, not generate makefile to build";
         return;
     }
 
@@ -402,7 +402,7 @@ void Builder::MakeTuning(
 
             if (std::filesystem::exists(source) && std::filesystem::exists(target)) {
                 // skip the existing target
-                LOG(INFO) << "source: " << source.string() << " and target: " << target.string() << " exists, skip";
+                VLOG(1) << "source: " << source.string() << " and target: " << target.string() << " exists, skip";
                 continue;
             }
 
@@ -430,7 +430,7 @@ void Builder::MakeTuning(
     if (success) {
         compilation_stats_.successful_compilations += file_tuples.size();
         compilation_stats_.tuning_successful += file_tuples.size();
-        LOG(INFO) << "Successfully compiled " << file_tuples.size() << " profiling sources";
+        VLOG(1) << "Successfully compiled " << file_tuples.size() << " profiling sources";
     }
     else {
         auto failed_files = ParseFailedFiles(output);
@@ -449,9 +449,8 @@ void Builder::MakeTuning(
         LOG(ERROR) << "Failed files: " << JoinStrings(failed_files, ", ");
     }
 
-    LOG(INFO) << FormatCompilationStats(
-        compilation_stats_.tuning_successful, compilation_stats_.tuning_total, "Tuning");
-    LOG(INFO) << FormatCompilationStats(
+    VLOG(1) << FormatCompilationStats(compilation_stats_.tuning_successful, compilation_stats_.tuning_total, "Tuning");
+    VLOG(1) << FormatCompilationStats(
         compilation_stats_.successful_compilations, compilation_stats_.total_compilations, "Overall");
 }
 
@@ -465,7 +464,7 @@ void Builder::MakeRunning(
     std::filesystem::path so_file_path = build_dir / so_file_name;
 
     if (std::filesystem::exists(so_file_path)) {
-        LOG(INFO) << "model all kernel function using cache, not generate makefile to build";
+        VLOG(1) << "model all kernel function using cache, not generate makefile to build";
         return;
     }
 
@@ -477,7 +476,7 @@ void Builder::MakeRunning(
 
         if (std::filesystem::exists(source) && std::filesystem::exists(target)) {
             // skip the existing target
-            LOG(INFO) << "source: " << source.string() << " and target: " << target.string() << " exists, skip";
+            VLOG(1) << "source: " << source.string() << " and target: " << target.string() << " exists, skip";
             continue;
         }
         filter_generated_files.push_back(std::make_tuple(source, target));
@@ -500,7 +499,7 @@ void Builder::MakeRunning(
     if (success) {
         compilation_stats_.successful_compilations += filter_generated_files.size();
         compilation_stats_.running_successful += filter_generated_files.size();
-        LOG(INFO) << "Successfully compiled " << filter_generated_files.size() << " running sources";
+        VLOG(1) << "Successfully compiled " << filter_generated_files.size() << " running sources";
     }
     else {
         auto failed_files = ParseFailedFiles(output);
@@ -520,9 +519,9 @@ void Builder::MakeRunning(
         LOG(ERROR) << "Failed files: " << JoinStrings(failed_files, ", ");
     }
 
-    LOG(INFO) << FormatCompilationStats(
+    VLOG(1) << FormatCompilationStats(
         compilation_stats_.running_successful, compilation_stats_.running_total, "Running");
-    LOG(INFO) << FormatCompilationStats(
+    VLOG(1) << FormatCompilationStats(
         compilation_stats_.successful_compilations, compilation_stats_.total_compilations, "Overall");
 }
 }  // namespace flashck

@@ -4,10 +4,9 @@
 
 namespace flashck {
 
-Allocator::Allocator(int device_id): device_id_(device_id), stream_(nullptr)
+Allocator::Allocator(int device_id): device_id_(device_id)
 {
     // Create HIP stream for async memory operations
-    HIP_ERROR_CHECK(hipStreamCreate(&stream_));
     VLOG(2) << "Allocator initialized for device " << device_id_;
 }
 
@@ -28,11 +27,6 @@ Allocator::~Allocator()
             // Remove from map to prevent infinite loop
             ptr_info_.erase(it);
         }
-    }
-
-    // Clean up HIP stream
-    if (stream_) {
-        hipStreamDestroy(stream_);
     }
 
     VLOG(2) << "Allocator destroyed for device " << device_id_;
@@ -108,9 +102,7 @@ void Allocator::Free(char* tensor_ptr, bool is_device)
 
     if (is_device) {
         // Free GPU memory asynchronously for better performance
-        HIP_ERROR_CHECK(hipFreeAsync(tensor_ptr, stream_));
-        // Synchronize to ensure memory is actually freed
-        HIP_ERROR_CHECK(hipStreamSynchronize(stream_));
+        HIP_ERROR_CHECK(hipFree(tensor_ptr));
     }
     else {
         // Free pinned host memory

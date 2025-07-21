@@ -318,10 +318,10 @@ public:
     {
         std::vector<std::shared_ptr<LayerNormConfig<T>>> configs;
 
-        // // Standard sizes
-        // configs.push_back(std::make_shared<LayerNormConfig<T>>(32, 768, 1e-5f, "Small"));
-        // configs.push_back(std::make_shared<LayerNormConfig<T>>(128, 1024, 1e-5f, "Medium"));
-        // configs.push_back(std::make_shared<LayerNormConfig<T>>(256, 2048, 1e-5f, "Large"));
+        // Standard sizes
+        configs.push_back(std::make_shared<LayerNormConfig<T>>(32, 768, 1e-5f, "Small"));
+        configs.push_back(std::make_shared<LayerNormConfig<T>>(128, 1024, 1e-5f, "Medium"));
+        configs.push_back(std::make_shared<LayerNormConfig<T>>(256, 2048, 1e-5f, "Large"));
 
         // // Edge cases
         // configs.push_back(std::make_shared<LayerNormConfig<T>>(1, 1, 1e-5f, "Minimal"));

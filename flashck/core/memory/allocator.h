@@ -46,7 +46,6 @@ public:
 private:
     std::unordered_map<char*, bool> ptr_info_;   ///< Tracks [pointer -> is_device] for cleanup
     const int                       device_id_;  ///< Target HIP device ID
-    hipStream_t                     stream_;     ///< HIP stream for async operations
 };
 
 }  // namespace flashck

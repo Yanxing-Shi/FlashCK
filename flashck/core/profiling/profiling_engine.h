@@ -231,7 +231,7 @@ public:
     {
         if (kernel_lib_) {
             kernel_lib_.reset();
-            LOG(INFO) << "Kernel library unloaded successfully";
+            VLOG(1) << "Kernel library unloaded successfully";
         }
     }
 

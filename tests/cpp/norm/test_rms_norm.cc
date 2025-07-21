@@ -59,8 +59,7 @@ TEST_F(NormUnifiedTestFloat, RMSNormPerformanceTest)
         run_performance_test(perf_configs,
                              std::function<float*(const RMSNormConfig<float>&, GpuMemoryManager<float>&)>(flashck_impl),
                              20,
-                             5,
-                             true);
+                             5);
     EXPECT_GT(results.size(), 0) << "No performance results obtained";
     if (!results.empty()) {
         std::cout << "\nBest RMSNorm performance: " << results[0].config_name << " - Latency: " << results[0].latency

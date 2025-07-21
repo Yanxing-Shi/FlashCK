@@ -137,7 +137,7 @@ void ResultChecker(const T* tensor, int64_t elem_cnt, const std::string& tensor_
             throw std::runtime_error(error_msg.str());
         }
 
-        LOG(INFO) << "Tensor validation passed for '" << tensor_name << "' (" << elem_cnt << " elements)";
+        VLOG(1) << "Tensor validation passed for '" << tensor_name << "' (" << elem_cnt << " elements)";
     }
     catch (...) {
         cleanup();
@@ -164,7 +164,7 @@ void PrintToFile(const T* result, const int size, const char* file, hipStream_t 
         FC_THROW(InvalidArgument("Invalid device pointer"));
     }
 
-    LOG(INFO) << "[FILE] Writing " << size << " elements to " << file;
+    VLOG(1) << "[FILE] Writing " << size << " elements to " << file;
 
     // RAII file management
     std::ofstream out_file(file, open_mode);
@@ -195,7 +195,7 @@ void PrintToFile(const T* result, const int size, const char* file, hipStream_t 
         FC_THROW(Unavailable("Write failure to: {}", file));
     }
 
-    LOG(INFO) << "[FILE] Successfully wrote " << size << " elements to " << file;
+    VLOG(1) << "[FILE] Successfully wrote " << size << " elements to " << file;
 }
 
 template<typename T>
@@ -210,10 +210,10 @@ void PrintToScreen(const T* result, const int size, const std::string& name, int
 {
     const std::string display_name = name.empty() ? "tensor" : name;
 
-    LOG(INFO) << "=== PrintToScreen: " << display_name << " ===";
-    LOG(INFO) << "Type: " << GetTypeName<T>();
-    LOG(INFO) << "Address: " << result;
-    LOG(INFO) << "Size: " << size << " elements";
+    VLOG(1) << "=== PrintToScreen: " << display_name << " ===";
+    VLOG(1) << "Type: " << GetTypeName<T>();
+    VLOG(1) << "Address: " << result;
+    VLOG(1) << "Size: " << size << " elements";
 
     if (result == nullptr) {
         LOG(WARNING) << "Null pointer, skipping output";
@@ -240,20 +240,20 @@ void PrintToScreen(const T* result, const int size, const std::string& name, int
     HIP_ERROR_CHECK(hipMemcpy(host_buffer.get(), result, sizeof(T) * output_size, hipMemcpyDeviceToHost));
 
     // Formatted output with proper alignment
-    LOG(INFO) << "Contents (showing " << output_size << " of " << size << " elements):";
+    VLOG(1) << "Contents (showing " << output_size << " of " << size << " elements):";
 
     for (int i = 0; i < output_size; ++i) {
-        LOG(INFO) << "  [" << std::setw(6) << i << "] = " << std::setw(12) << FormatValue(host_buffer[i]);
+        VLOG(1) << "  [" << std::setw(6) << i << "] = " << std::setw(12) << FormatValue(host_buffer[i]);
     }
 
     if (output_size < size) {
-        LOG(INFO) << "  ... (" << (size - output_size) << " more elements)";
+        VLOG(1) << "  ... (" << (size - output_size) << " more elements)";
     }
 
     // Show basic statistics if we have enough elements
     if (size > 1) {
         auto [min_val, max_val, mean, std_dev] = GetTensorStats(result, size, nullptr);
-        LOG(INFO) << "Statistics - Min: " << min_val << " Max: " << max_val << " Mean: " << mean << " Std: " << std_dev;
+        VLOG(1) << "Statistics - Min: " << min_val << " Max: " << max_val << " Mean: " << mean << " Std: " << std_dev;
     }
 }
 
@@ -263,10 +263,10 @@ void PrintToScreen<ushort>(const ushort* result, const int size, const std::stri
 {
     const std::string display_name = name.empty() ? "tensor" : name;
 
-    LOG(INFO) << "=== PrintToScreen: " << display_name << " (bf16) ===";
-    LOG(INFO) << "Type: ushort (bfloat16)";
-    LOG(INFO) << "Address: " << result;
-    LOG(INFO) << "Size: " << size << " elements";
+    VLOG(1) << "=== PrintToScreen: " << display_name << " (bf16) ===";
+    VLOG(1) << "Type: ushort (bfloat16)";
+    VLOG(1) << "Address: " << result;
+    VLOG(1) << "Size: " << size << " elements";
 
     if (result == nullptr) {
         LOG(WARNING) << "Null pointer, skipping output";
@@ -293,22 +293,22 @@ void PrintToScreen<ushort>(const ushort* result, const int size, const std::stri
     HIP_ERROR_CHECK(hipMemcpy(host_buffer.get(), result, sizeof(ushort) * output_size, hipMemcpyDeviceToHost));
 
     // Formatted output with bfloat16 conversion
-    LOG(INFO) << "Contents (showing " << output_size << " of " << size << " elements):";
+    VLOG(1) << "Contents (showing " << output_size << " of " << size << " elements):";
 
     for (int i = 0; i < output_size; ++i) {
         float float_val = bhalf2float(host_buffer[i]);
-        LOG(INFO) << "  [" << std::setw(6) << i << "] = " << std::setw(12) << float_val << " (raw: 0x" << std::hex
-                  << host_buffer[i] << std::dec << ")";
+        VLOG(1) << "  [" << std::setw(6) << i << "] = " << std::setw(12) << float_val << " (raw: 0x" << std::hex
+                << host_buffer[i] << std::dec << ")";
     }
 
     if (output_size < size) {
-        LOG(INFO) << "  ... (" << (size - output_size) << " more elements)";
+        VLOG(1) << "  ... (" << (size - output_size) << " more elements)";
     }
 
     // Show basic statistics
     if (size > 1) {
         auto [min_val, max_val, mean, std_dev] = GetTensorStats(result, size, nullptr);
-        LOG(INFO) << "Statistics - Min: " << min_val << " Max: " << max_val << " Mean: " << mean << " Std: " << std_dev;
+        VLOG(1) << "Statistics - Min: " << min_val << " Max: " << max_val << " Mean: " << mean << " Std: " << std_dev;
     }
 }
 
@@ -398,7 +398,7 @@ void CheckMaxVal(const T* result, const int size, hipStream_t stream)
     }
 
     // Diagnostic output
-    LOG(INFO) << "[HIP] addr " << result << " Max: " << max_val;
+    VLOG(1) << "[HIP] addr " << result << " Max: " << max_val;
 }
 
 template<typename T>
@@ -432,7 +432,7 @@ void CheckMinVal(const T* result, const int size, hipStream_t stream)
     }
 
     // Diagnostic output
-    LOG(INFO) << "[HIP] addr " << result << " Min: " << min_val;
+    VLOG(1) << "[HIP] addr " << result << " Min: " << min_val;
 }
 
 template<typename T>
@@ -474,8 +474,8 @@ std::tuple<float, float, float, float> GetTensorStats(const T* result, const int
     float variance = static_cast<float>(sum_sq / size - mean * mean);
     float std_dev  = std::sqrt(std::max(0.0f, variance));
 
-    LOG(INFO) << "[STATS] addr " << result << " Min: " << min_val << " Max: " << max_val << " Mean: " << mean
-              << " Std: " << std_dev;
+    VLOG(1) << "[STATS] addr " << result << " Min: " << min_val << " Max: " << max_val << " Mean: " << mean
+            << " Std: " << std_dev;
 
     return std::make_tuple(min_val, max_val, mean, std_dev);
 }
@@ -483,7 +483,7 @@ std::tuple<float, float, float, float> GetTensorStats(const T* result, const int
 template<typename T>
 void InspectDeviceMemory(const T* ptr, int size, const std::string& name, hipStream_t stream)
 {
-    LOG(INFO) << "=== Memory Inspection: " << (name.empty() ? "unnamed" : name) << " ===";
+    VLOG(1) << "=== Memory Inspection: " << (name.empty() ? "unnamed" : name) << " ===";
 
     if (!ptr) {
         LOG(WARNING) << "Null pointer";
@@ -495,9 +495,9 @@ void InspectDeviceMemory(const T* ptr, int size, const std::string& name, hipStr
         return;
     }
 
-    LOG(INFO) << "Type: " << GetTypeName<T>();
-    LOG(INFO) << "Address: " << ptr;
-    LOG(INFO) << "Size: " << size << " elements (" << size * sizeof(T) << " bytes)";
+    VLOG(1) << "Type: " << GetTypeName<T>();
+    VLOG(1) << "Address: " << ptr;
+    VLOG(1) << "Size: " << size << " elements (" << size * sizeof(T) << " bytes)";
 
     // Show first few elements
     const int preview_size = std::min(size, 10);
@@ -506,15 +506,15 @@ void InspectDeviceMemory(const T* ptr, int size, const std::string& name, hipStr
     HIP_ERROR_CHECK(hipMemcpyAsync(host_buffer.get(), ptr, sizeof(T) * preview_size, hipMemcpyDeviceToHost, stream));
     HIP_ERROR_CHECK(hipStreamSynchronize(stream));
 
-    LOG(INFO) << "First " << preview_size << " elements:";
+    VLOG(1) << "First " << preview_size << " elements:";
     for (int i = 0; i < preview_size; ++i) {
-        LOG(INFO) << "  [" << i << "] = " << FormatValue(host_buffer[i]);
+        VLOG(1) << "  [" << i << "] = " << FormatValue(host_buffer[i]);
     }
 
     // Get basic statistics
     if (size > 0) {
         auto [min_val, max_val, mean, std_dev] = GetTensorStats(ptr, size, stream);
-        LOG(INFO) << "Statistics - Min: " << min_val << " Max: " << max_val << " Mean: " << mean << " Std: " << std_dev;
+        VLOG(1) << "Statistics - Min: " << min_val << " Max: " << max_val << " Mean: " << mean << " Std: " << std_dev;
     }
 }
 
@@ -561,15 +561,15 @@ int CompareTensors(
         }
     }
 
-    LOG(INFO) << "=== Tensor Comparison: " << (name.empty() ? "unnamed" : name) << " ===";
-    LOG(INFO) << "Elements: " << size;
-    LOG(INFO) << "Tolerance: " << tolerance;
-    LOG(INFO) << "Mismatches: " << mismatch_count << " (" << (100.0f * mismatch_count / size) << "%)";
+    VLOG(1) << "=== Tensor Comparison: " << (name.empty() ? "unnamed" : name) << " ===";
+    VLOG(1) << "Elements: " << size;
+    VLOG(1) << "Tolerance: " << tolerance;
+    VLOG(1) << "Mismatches: " << mismatch_count << " (" << (100.0f * mismatch_count / size) << "%)";
 
     if (mismatch_count > 0) {
-        LOG(INFO) << "Max difference: " << max_diff << " at index " << max_diff_idx;
-        LOG(INFO) << "  Tensor1[" << max_diff_idx << "] = " << FormatValue(buffer1[max_diff_idx]);
-        LOG(INFO) << "  Tensor2[" << max_diff_idx << "] = " << FormatValue(buffer2[max_diff_idx]);
+        VLOG(1) << "Max difference: " << max_diff << " at index " << max_diff_idx;
+        VLOG(1) << "  Tensor1[" << max_diff_idx << "] = " << FormatValue(buffer1[max_diff_idx]);
+        VLOG(1) << "  Tensor2[" << max_diff_idx << "] = " << FormatValue(buffer2[max_diff_idx]);
     }
 
     return mismatch_count;

@@ -58,14 +58,14 @@ RunMakeCmds(const std::vector<std::string>& cmds,  // [0] = "make clean", [1] = 
             return {true, stdout_str};
         }
         else {
-            LOG(ERROR) << "Make command failed in directory: " << build_dir.string() << "\nstdout: " << stdout_str
-                       << "\nstderr: " << stderr_str;
+            VLOG(1) << "Make command failed in directory: " << build_dir.string() << "\nstdout: " << stdout_str
+                    << "\nstderr: " << stderr_str;
             return {false, stderr_str};
         }
     }
     catch (const std::exception& e) {
         std::string error_msg = Sprintf("Exception during make execution in {}: {}", build_dir.string(), e.what());
-        LOG(ERROR) << error_msg;
+        VLOG(1) << error_msg;
         return {false, error_msg};
     }
 }
