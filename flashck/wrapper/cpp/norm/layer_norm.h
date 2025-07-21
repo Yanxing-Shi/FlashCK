@@ -21,7 +21,6 @@ namespace flashck {
  * @param n Feature dimension
  * @param epsilon Numerical stability parameter (default: 1e-5)
  * @return Output tensor [m, n]
- * @throws std::runtime_error on execution failure
  *
  * Computes: output = gamma * (input - mean) / sqrt(variance + epsilon) + beta
  */
