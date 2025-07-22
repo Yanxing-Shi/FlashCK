@@ -101,7 +101,6 @@ class CMakeBuildExtension(BuildExtension):
 
     def run(self) -> None:
         # Build CMake extensions
-        # Build CMake extensions
         for ext in self.extensions:
             package_path = Path(self.get_ext_fullpath(ext.name))
             install_dir = package_path.resolve().parent
@@ -142,10 +141,11 @@ def setup_pytorch_extension(csrc_source_files,
         Path(csrc_source_files), name_extension="cc")
 
     # Header files
-    include_dirs = [
+    include_dirs = ["/opt/rocm/include"]
+    include_dirs.extend([
         common_header_files,
         csrc_header_files,
-    ]
+    ])
 
     # Compiler flags
     cxx_flags = ["-O3", "-fvisibility=hidden"]
@@ -156,7 +156,6 @@ def setup_pytorch_extension(csrc_source_files,
         cxx_flags.append("-g0")
 
     # Construct PyTorch ROCm extension
-
     return CppExtension(
         name="flash_ck_torch",
         sources=[str(src) for src in sources],

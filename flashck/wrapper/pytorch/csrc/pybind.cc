@@ -1,15 +1,15 @@
-#include "flashck/wrapper/c++/norm/layer_norm.h"
-#include "pybind_helper.h"
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 #include <torch/extension.h>
+
+#include "flashck/wrapper/cpp/norm/layer_norm.h"
 
 namespace py = pybind11;
 
 namespace flashck {
 
 at::Tensor layer_norm_fwd(
-    at::Tensor input, at::Tensor gamma, const std::vector<int64_t>& normlized_shape, at::Tensor beta, float eps)
+    at::Tensor input, const std::vector<int64_t>& normalized_shape, at::Tensor gamma, at::Tensor beta, float eps)
 {
     // Check the input tensor is not empty
     TORCH_CHECK(!input.numel() == 0, "Input tensor is empty");
@@ -19,19 +19,21 @@ at::Tensor layer_norm_fwd(
     // Check the normalized_shape is not empty
     TORCH_CHECK(!normalized_shape.empty(), "normalized_shape is empty");
 
-    for (int i = normalized_shape.size(); i > 0; --i) {
+    for (int i = 0; i < normalized_shape.size(); ++i) {
         TORCH_CHECK(normalized_shape[i] > 0, "normalized_shape must be greater than 0");
-        TORCH_CHECK(input.size(i) == normalized_shape[i],
+        int input_dim = input.dim() - normalized_shape.size() + i;
+        TORCH_CHECK(input.size(input_dim) == normalized_shape[i],
                     "Input tensor size at dimension ",
-                    i,
+                    input_dim,
                     " is ",
-                    input.size(i),
+                    input.size(input_dim),
                     " but expected ",
                     normalized_shape[i]);
     }
 
     // If the input is a 2D tensor or higher, reshape it to 2D according to the normalized_shape
-    at::Tensor input_reshaped = input;
+    std::vector<int64_t> original_shape(input.sizes().begin(), input.sizes().end());
+    at::Tensor           input_reshaped = input;
 
     if (input.dim() != 2) {
         input_reshaped = input.view({input.size(0), -1});
@@ -45,7 +47,7 @@ at::Tensor layer_norm_fwd(
     // Handle different data types
     if (input.dtype() == at::kFloat) {
         auto output_ptr = layer_norm_fwd<float>(
-            input_reshaped.data_ptr<float>(), gamma.data_ptr<float>(), beta.data_ptr<float>(), m, n, emb_dims, eps);
+            input_reshaped.data_ptr<float>(), gamma.data_ptr<float>(), beta.data_ptr<float>(), m, n, eps);
         output = at::from_blob(output_ptr, {m, n}, at::kFloat).clone();
     }
     else if (input.dtype() == at::kHalf) {
@@ -81,7 +83,7 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
     m.doc() = "FlashCK PyTorch Extension";
 
     // Declare common pybind11 handles
-    FC_DECLARE_COMMON_PYBIND11_HANDLES(m);
+    // FC_DECLARE_COMMON_PYBIND11_HANDLES(m);
 
     // Layer normalization functions
     m.def("layer_norm_fwd",

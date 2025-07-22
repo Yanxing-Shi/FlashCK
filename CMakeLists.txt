@@ -16,8 +16,8 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 # ==============================================================================
 # Build Options
 # ==============================================================================
-option(BUILD_EXAMPLES "Build examples" ON)
-option(BUILD_TESTS "Build tests" ON)
+option(BUILD_EXAMPLES "Build examples" OFF)
+option(BUILD_TESTS "Build tests" OFF)
 option(BUILD_PYTHON_BINDINGS "Build Python bindings" OFF)
 option(BUILD_SHARED_LIBS "Build shared libraries instead of static" OFF)
 
@@ -124,11 +124,11 @@ endif()
 # ==============================================================================
 # Installation
 # ==============================================================================
-# # Install headers
-# install(DIRECTORY flashck/
-# DESTINATION include/flashck
-# FILES_MATCHING PATTERN "*.h"
-# )
+# Install headers
+install(DIRECTORY flashck/
+    DESTINATION flashck
+    FILES_MATCHING PATTERN "*.h"
+)
 
 # # Install CMake config files
 # include(CMakePackageConfigHelpers)

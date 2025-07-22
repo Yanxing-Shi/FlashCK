@@ -44,9 +44,9 @@ if __name__ == "__main__":
     ext_modules = [setup_common_extension()]
     ext_modules.append(
         setup_pytorch_extension(
-            "flash_ck/core",
-            current_file_path / "flash_ck" / "wrapper" / "cpp",
-            current_file_path / "flash_ck",
+            current_file_path / "flashck" / "wrapper" / "pytorch" / "csrc",
+            current_file_path,
+            current_file_path,
         )
     )
 
