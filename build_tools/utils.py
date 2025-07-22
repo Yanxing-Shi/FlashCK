@@ -7,10 +7,19 @@ import os
 import re
 import shutil
 import subprocess
+import time
 import sys
 from pathlib import Path
 from subprocess import CalledProcessError
 from typing import List, Optional, Tuple, Union
+
+from wheel.bdist_wheel import bdist_wheel
+
+
+@functools.lru_cache(maxsize=None)
+def debug_build_enabled() -> bool:
+    """Whether to build with a debug configuration"""
+    return bool(int(os.getenv("FLASH_CK_BUILD_DEBUG", "0")))
 
 
 @functools.lru_cache(maxsize=None)
@@ -19,23 +28,143 @@ def get_max_jobs_for_parallel_build() -> int:
     Get the optimal number of parallel jobs for building.
 
     Priority order:
-    1. MAX_JOBS environment variable
-    2. CPU count with safety margin
+    1. FLASH_CK_BUILD_MAX_JOBS environment variable
+    2. --parallel= command line argument
+    3. CPU count with safety margin
 
     Returns:
         Number of parallel jobs to use (0 means unlimited)
     """
     # Check environment variable first
-    if env_jobs := os.getenv("MAX_JOBS"):
+    if env_jobs := os.getenv("FLASH_CK_BUILD_MAX_JOBS"):
         try:
             return max(1, int(env_jobs))
         except ValueError:
             print(
-                f"Warning: Invalid MAX_JOBS value: {env_jobs}")
+                f"Warning: Invalid FLASH_CK_BUILD_MAX_JOBS value: {env_jobs}")
+
+    # Check command-line arguments
+    for arg in sys.argv.copy():
+        if arg.startswith("--parallel="):
+            try:
+                jobs = int(arg.replace("--parallel=", ""))
+                sys.argv.remove(arg)
+                return max(1, jobs)
+            except ValueError:
+                print(f"Warning: Invalid --parallel value: {arg}")
 
     # Default: Use CPU count with safety margin (leave 1-2 cores free)
     cpu_count = multiprocessing.cpu_count()
     return max(1, cpu_count - 1) if cpu_count > 2 else 1
+
+
+@functools.lru_cache(maxsize=None)
+def get_cmake_bin() -> str:
+    """
+    Get the CMake binary path.
+
+    Returns:
+        Path to CMake binary
+
+    Raises:
+        FileNotFoundError: If CMake is not found
+    """
+    cmake_path = shutil.which("cmake")
+    if cmake_path is None:
+        raise FileNotFoundError("CMake not found in PATH")
+    return cmake_path
+
+
+@functools.lru_cache(maxsize=None)
+def found_cmake() -> bool:
+    """
+    Check if valid CMake is available.
+
+    CMake 3.18 or newer is required for ROCm support.
+
+    Returns:
+        True if valid CMake is available, False otherwise
+    """
+    try:
+        cmake_path = get_cmake_bin()
+    except FileNotFoundError:
+        return False
+
+    try:
+        # Query CMake for version info
+        result = subprocess.run(
+            [cmake_path, "--version"],
+            capture_output=True,
+            check=True,
+            text=True,
+            timeout=10
+        )
+
+        # Parse version
+        match = re.search(r"version\s*([\d.]+)", result.stdout)
+        if not match:
+            return False
+
+        version_str = match.group(1)
+        version_parts = version_str.split(".")
+        version = tuple(int(v) for v in version_parts[:2])  # Only major.minor
+
+        return version >= (3, 18)
+
+    except (subprocess.TimeoutExpired, CalledProcessError, ValueError):
+        return False
+
+
+@functools.lru_cache(maxsize=None)
+def found_ninja() -> bool:
+    """
+    Check if Ninja build system is available.
+
+    Returns:
+        True if Ninja is available, False otherwise
+    """
+    return shutil.which("ninja") is not None
+
+
+@functools.lru_cache(maxsize=None)
+def found_pybind11() -> bool:
+    """
+    Check if pybind11 is available.
+
+    Checks both Python package and CMake findability.
+
+    Returns:
+        True if pybind11 is available, False otherwise
+    """
+    # Check if Python package is installed
+    try:
+        import pybind11  # noqa: F401
+        return True
+    except ImportError:
+        pass
+
+    # Check if CMake can find pybind11
+    if not found_cmake():
+        return False
+
+    try:
+        subprocess.run(
+            [
+                get_cmake_bin(),
+                "--find-package",
+                "-DMODE=EXIST",
+                "-DNAME=pybind11",
+                "-DCOMPILER_ID=CXX",
+                "-DLANGUAGE=CXX",
+            ],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            check=True,
+            timeout=10
+        )
+        return True
+    except (CalledProcessError, OSError, subprocess.TimeoutExpired):
+        return False
 
 
 @functools.lru_cache(maxsize=None)
@@ -114,7 +243,7 @@ def get_rocm_archs() -> str:
     # Default architectures based on ROCm version
     if version >= (6, 0):
         # ROCm 6.0+ supports latest architectures
-        archs = "gfx900;gfx906;gfx908;gfx90a;gfx940;gfx941;gfx942;gfx1030;gfx1100;gfx1101"
+        archs = "gfx90a"
     elif version >= (5, 0):
         # ROCm 5.0+ supports most common architectures
         archs = "gfx900;gfx906;gfx908;gfx90a;gfx1030;gfx1100"
@@ -260,6 +389,41 @@ def is_framework_available(framework: str) -> bool:
 
 
 @functools.lru_cache(maxsize=None)
+def get_rocm_cmake_args() -> List[str]:
+    """
+    Get CMake arguments for ROCm configuration.
+
+    Returns:
+        List of CMake arguments for ROCm build
+    """
+    args = []
+
+    try:
+        # Add ROCm path
+        rocm_root = get_rocm_path()
+        args.extend([
+            f"-DCMAKE_PREFIX_PATH={rocm_root}",
+            f"-DROCM_PATH={rocm_root}",
+            f"-DHIP_PATH={rocm_root}",
+        ])
+
+        # Add HIP compiler
+        hipcc_bin = get_hipcc_path()
+        args.extend([
+            f"-DCMAKE_CXX_COMPILER={hipcc_bin}"])
+
+        # Add GPU architectures
+        archs = get_rocm_archs()
+        args.extend([
+            f"-DGPU_TARGETS={archs}"])
+
+    except FileNotFoundError as e:
+        raise RuntimeError(f"ROCm configuration failed: {e}")
+
+    return args
+
+
+@functools.lru_cache(maxsize=None)
 def get_rocm_env_vars() -> dict:
     """
     Get environment variables for ROCm configuration.
@@ -322,20 +486,20 @@ def get_fc_version() -> str:
         return "unknown"
 
     # Add git commit hash
-    try:
-        result = subprocess.run(
-            ["git", "rev-parse", "--short", "HEAD"],
-            capture_output=True,
-            cwd=root_path,
-            check=True,
-            text=True,
-            timeout=5
-        )
-        commit = result.stdout.strip()
-        if commit:
-            version += f"+{commit}"
-    except (subprocess.CalledProcessError, OSError, subprocess.TimeoutExpired):
-        pass
+    # try:
+    #     result = subprocess.run(
+    #         ["git", "rev-parse", "--short", "HEAD"],
+    #         capture_output=True,
+    #         cwd=root_path,
+    #         check=True,
+    #         text=True,
+    #         timeout=5
+    #     )
+    #     commit = result.stdout.strip()
+    #     if commit:
+    #         version += f"+{commit}"
+    # except (subprocess.CalledProcessError, OSError, subprocess.TimeoutExpired):
+    #     pass
 
     return version
 
@@ -360,30 +524,36 @@ def ValidateSupportArchs(archs):
     ), f"One of GPU archs of {archs} is invalid or not supported by FlashCK. Allowed archs: {allowed_archs}"
 
 
-def rename_cc_to_cu(cpp_files: List[Union[str, Path]]) -> List[str]:
+def rename_cc_to_cu(cpp_files: List[Path]):
     """
     Rename .cc files to .cu for CUDA compatibility.
 
     Args:
-        cpp_files: List of .cc file paths to rename
+        cpp_files: List of Path objects representing .cc files
     """
     for entry in cpp_files:
-        shutil.copy(entry, os.path.splitext(entry)[0] + ".cu")
+        new_name = entry.with_suffix(".cu")
+        if new_name != entry:
+            try:
+                entry.rename(new_name)
+                print(f"Renamed {entry} to {new_name}")
+            except OSError as e:
+                print(f"Error renaming {entry} to {new_name}: {e}")
+        else:
+            print(f"No renaming needed for {entry}")
 
-    return [os.path.abspath(os.path.splitext(entry)[0] + ".cu") for entry in cpp_files]
+
+class TimedBdist(bdist_wheel):
+    """Helper class to measure build time"""
+
+    def run(self):
+        start_time = time.perf_counter()
+        super().run()
+        total_time = time.perf_counter() - start_time
+        print(f"Total time for bdist_wheel: {total_time:.2f} seconds")
 
 
-def get_all_files_in_dir(path: Union[str, Path], name_extension: Optional[str] = None) -> List[Path]:
-    """
-    Get all files in a directory with optional file extension filtering.
-
-    Args:
-        path: Directory path to search for files
-        name_extension: Optional file extension to filter by (e.g., "cpp")
-    Returns:
-        List of Path objects for all files found
-    """
-    path = Path(path)
+def get_all_files_in_dir(path, name_extension=None):
     all_files = []
     for dirname, _, names in os.walk(path):
         for name in names:
