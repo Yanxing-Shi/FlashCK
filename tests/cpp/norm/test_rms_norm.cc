@@ -4,7 +4,7 @@
 #include "../common/norm_reference_impl.h"
 #include "../common/norm_test_config.h"
 #include "../common/test_framework.h"
-#include "flashck/wrapper/cpp/norm/rms_norm.h"
+#include "wrapper/cpp/norm/rms_norm.h"
 #include <gtest/gtest.h>
 #include <memory>
 

@@ -1,4 +1,4 @@
-"""Installation script for flash_ck pytorch extensions."""
+"""Installation script for pytorch extensions."""
 
 import setuptools
 
@@ -7,13 +7,13 @@ from pathlib import Path
 from build_tools.utils import (
     TimedBdist, get_rocm_version, is_framework_available, get_fc_version)
 from build_tools.build_pt import (
-    CMakeExtension, setup_pytorch_extension, CMakeBuildExtension)
+    CMakeExtension, CMakeBuildExtension)
 
 
 current_file_path = Path(__file__).parent.resolve()
 
 
-def setup_common_extension() -> CMakeExtension:
+def setup_extension() -> CMakeExtension:
     """Setup CMake extension for common library"""
     return CMakeExtension(
         name="flash_ck_common",
@@ -40,9 +40,6 @@ if __name__ == "__main__":
     with open("README.md", encoding="utf-8") as f:
         long_description = f.read()
 
-    # add extmodules
-    ext_modules = [setup_common_extension()]
-
     # Configure package
     setuptools.setup(
         name="flash_ck",
@@ -56,7 +53,7 @@ if __name__ == "__main__":
         long_description=long_description,
         long_description_content_type="text/markdown",
         classifiers=["Programming Language :: Python :: 3"],
-        ext_modules=ext_modules,
+        ext_modules=[setup_extension()],
         cmdclass={"build_ext": CMakeBuildExtension, "bdist_wheel": TimedBdist},
         install_requires=["torch>=2.1"]
     )

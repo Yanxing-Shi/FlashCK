@@ -4,7 +4,7 @@
 #include "../common/norm_reference_impl.h"
 #include "../common/norm_test_config.h"
 #include "../common/test_framework.h"
-#include "flashck/wrapper/cpp/norm/layer_norm.h"
+#include "wrapper/cpp/norm/layer_norm.h"
 #include <gtest/gtest.h>
 #include <memory>
 
@@ -32,8 +32,10 @@ TEST_F(NormUnifiedTestFloat, LayerNormCorrectnessTest)
     };
     run_correctness_test(configs,
                          std::function<void(const LayerNormConfig<float>&, float*)>(reference_impl),
-                         std::function<float*(const LayerNormConfig<float>&,
-                         GpuMemoryManager<float>&)>(flashck_impl), 1e-3f, 1e-4f, true);
+                         std::function<float*(const LayerNormConfig<float>&, GpuMemoryManager<float>&)>(flashck_impl),
+                         1e-3f,
+                         1e-4f,
+                         true);
 }
 
 // LayerNorm performance test

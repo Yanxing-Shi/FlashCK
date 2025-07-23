@@ -6,7 +6,7 @@
 #include <hip/hip_runtime.h>
 
 // Include the LayerNorm header-only wrapper
-#include "flashck/wrapper/cpp/norm/layer_norm.h"
+#include "wrapper/cpp/norm/layer_norm.h"
 
 // Helper function for HIP error checking
 #define HIP_CHECK(call)                                                                                                \

@@ -6,7 +6,7 @@
 #include <hip/hip_runtime.h>
 
 // Include the RMSNorm header-only wrapper
-#include "flashck/wrapper/cpp/norm/rms_norm.h"
+#include "wrapper/cpp/norm/rms_norm.h"
 
 // Helper function for HIP error checking
 #define HIP_CHECK(call)                                                                                                \

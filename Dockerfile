@@ -46,6 +46,15 @@ RUN git clone https://github.com/jinja2cpp/Jinja2Cpp.git -b 1.2.1 && \
     cmake --build . --config Release --target install && \
     cd /tmp && rm -rf Jinja2Cpp
 
+# pybind11
+WORKDIR /tmp
+RUN git clone https://github.com/pybind/pybind11.git -b v3.0.0 && \
+    cd pybind11 && \
+    mkdir build && cd build && \
+    cmake -DPYBIND11_BUILD_SHARED=TRUE -DBUILD_TESTING=OFF .. && \
+    make -j$(nproc) && \
+    make install && \
+    cd /tmp && rm -rf pybind11
 
 # google test
 WORKDIR /tmp

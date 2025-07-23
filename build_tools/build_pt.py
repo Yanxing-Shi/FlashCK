@@ -2,7 +2,6 @@ import os
 import subprocess
 import sys
 import sysconfig
-import copy
 import time
 
 from pathlib import Path
@@ -12,7 +11,7 @@ from typing import List, Optional, Type
 import setuptools
 
 
-from torch.utils.cpp_extension import BuildExtension, CppExtension
+from torch.utils.cpp_extension import BuildExtension
 
 from .utils import (
     debug_build_enabled,
@@ -137,45 +136,3 @@ class CMakeBuildExtension(BuildExtension):
         ]
         super().run()
         self.extensions = all_extensions
-
-
-def setup_pytorch_extension(csrc_source_files,
-                            csrc_header_files,
-                            common_header_files) -> setuptools.Extension:
-    """Setup CUDA extension for PyTorch support"""
-
-    # Source files
-    sources = get_all_files_in_dir(
-        Path(csrc_source_files), name_extension="cc")
-
-    # Header files
-    include_dirs = ["/opt/rocm/include"]
-    include_dirs.extend([
-        "/usr/local/include",  # glog, gflags, Jinja2Cpp, sqlite
-        common_header_files,
-        csrc_header_files,
-    ])
-
-    # Compiler flags
-    cxx_flags = ["-O3", "-DGLOG_USE_GLOG_EXPORT", "-std=c++17",
-                 "-fvisibility=hidden", "-fPIC"]
-    if debug_build_enabled():
-        cxx_flags.append("-g")
-        cxx_flags.append("-UNDEBUG")
-    else:
-        cxx_flags.append("-g0")
-
-    library_dirs = ["/usr/local/lib"]  # glog, gflags, Jinja2Cpp, sqlite
-    extra_link_args = [
-        "-lglog", "-lgflags", "-lsqlite3", "-lJinja2Cpp", "-l/opt/rocm/lib"
-    ]
-
-    # Construct PyTorch ROCm extension
-    return CppExtension(
-        name="flash_ck_torch",
-        sources=[str(src) for src in sources],
-        include_dirs=[str(inc) for inc in include_dirs],
-        extra_compile_args={"cxx": cxx_flags},
-        library_dirs=library_dirs,
-        extra_link_args=extra_link_args
-    )

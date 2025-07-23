@@ -18,7 +18,7 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 # ==============================================================================
 option(BUILD_EXAMPLES "Build examples" OFF)
 option(BUILD_TESTS "Build tests" OFF)
-option(BUILD_PYTHON_BINDINGS "Build Python bindings" OFF)
+option(BUILD_PYTHON_BINDINGS "Build Python bindings" ON)
 option(BUILD_SHARED_LIBS "Build shared libraries instead of static" OFF)
 
 # ==============================================================================
@@ -87,6 +87,13 @@ find_package(jinja2cpp REQUIRED)
 # Database
 find_package(SQLite3 REQUIRED)
 
+# Pytorch python bindings
+if(BUILD_PYTHON_BINDINGS)
+    find_package(pybind11 REQUIRED)
+    find_package(Python REQUIRED COMPONENTS Development)
+    find_package(Torch REQUIRED)
+endif()
+
 # Testing framework
 if(BUILD_TESTS)
     enable_testing()
@@ -103,7 +110,12 @@ include_directories(${PROJECT_SOURCE_DIR})
 # ==============================================================================
 # Core Library
 # ==============================================================================
-add_subdirectory(flashck)
+add_subdirectory(core)
+
+# ==============================================================================
+# Cpp Library
+# ==============================================================================
+add_subdirectory(include/flashck)
 
 # ==============================================================================
 # Examples
@@ -169,7 +181,6 @@ message(STATUS "Build Options:")
 message(STATUS "  Examples: ${BUILD_EXAMPLES}")
 message(STATUS "  Tests: ${BUILD_TESTS}")
 message(STATUS "  Python bindings: ${BUILD_PYTHON_BINDINGS}")
-message(STATUS "  Benchmarks: ${BUILD_BENCHMARKS}")
 message(STATUS "  Shared libraries: ${BUILD_SHARED_LIBS}")
 message(STATUS "")
 message(STATUS "Compiler:")

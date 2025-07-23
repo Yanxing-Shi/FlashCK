@@ -17,7 +17,7 @@
 #include <memory>
 
 // Include your operation's header here
-// #include "flashck/wrapper/cpp/your_operation/your_operation.h"
+// #include "wrapper/cpp/your_operation/your_operation.h"
 
 // Unified test framework
 #include "../common/op_test_configs.h"  // For GEMM/FlashAttention examples
