@@ -20,7 +20,8 @@ from .utils import (
     found_ninja,
     get_max_jobs_for_parallel_build,
     get_rocm_cmake_args,
-    get_all_files_in_dir
+    get_all_files_in_dir,
+    get_torch_path
 )
 
 
@@ -49,6 +50,7 @@ class CMakeExtension(setuptools.Extension):
 
         # CMake configure command
         build_type = "Debug" if debug_build_enabled() else "Release"
+        cmake_prefix_path = f"{get_torch_path()}:/opt/rocm"
         configure_command = [
             cmake_bin,
             "-S",
@@ -59,8 +61,14 @@ class CMakeExtension(setuptools.Extension):
             f"-DPython_INCLUDE_DIR={sysconfig.get_path('include')}",
             f"-DCMAKE_BUILD_TYPE={build_type}",
             f"-DCMAKE_INSTALL_PREFIX={install_dir}",
+            f"-DCMAKE_PREFIX_PATH={cmake_prefix_path}"
         ]
-        configure_command += get_rocm_cmake_args()
+        # Remove -DCMAKE_PREFIX_PATH from get_rocm_cmake_args()
+        rocm_args = [arg for arg in get_rocm_cmake_args(
+        ) if not arg.startswith("-DCMAKE_PREFIX_PATH")]
+        torch_dir = os.path.join(get_torch_path(), "Torch")
+        configure_command.append(f"-DTorch_DIR={torch_dir}")
+        configure_command += rocm_args
         configure_command += self.cmake_flags
 
         import pybind11
@@ -143,22 +151,31 @@ def setup_pytorch_extension(csrc_source_files,
     # Header files
     include_dirs = ["/opt/rocm/include"]
     include_dirs.extend([
+        "/usr/local/include",  # glog, gflags, Jinja2Cpp, sqlite
         common_header_files,
         csrc_header_files,
     ])
 
     # Compiler flags
-    cxx_flags = ["-O3", "-fvisibility=hidden"]
+    cxx_flags = ["-O3", "-DGLOG_USE_GLOG_EXPORT", "-std=c++17",
+                 "-fvisibility=hidden", "-fPIC"]
     if debug_build_enabled():
         cxx_flags.append("-g")
         cxx_flags.append("-UNDEBUG")
     else:
         cxx_flags.append("-g0")
 
+    library_dirs = ["/usr/local/lib"]  # glog, gflags, Jinja2Cpp, sqlite
+    extra_link_args = [
+        "-lglog", "-lgflags", "-lsqlite3", "-lJinja2Cpp", "-l/opt/rocm/lib"
+    ]
+
     # Construct PyTorch ROCm extension
     return CppExtension(
         name="flash_ck_torch",
         sources=[str(src) for src in sources],
         include_dirs=[str(inc) for inc in include_dirs],
-        extra_compile_args={"cxx": cxx_flags}
+        extra_compile_args={"cxx": cxx_flags},
+        library_dirs=library_dirs,
+        extra_link_args=extra_link_args
     )

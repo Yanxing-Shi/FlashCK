@@ -10,7 +10,7 @@
 #include "flashck/core/utils/dtype.h"
 
 namespace flashck {
-
+namespace cpp {
 /**
  * @brief Execute RMSNorm forward pass
  * @tparam T Data type (float, _Float16, ushort)
@@ -75,4 +75,5 @@ T* rms_norm_fwd(T* x, T* gamma, int m, int n, float epsilon = 1e-5f)
     }
 }
 
+}  // namespace cpp
 }  // namespace flashck

@@ -135,7 +135,7 @@ public:
             ss << "lower:" << values_[0] << ", " << "higher:" << values_[1];
         }
         else {
-            for (int64_t i = 0; i < values_.size(); i++) {
+            for (size_t i = 0; i < values_.size(); i++) {
                 ss << values_[i] << (i == values_.size() - 1 ? "" : ", ");
             }
         }

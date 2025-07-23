@@ -11,6 +11,8 @@
 
 namespace flashck {
 
+namespace cpp {
+
 /**
  * @brief Execute LayerNorm forward pass
  * @tparam T Data type (float, _Float16, ushort)
@@ -72,5 +74,7 @@ T* layer_norm_fwd(T* x, T* gamma, T* beta, int m, int n, float epsilon = 1e-5f)
         throw std::runtime_error("LayerNorm execution failed: " + std::string(e.what()));
     }
 }
+
+}  // namespace cpp
 
 }  // namespace flashck

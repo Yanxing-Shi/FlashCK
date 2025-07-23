@@ -42,18 +42,11 @@ if __name__ == "__main__":
 
     # add extmodules
     ext_modules = [setup_common_extension()]
-    ext_modules.append(
-        setup_pytorch_extension(
-            current_file_path / "flashck" / "wrapper" / "pytorch" / "csrc",
-            current_file_path,
-            current_file_path,
-        )
-    )
 
     # Configure package
     setuptools.setup(
         name="flash_ck",
-        include_package_data=True,  # include all files in the package
+        include_package_data=True,
         package_data={"": ["version.txt"]},
         packages=setuptools.find_packages(
             where=".", include=["flashck", "flashck.*"]),

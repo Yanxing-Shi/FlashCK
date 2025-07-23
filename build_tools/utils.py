@@ -226,6 +226,44 @@ def get_hipcc_path() -> Path:
 
 
 @functools.lru_cache(maxsize=None)
+def get_torch_path() -> str:
+    """
+    Get the CMake prefix path for PyTorch.
+
+    Returns:
+        Path string for CMAKE_PREFIX_PATH to find TorchConfig.cmake
+    """
+    import torch
+    return torch.utils.cmake_prefix_path
+
+
+@functools.lru_cache(maxsize=None)
+def get_gpu_name_by_id(gpu_id: int = 0) -> str:
+    """Retrieve GPU name (e.g. gfx90a) by device ID"""
+    GPU_NAME_PATTERN = re.compile(r"Name:\s*(gfx\d+\w*)")
+    try:
+        output = subprocess.check_output(
+            ["rocminfo"], text=True, stderr=subprocess.PIPE, timeout=5
+        )
+        if matches := GPU_NAME_PATTERN.finditer(output):
+            gpu_list = [m.group(1) for m in matches]
+            return gpu_list[gpu_id] if gpu_id < len(gpu_list) else ""
+
+        return ""
+
+    except subprocess.CalledProcessError as e:
+        print(f"GPU query failed (exit {e.returncode}): {e.stderr.strip()}")
+    except FileNotFoundError:
+        print("ROCm tools not installed (requires rocminfo)")
+    except subprocess.TimeoutExpired:
+        print("GPU query timeout (5s)")
+    except Exception as e:
+        print(f"GPU detection error: {str(e)}")
+
+    return ""
+
+
+@functools.lru_cache(maxsize=None)
 def get_rocm_archs() -> str:
     """
     Get supported ROCm GPU architectures.
@@ -233,27 +271,19 @@ def get_rocm_archs() -> str:
     Returns:
         Semicolon-separated string of GPU architectures
     """
-    # Check environment variable first
-    if env_archs := os.getenv("FLASH_CK_ROCM_ARCHS"):
-        return env_archs
+    env_archs = os.getenv("FLASH_CK_ROCM_ARCHS", "native")
 
-    # Get ROCm version to determine default architectures
-    version = get_rocm_version()
-
-    # Default architectures based on ROCm version
-    if version >= (6, 0):
-        # ROCm 6.0+ supports latest architectures
-        archs = "gfx90a"
-    elif version >= (5, 0):
-        # ROCm 5.0+ supports most common architectures
-        archs = "gfx900;gfx906;gfx908;gfx90a;gfx1030;gfx1100"
+    if env_archs == "native":
+        arch = get_gpu_name_by_id()
+        return arch if arch else "native"
     else:
-        # Older ROCm versions - basic support
-        archs = "gfx900;gfx906;gfx908"
-
-    # Cache in environment for future calls
-    os.environ["FLASH_CK_ROCM_ARCHS"] = archs
-    return archs
+        # Accept comma/semicolon separated env, or fallback to default list
+        if isinstance(env_archs, str):
+            archs = [a.strip()
+                     for a in re.split(r"[;,]", env_archs) if a.strip()]
+        else:
+            archs = ["gfx90a", "gfx950", "gfx942"]
+        return ";".join(archs) if archs else "gfx90a"
 
 
 @functools.lru_cache(maxsize=None)
@@ -561,3 +591,8 @@ def get_all_files_in_dir(path, name_extension=None):
                 continue
             all_files.append(Path(dirname, name))
     return all_files
+
+
+def rename_cpp_to_cu(cpp_files):
+    for entry in cpp_files:
+        shutil.copy(entry, os.path.splitext(entry)[0] + ".cu")

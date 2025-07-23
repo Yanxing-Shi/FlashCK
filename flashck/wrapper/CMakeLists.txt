@@ -4,3 +4,5 @@
 
 # Add C++ wrapper (always build if wrapper is enabled)
 add_subdirectory(cpp)
+
+add_subdirectory(pytorch/csrc)

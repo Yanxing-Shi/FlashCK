@@ -5,6 +5,8 @@
 #include <string>
 #include <type_traits>
 
+#include <hip/hip_runtime.h>
+
 namespace flashck {
 
 // ==============================================================================

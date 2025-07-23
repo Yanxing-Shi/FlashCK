@@ -124,11 +124,11 @@ endif()
 # ==============================================================================
 # Installation
 # ==============================================================================
-# Install headers
-install(DIRECTORY flashck/
-    DESTINATION flashck
-    FILES_MATCHING PATTERN "*.h"
-)
+# # Install headers
+# install(DIRECTORY flashck/
+# DESTINATION flashck
+# FILES_MATCHING PATTERN "*.h"
+# )
 
 # # Install CMake config files
 # include(CMakePackageConfigHelpers)
