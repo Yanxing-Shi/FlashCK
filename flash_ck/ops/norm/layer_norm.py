@@ -46,7 +46,7 @@ def layer_norm_fwd(input: torch.Tensor,
 
     Example:
         >>> import torch
-        >>> from flashck.ops.norm import layer_norm_fwd
+        >>> from flash_ck.ops.norm import layer_norm_fwd
         >>> 
         >>> # Basic usage
         >>> x = torch.randn(20, 5, 10, 10)

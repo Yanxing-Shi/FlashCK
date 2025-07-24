@@ -5,19 +5,18 @@ This package provides PyTorch-compatible interfaces for FlashCK operations,
 including both functional and module-based APIs.
 """
 
+from .flash_ck import layer_norm_fwd
+
 # Import functional operations
 from . import ops
-from .ops import layer_norm_fwd
+# from .ops import layer_norm_fwd
 
 # Import neural network modules
 from . import nn
 from .nn import LayerNorm
 
 # Import utilities
-from .utils import is_available, get_available_operations, refresh_flashck_registry
-
-# Refresh the FlashCK registry
-refresh_flashck_registry()
+from .utils import is_available, get_available_operations
 
 __version__ = "0.1.0"
 

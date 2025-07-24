@@ -16,7 +16,7 @@ current_file_path = Path(__file__).parent.resolve()
 def setup_extension() -> CMakeExtension:
     """Setup CMake extension for common library"""
     return CMakeExtension(
-        name="flash_ck_common",
+        name="flash_ck",
         cmake_path=current_file_path,
         cmake_flags=[]
     )
@@ -44,10 +44,13 @@ if __name__ == "__main__":
     setuptools.setup(
         name="flash_ck",
         include_package_data=True,
-        package_data={"": ["version.txt"]},
+        package_data={"flash_ck": ["version.txt"]},
         packages=setuptools.find_packages(
-            where=".", include=["flashck", "flashck.*"]),
-        package_dir={"flash_ck": "flashck"},
+            include=[
+                "flash_ck",
+                "flash_ck.*",
+                "flash_ck/build_tools",
+            ]),
         version=get_fc_version(),
         description="FlashCK: fast and memory-efficient ck kernel",
         long_description=long_description,

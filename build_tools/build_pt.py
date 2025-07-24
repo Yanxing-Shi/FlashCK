@@ -70,10 +70,7 @@ class CMakeExtension(setuptools.Extension):
         configure_command += rocm_args
         configure_command += self.cmake_flags
 
-        import pybind11
-
-        pybind11_dir = Path(pybind11.__file__).resolve().parent
-        pybind11_dir = pybind11_dir / "share" / "cmake" / "pybind11"
+        pybind11_dir = subprocess.check_output([sys.executable, "-m", "pybind11", "--cmakedir"], text=True).strip()
         configure_command.append(f"-Dpybind11_DIR={pybind11_dir}")
 
         # CMake build and install commands
@@ -128,6 +125,18 @@ class CMakeBuildExtension(BuildExtension):
                     build_dir=build_dir,
                     install_dir=install_dir,
                 )
+                
+
+                target_dir = install_dir / "flash_ck"
+                target_dir.mkdir(exist_ok=True, parents=True)
+
+                lib_dir = build_dir / "lib"
+                if lib_dir.exists():
+                    for so_file in lib_dir.glob("*.so"):
+                        dst = target_dir / so_file.name
+                        print(f"Copying {so_file} -> {dst}")
+                        import shutil
+                        shutil.copy2(so_file, dst)
 
         # Build non-CMake extensions as usual
         all_extensions = self.extensions

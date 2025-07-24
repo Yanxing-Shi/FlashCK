@@ -1,5 +1,7 @@
+#include <pybind11/detail/common.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
+
 #include <torch/extension.h>
 
 #include "core/pybind/norm/layer_norm.h"
@@ -21,8 +23,8 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m)
           "Forward pass of layer normalization",
           py::arg("input"),
           py::arg("normalized_shape"),
-          py::arg("gamma"),
-          py::arg("beta"),
+          py::arg("weight"),
+          py::arg("bias"),
           py::arg("eps") = 1e-5);
 }
 }  // namespace flashck

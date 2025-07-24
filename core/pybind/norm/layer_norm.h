@@ -1,4 +1,5 @@
 #include <ATen/ATen.h>
+#include <ATen/Tensor.h>
 
 #include "flashck/norm/layer_norm.h"
 
@@ -7,13 +8,13 @@ namespace flashck {
 namespace pytorch {
 
 at::Tensor layer_norm_fwd(
-    at::Tensor input, const std::vector<int64_t>& normalized_shape, at::Tensor gamma, at::Tensor beta, float eps)
+    at::Tensor input, const std::vector<int64_t>& normalized_shape, at::Tensor weight, at::Tensor bias, float eps)
 {
     // Check the input tensor is not empty
     TORCH_CHECK(input.numel() != 0, "Input tensor is empty");
-    // Check the gamma and beta tensors are not empty
-    TORCH_CHECK(gamma.numel() != 0, "gamma tensor is empty");
-    TORCH_CHECK(beta.numel() != 0, "beta tensor is empty");
+    // Check the weight and bias tensors are not empty
+    TORCH_CHECK(weight.numel() != 0, "weight tensor is empty");
+    TORCH_CHECK(bias.numel() != 0, "bias tensor is empty");
     // Check the normalized_shape is not empty
     TORCH_CHECK(!normalized_shape.empty(), "normalized_shape is empty");
 
@@ -45,19 +46,19 @@ at::Tensor layer_norm_fwd(
     // Handle different data types
     if (input.dtype() == at::kFloat) {
         auto output_ptr = flashck::naive::layer_norm_fwd<float>(
-            input_reshaped.data_ptr<float>(), gamma.data_ptr<float>(), beta.data_ptr<float>(), m, n, eps);
+            input_reshaped.data_ptr<float>(), weight.data_ptr<float>(), bias.data_ptr<float>(), m, n, eps);
         output = at::from_blob(output_ptr, {m, n}, at::kFloat).clone();
     }
-    else if (input.dtype() == at::kHalf) {
-        auto output_ptr = flashck::naive::layer_norm_fwd<_Float16>(
-            input_reshaped.data_ptr<_Float16>(), gamma.data_ptr<_Float16>(), beta.data_ptr<_Float16>(), m, n, eps);
-        output = at::from_blob(output_ptr, {m, n}, at::kHalf).clone();
-    }
-    else if (input.dtype() == at::kBFloat16) {
-        auto output_ptr = flashck::naive::layer_norm_fwd<ushort>(
-            input_reshaped.data_ptr<ushort>(), gamma.data_ptr<ushort>(), beta.data_ptr<ushort>(), m, n, eps);
-        output = at::from_blob(output_ptr, {m, n}, at::kBFloat16).clone();
-    }
+    // else if (input.dtype() == at::kHalf) {
+    //     auto output_ptr = flashck::naive::layer_norm_fwd<at::kHalf>(
+    //         input_reshaped.data_ptr<at::kHalf>(), weight.data_ptr<at::kHalf>(), bias.data_ptr<at::kHalf>(), m, n, eps);
+    //     output = at::from_blob(output_ptr, {m, n}, at::kHalf).clone();
+    // }
+    // else if (input.dtype() == at::kBFloat16) {
+    //     auto output_ptr = flashck::naive::layer_norm_fwd<ushort>(
+    //         input_reshaped.data_ptr<ushort>(), weight.data_ptr<ushort>(), bias.data_ptr<at::kBFloat16>(), m, n, eps);
+    //     output = at::from_blob(output_ptr, {m, n}, at::kBFloat16).clone();
+    // }
     else {
         TORCH_CHECK(false, "Unsupported data type for layer norm");
     }

@@ -28,7 +28,7 @@ def _try_import_flashck_functions():
 
     # Try to import layer normalization functions
     try:
-        from flashck.ops.norm import layer_norm_fwd
+        from flash_ck import layer_norm_fwd
         _FLASHCK_FUNCTIONS[FlashCKOperationType.LAYER_NORM.value] = {
             'forward': layer_norm_fwd
         }
@@ -170,14 +170,6 @@ def with_flashck_fallback(operation_type: str, function_name: str, fallback_func
     return decorator
 
 
-def refresh_flashck_registry():
-    """
-    Refresh the FlashCK function registry and availability status.
-    Call this after building or installing FlashCK extensions to update availability.
-    """
-    _try_import_flashck_functions()
-
-
 __all__ = [
     "FlashCKOperationType",
     "is_available",
@@ -185,6 +177,5 @@ __all__ = [
     "register_flashck_functions",
     "get_available_operations",
     "get_operation_function",
-    "with_flashck_fallback",
-    "refresh_flashck_registry",
+    "with_flashck_fallback"
 ]
