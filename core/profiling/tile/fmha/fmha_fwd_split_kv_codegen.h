@@ -10,6 +10,57 @@
 namespace flashck {
 
 /**
+ * @class FmhaFwdTileDesc
+ * @brief Describes the tiling configuration for FMHA operations
+ *
+ * This class defines how the FMHA computation is divided across thread blocks
+ * and how attention computation is tiled across different dimensions.
+ * It specifies the work distribution strategy for optimal GPU performance.
+ */
+class FmhaFwdSplitKVTileDesc {
+public:
+    /**
+     * @brief Generate a unique name for this tile configuration
+     * @return String identifier based on tile parameters
+     */
+    std::string GetInstanceName() const;
+
+    /**
+     * @brief Generate code template parameters for this tile
+     * @return String representation for code generation
+     */
+    std::string Emit() const;
+
+    // ====================== Q-K GEMM Tile Configuration ======================
+    int64_t m0_block_;
+    int64_t n0_block_;
+    int64_t k0_block_;
+    int64_t k0_max_block_;
+
+    int64_t n1_block_;
+    int64_t k1_block_;
+
+    // ====================== Warp Distribution ======================
+    int64_t m0_warp_;
+    int64_t n0_warp_;
+    int64_t k0_warp_;
+
+    int64_t m1_warp_;
+    int64_t n1_warp_;
+    int64_t k1_warp_;
+
+    // ====================== Warp-Level Tile Sizes ======================
+    int64_t m0_warp_tile_;
+    int64_t n0_warp_tile_;
+    int64_t k0_warp_tile_;
+    int64_t m1_warp_tile_;
+    int64_t n1_warp_tile_;
+    int64_t k1_warp_tile_;
+
+};
+
+
+/**
  * @class FmhaFwdSplitKVCodeGen
  * @brief Code generator for Forward FMHA SplitKV operations
  *
@@ -49,34 +100,17 @@ public:
      */
     std::string Emit() const;
 
-    // ====================== Operation Configuration ======================
-
-    FmhaKind kind_ = FmhaKind::FwdSplitKV;  ///< Type of FMHA operation (always FwdSplitKV)
-
-    // ====================== Data Type Configuration ======================
-
-    DataType dtype_ = DataType::FLOAT16;  ///< Primary data type for Q, K, V tensors
-
-    // ====================== Attention Configuration ======================
-
-    FmhaMode                 mode_        = FmhaMode::Batch;  ///< Batch or Group mode for attention computation
-    GenericAttentionMaskEnum mask_type_   = GenericAttentionMaskEnum::NO_MASK;  ///< Type of attention mask applied
-    std::array<int64_t, 2>   window_size_ = {-1, -1};                           ///< Sliding window size [left, right]
-    BiasEnum                 bias_enum_   = BiasEnum::NO_BIAS;                  ///< Type of bias applied to attention
+    FmhaProblem problem_;
 
     // ====================== Tiling Configuration ======================
 
-    FmhaTileDesc tile_desc_;  ///< Tile configuration for this FMHA SplitKV operation
+    FmhaFwdSplitKVTileDesc tile_desc_;  ///< Tile configuration for this FMHA SplitKV operation
 
     // ====================== SplitKV Specific Configuration ======================
 
     bool has_uneven_splits_                  = false;  ///< Enable handling of uneven splits across sequence length
     bool is_store_lse_                       = false;  ///< Enable storing log-sum-exp values for numerical stability
     bool is_merge_num_head_groups_seq_len_q_ = false;  ///< Enable merging head groups with sequence length for Q
-
-    // ====================== Memory Configuration ======================
-
-    bool is_paged_kv_ = false;  ///< Enable paged key-value cache for memory efficiency
 
     // ====================== Padding Configuration ======================
 
@@ -89,10 +123,6 @@ public:
     // ====================== Performance Configuration ======================
 
     int block_per_cu_ = -1;  ///< Override occupancy if not -1 (blocks per compute unit)
-
-    // ====================== Quantization Configuration ======================
-
-    bool is_static_quant_ = false;  ///< Enable static quantization
 
     // ====================== Pipeline Configuration ======================
 

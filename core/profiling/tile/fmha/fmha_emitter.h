@@ -17,7 +17,7 @@
 namespace flashck {
 
 // Global tile descriptor configurations for different FMHA operations
-const std::vector<FmhaTileDesc> g_fmha_tile_descriptions = {
+const std::vector<FmhaFwdTileDesc> g_fmha_tile_descriptions = {
     // clang-format off
     //  bm0, bn0, bn1, bk0_max, bk1, bm1, bm1_per_wave, bn1_per_wave, bk1_per_wave, bm1_repeat, bn1_repeat, bk1_repeat, c_shuffle_block_transfer_cluster_lengths_mblock_mperblock_nblock_nperblock, c_shuffle_block_transfer_scalar_per_vector_nperblock
     {128, 64,  16,  32,  32,  32, 2, 1, 1, 2, 1, 1, 32, 32, 16, 32, 32, 16},
@@ -28,7 +28,7 @@ const std::vector<FmhaTileDesc> g_fmha_tile_descriptions = {
     // clang-format on
 };
 
-const std::vector<FmhaAppendKVTileDesc> g_fmha_appendkv_tile_descriptions = {
+const std::vector<FmhaFwdAppendKVTileDesc> g_fmha_appendkv_tile_descriptions = {
     // clang-format off
     //  bs,  bsk, bd,  bdv
     {64,  64,  32,  32},
@@ -38,7 +38,7 @@ const std::vector<FmhaAppendKVTileDesc> g_fmha_appendkv_tile_descriptions = {
     // clang-format on
 };
 
-const std::vector<FmhaSplitKVCombineTileDesc> g_fmha_splitkv_combine_tile_descriptions = {
+const std::vector<FmhaFwdSplitKVCombineTileDesc> g_fmha_splitkv_combine_tile_descriptions = {
     // clang-format off
     //  bm0, bn1
     {128, 32},
@@ -81,7 +81,7 @@ public:
      * @param fmha_problem The FMHA problem configuration
      * @return true if tile descriptor is valid, false otherwise
      */
-    bool IsValidTile(const FmhaTileDesc& tile_desc, const FmhaProblem& fmha_problem) const;
+    bool IsValidTile(const FmhaFwdTileDesc& tile_desc, const FmhaProblem& fmha_problem) const;
 
     /**
      * @brief Validates if an AppendKV tile descriptor is valid for the given problem
@@ -89,7 +89,7 @@ public:
      * @param fmha_problem The FMHA problem configuration
      * @return true if tile descriptor is valid, false otherwise
      */
-    bool IsValidTile(const FmhaAppendKVTileDesc& tile_desc, const FmhaProblem& fmha_problem) const;
+    bool IsValidTile(const FmhaFwdAppendKVTileDesc& tile_desc, const FmhaProblem& fmha_problem) const;
 
     /**
      * @brief Validates if a SplitKV Combine tile descriptor is valid for the given problem
@@ -97,7 +97,7 @@ public:
      * @param fmha_problem The FMHA problem configuration
      * @return true if tile descriptor is valid, false otherwise
      */
-    bool IsValidTile(const FmhaSplitKVCombineTileDesc& tile_desc, const FmhaProblem& fmha_problem) const;
+    bool IsValidTile(const FmhaFwdSplitKVCombineTileDesc& tile_desc, const FmhaProblem& fmha_problem) const;
 
     /**
      * @brief Applies heuristic filtering to tile descriptors
@@ -105,7 +105,7 @@ public:
      * @param fmha_problem The FMHA problem configuration
      * @return Vector of filtered tile descriptors
      */
-    std::vector<FmhaTileDesc> HeuristicFilter(const std::vector<FmhaTileDesc>& fmha_tile_desc,
+    std::vector<FmhaFwdTileDesc> HeuristicFilter(const std::vector<FmhaFwdTileDesc>& fmha_tile_desc,
                                               const FmhaProblem&               fmha_problem) const;
 
     /**
@@ -114,7 +114,7 @@ public:
      * @param fmha_problem The FMHA problem configuration
      * @return Vector of filtered tile descriptors
      */
-    std::vector<FmhaAppendKVTileDesc> HeuristicFilter(const std::vector<FmhaAppendKVTileDesc>& fmha_tile_desc,
+    std::vector<FmhaFwdAppendKVTileDesc> HeuristicFilter(const std::vector<FmhaFwdAppendKVTileDesc>& fmha_tile_desc,
                                                       const FmhaProblem&                       fmha_problem) const;
 
     /**
@@ -123,8 +123,8 @@ public:
      * @param fmha_problem The FMHA problem configuration
      * @return Vector of filtered tile descriptors
      */
-    std::vector<FmhaSplitKVCombineTileDesc>
-    HeuristicFilter(const std::vector<FmhaSplitKVCombineTileDesc>& fmha_tile_desc,
+    std::vector<FmhaFwdSplitKVCombineTileDesc>
+    HeuristicFilter(const std::vector<FmhaFwdSplitKVCombineTileDesc>& fmha_tile_desc,
                     const FmhaProblem&                             fmha_problem) const;
 
     /**
@@ -170,14 +170,14 @@ private:
      * @param fmha_problem The FMHA problem configuration
      * @param tile_descriptors Vector of tile descriptors to use
      */
-    void CreateFwdInstances(const FmhaProblem& fmha_problem, const std::vector<FmhaTileDesc>& tile_descriptors);
+    void CreateFwdInstances(const FmhaProblem& fmha_problem, const std::vector<FmhaFwdTileDesc>& tile_descriptors);
 
     /**
      * @brief Creates FMHA operation instances for Split-KV operations
      * @param fmha_problem The FMHA problem configuration
      * @param tile_descriptors Vector of tile descriptors to use
      */
-    void CreateSplitKVInstances(const FmhaProblem& fmha_problem, const std::vector<FmhaTileDesc>& tile_descriptors);
+    void CreateSplitKVInstances(const FmhaProblem& fmha_problem, const std::vector<FmhaFwdTileDesc>& tile_descriptors);
 
     /**
      * @brief Creates FMHA operation instances for Split-KV Combine operations
@@ -185,7 +185,7 @@ private:
      * @param tile_descriptors Vector of tile descriptors to use
      */
     void CreateSplitKVCombineInstances(const FmhaProblem&                             fmha_problem,
-                                       const std::vector<FmhaSplitKVCombineTileDesc>& tile_descriptors);
+                                       const std::vector<FmhaFwdSplitKVCombineTileDesc>& tile_descriptors);
 
     /**
      * @brief Creates FMHA operation instances for Append-KV operations
@@ -193,7 +193,7 @@ private:
      * @param tile_descriptors Vector of tile descriptors to use
      */
     void CreateAppendKVInstances(const FmhaProblem&                       fmha_problem,
-                                 const std::vector<FmhaAppendKVTileDesc>& tile_descriptors);
+                                 const std::vector<FmhaFwdAppendKVTileDesc>& tile_descriptors);
 
     /**
      * @brief Creates a single Forward FMHA operation instance
@@ -201,7 +201,7 @@ private:
      * @param tile_desc The tile descriptor
      * @return Generated FMHA operation instance
      */
-    FmhaFwdCodeGen GenFmhaFwdInstance(const FmhaProblem& fmha_problem, const FmhaTileDesc& tile_desc) const;
+    FmhaFwdCodeGen GenFmhaFwdInstance(const FmhaProblem& fmha_problem, const FmhaFwdTileDesc& tile_desc) const;
 
     /**
      * @brief Creates a single Split-KV FMHA operation instance
@@ -210,7 +210,7 @@ private:
      * @return Generated FMHA operation instance
      */
     FmhaFwdSplitKVCodeGen GenFmhaFwdSplitKVInstance(const FmhaProblem&  fmha_problem,
-                                                    const FmhaTileDesc& tile_desc) const;
+                                                    const FmhaFwdTileDesc& tile_desc) const;
 
     /**
      * @brief Creates a single Split-KV Combine FMHA operation instance
@@ -219,7 +219,7 @@ private:
      * @return Generated FMHA operation instance
      */
     FmhaFwdSplitKVCombineCodeGen GenFmhaFwdSplitKVCombineInstance(const FmhaProblem&                fmha_problem,
-                                                                  const FmhaSplitKVCombineTileDesc& tile_desc) const;
+                                                                  const FmhaFwdSplitKVCombineTileDesc& tile_desc) const;
 
     /**
      * @brief Creates a single Append-KV FMHA operation instance
@@ -228,38 +228,23 @@ private:
      * @return Generated FMHA operation instance
      */
     FmhaFwdAppendKVCodeGen GenFmhaFwdAppendKVInstance(const FmhaProblem&          fmha_problem,
-                                                      const FmhaAppendKVTileDesc& tile_desc) const;
-
-    /**
-     * @brief Determines appropriate padding configuration based on problem and tile
-     * @param problem The FMHA problem configuration
-     * @param operation_mode The operation mode (Batch/Group)
-     * @param pipeline The pipeline type
-     * @return Padding configuration flags
-     */
-    struct PaddingConfig {
-        bool is_pad_q_seq_len    = false;
-        bool is_pad_kv_seq_len   = false;
-        bool is_pad_qk_head_dim  = false;
-        bool is_pad_v_head_dim   = false;
-        bool is_pad_qkv_head_dim = false;
-    };
+                                                      const FmhaFwdAppendKVTileDesc& tile_desc) const;
 
     PaddingConfig DetermineFwdPaddingConfig(const FmhaProblem&    problem,
-                                            const FmhaTileDesc&   tile_desc,
+                                            const FmhaFwdTileDesc&   tile_desc,
                                             FmhaMode              operation_mode,
                                             BlockFmhaPipelineEnum pipeline = BlockFmhaPipelineEnum::QRKSVS) const;
 
     PaddingConfig DetermineSplitKVPaddingConfig(const FmhaProblem&  problem,
-                                                const FmhaTileDesc& tile_desc,
+                                                const FmhaFwdTileDesc& tile_desc,
                                                 FmhaMode            operation_mode) const;
 
     PaddingConfig DetermineSplitKVCombinePaddingConfig(const FmhaProblem&                problem,
-                                                       const FmhaSplitKVCombineTileDesc& tile_desc,
+                                                       const FmhaFwdSplitKVCombineTileDesc& tile_desc,
                                                        FmhaMode                          operation_mode) const;
 
     PaddingConfig DetermineAppendKVPaddingConfig(const FmhaProblem&          problem,
-                                                 const FmhaAppendKVTileDesc& tile_desc,
+                                                 const FmhaFwdAppendKVTileDesc& tile_desc,
                                                  FmhaMode                    operation_mode) const;
 
     /**

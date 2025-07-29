@@ -46,6 +46,8 @@ enum class FmhaKind : int {
     FwdAppendKV       = 1,  ///< Forward with key-value appending
     FwdSplitKV        = 2,  ///< Forward with split key-value
     FwdSplitKVCombine = 3,  ///< Forward split KV with combine step
+    BatchPrefill = 4,
+    PagedKVPrefill = 5,
     COUNT                   // Used for iteration and validation
 };
 
@@ -63,9 +65,11 @@ struct FmhaKindInfo {
  */
 static const std::unordered_map<FmhaKind, FmhaKindInfo> g_fmha_kind_map = {
     {FmhaKind::Fwd, {"fmha_fwd", "F"}},
-    {FmhaKind::FwdAppendKV, {"fmha_fwd_appendkv", "FA"}},
-    {FmhaKind::FwdSplitKV, {"fmha_fwd_splitkv", "FS"}},
-    {FmhaKind::FwdSplitKVCombine, {"fmha_fwd_splitkv_combine", "FSC"}},
+    {FmhaKind::FwdAppendKV, {"fmha_fwd_append_kv", "FA"}},
+    {FmhaKind::FwdSplitKV, {"fmha_fwd_split_kv", "FS"}},
+    {FmhaKind::FwdSplitKVCombine, {"fmha_fwd_split_kv_combine", "FSC"}},
+    {FmhaKind::BatchPrefill, {"fmha_batch_prefill", "FBP"}},
+    {FmhaKind::PagedKVPrefill, {"fmha_paged_kv_prefill", "FPKP"}},
 };
 
 /**

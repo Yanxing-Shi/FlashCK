@@ -18,7 +18,8 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 # ==============================================================================
 option(BUILD_EXAMPLES "Build examples" OFF)
 option(BUILD_TESTS "Build tests" OFF)
-option(BUILD_PYTHON_BINDINGS "Build Python bindings" ON)
+option(BUILD_CPP_WRAPPER "Build C++ wrapper" OFF)
+option(BUILD_PYTHON_BINDINGS "Build Python bindings" OFF)
 option(BUILD_SHARED_LIBS "Build shared libraries instead of static" OFF)
 
 # ==============================================================================
@@ -87,6 +88,9 @@ find_package(jinja2cpp REQUIRED)
 # Database
 find_package(SQLite3 REQUIRED)
 
+# nlohmann_json
+find_package(nlohmann_json REQUIRED)
+
 # Pytorch python bindings
 if(BUILD_PYTHON_BINDINGS)
     find_package(pybind11 REQUIRED)
@@ -115,7 +119,10 @@ add_subdirectory(core)
 # ==============================================================================
 # Cpp Library
 # ==============================================================================
-add_subdirectory(include/flashck)
+if(BUILD_CPP_WRAPPER)
+    message(STATUS "Building C++ wrapper...")
+    add_subdirectory(include/flashck)
+endif()
 
 # ==============================================================================
 # Examples

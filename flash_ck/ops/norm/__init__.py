@@ -6,6 +6,6 @@ as drop-in replacements for PyTorch's normalization functions when FlashCK is av
 """
 
 from .layer_norm import layer_norm_fwd
-from ...utils import is_available
+from ...utils.utils import is_available
 
 __all__ = ["layer_norm_fwd", "is_available"]

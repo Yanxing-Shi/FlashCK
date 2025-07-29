@@ -6,9 +6,12 @@ import pytest
 from flash_ck.ops.norm import layer_norm_fwd
 # from ..common.test_framework import UnifiedTestSuite
 
-x = torch.randn(20, 10)
-normalized_shape = (10)
-y = layer_norm_fwd(x, normalized_shape)
+x = torch.randn(20, 10).cuda()
+normalized_shape = (10,)
+weight = torch.randn(10).cuda()
+bias = torch.randn(10).cuda()
+y = layer_norm_fwd(x, normalized_shape, weight, bias)
+print(y)
 # def reference_impl(x, normalized_shape, weight, bias, eps):
 #     """Reference implementation of layer norm for testing."""
 #     return torch.nn.functional.layer_norm(x, normalized_shape, weight, bias, eps)

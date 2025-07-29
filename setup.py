@@ -9,18 +9,7 @@ from build_tools.utils import (
 from build_tools.build_pt import (
     CMakeExtension, CMakeBuildExtension)
 
-
 current_file_path = Path(__file__).parent.resolve()
-
-
-def setup_extension() -> CMakeExtension:
-    """Setup CMake extension for common library"""
-    return CMakeExtension(
-        name="flash_ck",
-        cmake_path=current_file_path,
-        cmake_flags=[]
-    )
-
 
 if __name__ == "__main__":
 
@@ -56,7 +45,11 @@ if __name__ == "__main__":
         long_description=long_description,
         long_description_content_type="text/markdown",
         classifiers=["Programming Language :: Python :: 3"],
-        ext_modules=[setup_extension()],
+        ext_modules=[CMakeExtension(
+            name="flash_ck",
+            cmake_path=current_file_path,
+            cmake_flags=[]
+        )],
         cmdclass={"build_ext": CMakeBuildExtension, "bdist_wheel": TimedBdist},
         install_requires=["torch>=2.1"]
     )

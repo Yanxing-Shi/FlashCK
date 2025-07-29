@@ -8,10 +8,13 @@
 
 namespace flashck {
 
+namespace legacy {
+
 std::string GemmTileDesc::GetInstanceName() const
 {
     return Sprintf(
-        "{block_size}_{m_per_block}_{n_per_block}_{k_per_block}_{ak1}_{bk1}_{m_per_xdl}_{n_per_xdl}_{m_xdl_per_wave}_{n_xdl_per_wave}",
+        "{scale_block_size}_{block_size}_{m_per_block}_{n_per_block}_{k_per_block}_{ak1}_{bk1}_{m_per_xdl}_{n_per_xdl}_{m_xdl_per_wave}_{n_xdl_per_wave}",
+        fmt::arg("scale_block_size", scale_block_size_),
         fmt::arg("block_size", block_size_),
         fmt::arg("m_per_block", m_per_block_),
         fmt::arg("n_per_block", n_per_block_),
@@ -27,6 +30,7 @@ std::string GemmTileDesc::GetInstanceName() const
 std::string GemmTileDesc::Emit() const
 {
     std::string tpl = R"(
+    {{scale_block_size}}, // scale_block_size
     {{block_size}}, // block_size
     {{m_per_block}}, // m_per_block
     {{n_per_block}}, // n_per_block
@@ -152,7 +156,7 @@ std::string CBlockTransferDesc::Emit() const
     jinja2::ValuesMap value_map{{
         {"m_xdl_per_wave", m_xdl_per_wave_},
         {"n_xdl_per_wave", n_xdl_per_wave_},
-        {"m_n_block_wave_per_xdl", jinja2::Reflect(m_n_block_wave_per_xdl_vec_)},
+        {"m_n_block_wave_per_xdl", jinja2::Reflect(m_n_block_wave_per_xdl_)},
         {"scalar_per_vector", scalar_per_vector_},
     }};
 
@@ -169,18 +173,19 @@ std::string CBlockTransferDesc::Emit() const
 std::string GemmCodegen::GetInstanceName() const
 {
     return Sprintf(
-        "gemm_{epilogue}_{tile_desc}_{a_layout}{b_layout}{c_layout}_{a_dtype}{b_dtype}{c_dtype}_{a_block_transfer}_{b_block_transfer}_{c_block_transfer}_{pipeline_scheduler}_{pipeline_version}_{gemm_spec}",
-        fmt::arg("epilogue", GetEpilogueShortName(c_element_op_)),
+        "{kind}_{epilogue}_{tile_desc}_{a_layout}{b_layout}{c_layout}_{a_dtype}{b_dtype}{c_dtype}_{a_block_transfer}_{b_block_transfer}_{c_block_transfer}_{pipeline_scheduler}_{pipeline_version}_{gemm_spec}",
+        fmt::arg("kind", GetGemmKindShortName(problem_.kind_)),
+        fmt::arg("epilogue", GetEpilogueShortName(problem_.epilogue_)),
         fmt::arg("tile_desc", tile_desc_.GetInstanceName()),
-        fmt::arg("a_layout", GetLayoutShortName(a_layout_)),
-        fmt::arg("b_layout", GetLayoutShortName(b_layout_)),
-        fmt::arg("c_layout", GetLayoutShortName(c_layout_)),
-        fmt::arg("a_dtype", DataTypeToString(a_dtype_)),
-        fmt::arg("b_dtype", DataTypeToString(b_dtype_)),
-        fmt::arg("c_dtype", DataTypeToString(c_dtype_)),
-        fmt::arg("a_block_transfer", a_block_transfer_desc_.GetInstanceName()),
-        fmt::arg("b_block_transfer", b_block_transfer_desc_.GetInstanceName()),
-        fmt::arg("c_block_transfer", c_block_transfer_desc_.GetInstanceName()),
+        fmt::arg("a_layout", GetLayoutShortName(problem_.a_layout_)),
+        fmt::arg("b_layout", GetLayoutShortName(problem_.b_layout_)),
+        fmt::arg("c_layout", GetLayoutShortName(problem_.c_layout_)),
+        fmt::arg("a_dtype", DataTypeToString(problem_.a_dtype_)),
+        fmt::arg("b_dtype", DataTypeToString(problem_.b_dtype_)),
+        fmt::arg("c_dtype", DataTypeToString(problem_.c_dtype_)),
+        fmt::arg("a_block_transfer", a_block_desc_.GetInstanceName()),
+        fmt::arg("b_block_transfer", b_block_desc_.GetInstanceName()),
+        fmt::arg("c_block_transfer", c_block_desc_.GetInstanceName()),
         fmt::arg("pipeline_scheduler", GetSchedulerShortName(pipeline_scheduler_)),
         fmt::arg("pipeline_version", GetPipelineVersionShortName(pipeline_version_)),
         fmt::arg("gemm_spec", GetGemmSpecializationShortName(gemm_spec_)));
@@ -233,46 +238,35 @@ using GemmInstance_{{idx}} = {{device_tag}}<
 {% endif %}
 >;
 )";
-    std::string ds_dtype_value = "";
-    if (!ds_dtype_.empty()) {
-        std::vector<std::string> dtype_strings;
-        dtype_strings.reserve(ds_dtype_.size());
-        std::transform(ds_dtype_.begin(), ds_dtype_.end(), std::back_inserter(dtype_strings), [](const auto& dtype) {
-            return DataTypeToString(dtype);
-        });
-        ds_dtype_value = JoinStrings(dtype_strings, ",");
-    }
-
-    std::string ds_layout_value = "";
-    if (!ds_layout_.empty()) {
-        std::vector<std::string> layout_strings;
-        layout_strings.reserve(ds_layout_.size());
-        std::transform(ds_layout_.begin(),
-                       ds_layout_.end(),
-                       std::back_inserter(layout_strings),
-                       [](const auto& layout) { return GetLayoutClassTag(layout); });
-        ds_layout_value = JoinStrings(layout_strings, ",");
-    }
+    auto join_if_not_empty = [](const auto& vec, auto&& func) -> std::string {
+        if (vec.empty()) return "";
+        std::vector<std::string> tmp;
+        tmp.reserve(vec.size());
+        std::transform(vec.begin(), vec.end(), std::back_inserter(tmp), func);
+        return JoinStrings(tmp, ",");
+    };
+    std::string ds_dtype_value = join_if_not_empty(problem_.ds_dtype_, DataTypeToString);
+    std::string ds_layout_value = join_if_not_empty(problem_.ds_layout_, GetLayoutClassTag);
 
     static int idx = 0;
 
     jinja2::ValuesMap value_map{
         {"idx", idx++},
-        {"kind", GetGemmKindName(kind_)},
-        {"device_tag", GetGemmKindDeviceTag(kind_)},
-        {"a_layout_tag", GetLayoutClassTag(a_layout_)},
-        {"b_layout_tag", GetLayoutClassTag(b_layout_)},
-        {"c_layout_tag", GetLayoutClassTag(c_layout_)},
+        {"kind", GetGemmKindName(problem_.kind_)},
+        {"device_tag", GetGemmKindDeviceTag(problem_.kind_)},
+        {"a_layout_tag", GetLayoutClassTag(problem_.a_layout_)},
+        {"b_layout_tag", GetLayoutClassTag(problem_.b_layout_)},
+        {"c_layout_tag", GetLayoutClassTag(problem_.c_layout_)},
         {"ds_layout_tag", ds_layout_value},
-        {"a_dtype", DataTypeToString(a_dtype_)},
-        {"b_dtype", DataTypeToString(b_dtype_)},
-        {"c_dtype", DataTypeToString(c_dtype_)},
+        {"a_dtype", DataTypeToString(problem_.a_dtype_)},
+        {"b_dtype", DataTypeToString(problem_.b_dtype_)},
+        {"c_dtype", DataTypeToString(problem_.c_dtype_)},
         {"ds_dtype", ds_dtype_value},
         {"tile_desc", tile_desc_.Emit()},
-        {"a_block_transfer", a_block_transfer_desc_.Emit()},
-        {"b_block_transfer", b_block_transfer_desc_.Emit()},
-        {"c_block_transfer", c_block_transfer_desc_.Emit()},
-        {"c_element_op", GetEpilogueClassTag(c_element_op_)},
+        {"a_block_transfer", a_block_desc_.Emit()},
+        {"b_block_transfer", b_block_desc_.Emit()},
+        {"c_block_transfer", c_block_desc_.Emit()},
+        {"c_element_op", GetEpilogueClassTag(problem_.epilogue_)},
         {"gemm_spec", GetGemmSpecializationClassTag(gemm_spec_)},
         {"pipeline_scheduler", GetSchedulerClassTag(pipeline_scheduler_)},
         {"pipeline_version", GetPipelineVersionTag(pipeline_version_)},
@@ -281,4 +275,5 @@ using GemmInstance_{{idx}} = {{device_tag}}<
     return TEMPLATE_CHECK(tpl, value_map, "GemmCodegen::Emit");
 }
 
+} // namespace legacy
 }  // namespace flashck

@@ -49,16 +49,16 @@ at::Tensor layer_norm_fwd(
             input_reshaped.data_ptr<float>(), weight.data_ptr<float>(), bias.data_ptr<float>(), m, n, eps);
         output = at::from_blob(output_ptr, {m, n}, at::kFloat).clone();
     }
-    // else if (input.dtype() == at::kHalf) {
-    //     auto output_ptr = flashck::naive::layer_norm_fwd<at::kHalf>(
-    //         input_reshaped.data_ptr<at::kHalf>(), weight.data_ptr<at::kHalf>(), bias.data_ptr<at::kHalf>(), m, n, eps);
-    //     output = at::from_blob(output_ptr, {m, n}, at::kHalf).clone();
-    // }
-    // else if (input.dtype() == at::kBFloat16) {
-    //     auto output_ptr = flashck::naive::layer_norm_fwd<ushort>(
-    //         input_reshaped.data_ptr<ushort>(), weight.data_ptr<ushort>(), bias.data_ptr<at::kBFloat16>(), m, n, eps);
-    //     output = at::from_blob(output_ptr, {m, n}, at::kBFloat16).clone();
-    // }
+    else if (input.dtype() == at::kHalf) {
+        auto output_ptr = flashck::naive::layer_norm_fwd<_Float16>(
+            input_reshaped.data_ptr<_Float16>(), weight.data_ptr<_Float16>(), bias.data_ptr<_Float16>(), m, n, eps);
+        output = at::from_blob(output_ptr, {m, n}, at::kHalf).clone();
+    }
+    else if (input.dtype() == at::kBFloat16) {
+        auto output_ptr = flashck::naive::layer_norm_fwd<ushort>(
+            input_reshaped.data_ptr<ushort>(), weight.data_ptr<ushort>(), bias.data_ptr<ushort>(), m, n, eps);
+        output = at::from_blob(output_ptr, {m, n}, at::kBFloat16).clone();
+    }
     else {
         TORCH_CHECK(false, "Unsupported data type for layer norm");
     }

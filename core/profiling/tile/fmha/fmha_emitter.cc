@@ -10,7 +10,7 @@ FC_DECLARE_int32(FC_TUNING_MODE);  // Mode for FMHA operation: 0 - heuristic, 1 
 
 namespace flashck {
 
-bool FmhaEmitter::IsValidTile(const FmhaTileDesc& tile_desc, const FmhaProblem& fmha_problem) const
+bool FmhaEmitter::IsValidTile(const FmhaFwdTileDesc& tile_desc, const FmhaProblem& fmha_problem) const
 {
     // Validate tile descriptor parameters
     if (tile_desc.bm0_ <= 0 || tile_desc.bn0_ <= 0 || tile_desc.bn1_ <= 0 || tile_desc.bk0_max_ <= 0) {
@@ -30,7 +30,7 @@ bool FmhaEmitter::IsValidTile(const FmhaTileDesc& tile_desc, const FmhaProblem& 
     return true;
 }
 
-bool FmhaEmitter::IsValidTile(const FmhaAppendKVTileDesc& tile_desc, const FmhaProblem& fmha_problem) const
+bool FmhaEmitter::IsValidTile(const FmhaFwdAppendKVTileDesc& tile_desc, const FmhaProblem& fmha_problem) const
 {
     // Validate tile descriptor parameters
     if (tile_desc.bs_ <= 0 || tile_desc.bsk_ <= 0 || tile_desc.bd_ <= 0 || tile_desc.bdv_ <= 0) {
@@ -50,7 +50,7 @@ bool FmhaEmitter::IsValidTile(const FmhaAppendKVTileDesc& tile_desc, const FmhaP
     return true;
 }
 
-bool FmhaEmitter::IsValidTile(const FmhaSplitKVCombineTileDesc& tile_desc, const FmhaProblem& fmha_problem) const
+bool FmhaEmitter::IsValidTile(const FmhaFwdSplitKVCombineTileDesc& tile_desc, const FmhaProblem& fmha_problem) const
 {
     // Validate tile descriptor parameters
     if (tile_desc.bm0_ <= 0 || tile_desc.bn1_ <= 0) {
@@ -69,10 +69,10 @@ bool FmhaEmitter::IsValidTile(const FmhaSplitKVCombineTileDesc& tile_desc, const
     return true;
 }
 
-std::vector<FmhaTileDesc> FmhaEmitter::HeuristicFilter(const std::vector<FmhaTileDesc>& fmha_tile_desc,
+std::vector<FmhaFwdTileDesc> FmhaEmitter::HeuristicFilter(const std::vector<FmhaFwdTileDesc>& fmha_tile_desc,
                                                        const FmhaProblem&               fmha_problem) const
 {
-    std::vector<FmhaTileDesc> filtered_tile_desc;
+    std::vector<FmhaFwdTileDesc> filtered_tile_desc;
 
     for (const auto& tile_desc : fmha_tile_desc) {
         // Enhanced heuristic based on problem characteristics
@@ -121,10 +121,10 @@ std::vector<FmhaTileDesc> FmhaEmitter::HeuristicFilter(const std::vector<FmhaTil
     return filtered_tile_desc;
 }
 
-std::vector<FmhaAppendKVTileDesc> FmhaEmitter::HeuristicFilter(const std::vector<FmhaAppendKVTileDesc>& fmha_tile_desc,
+std::vector<FmhaFwdAppendKVTileDesc> FmhaEmitter::HeuristicFilter(const std::vector<FmhaFwdAppendKVTileDesc>& fmha_tile_desc,
                                                                const FmhaProblem& fmha_problem) const
 {
-    std::vector<FmhaAppendKVTileDesc> filtered_tile_desc;
+    std::vector<FmhaFwdAppendKVTileDesc> filtered_tile_desc;
 
     for (const auto& tile_desc : fmha_tile_desc) {
         if (IsValidTile(tile_desc, fmha_problem)) {
@@ -147,11 +147,11 @@ std::vector<FmhaAppendKVTileDesc> FmhaEmitter::HeuristicFilter(const std::vector
     return filtered_tile_desc;
 }
 
-std::vector<FmhaSplitKVCombineTileDesc>
-FmhaEmitter::HeuristicFilter(const std::vector<FmhaSplitKVCombineTileDesc>& fmha_tile_desc,
+std::vector<FmhaFwdSplitKVCombineTileDesc>
+FmhaEmitter::HeuristicFilter(const std::vector<FmhaFwdSplitKVCombineTileDesc>& fmha_tile_desc,
                              const FmhaProblem&                             fmha_problem) const
 {
-    std::vector<FmhaSplitKVCombineTileDesc> filtered_tile_desc;
+    std::vector<FmhaFwdSplitKVCombineTileDesc> filtered_tile_desc;
 
     for (const auto& tile_desc : fmha_tile_desc) {
         if (IsValidTile(tile_desc, fmha_problem)) {
@@ -195,7 +195,7 @@ void FmhaEmitter::GenerateInstances(FmhaProblem& fmha_problem)
     switch (fmha_problem.kind_) {
         case FmhaKind::Fwd:
         case FmhaKind::FwdSplitKV: {
-            std::vector<FmhaTileDesc> tile_descriptors;
+            std::vector<FmhaFwdTileDesc> tile_descriptors;
 
             switch (FLAGS_FC_TUNING_MODE) {
                 case 0:  // Heuristic mode
@@ -224,7 +224,7 @@ void FmhaEmitter::GenerateInstances(FmhaProblem& fmha_problem)
                                 auto it =
                                     std::find_if(tile_descriptors.begin(),
                                                  tile_descriptors.end(),
-                                                 [&tile_desc](const FmhaTileDesc& existing) {
+                                                 [&tile_desc](const FmhaFwdTileDesc& existing) {
                                                      return existing.GetInstanceName() == tile_desc.GetInstanceName();
                                                  });
                                 if (it == tile_descriptors.end()) {
@@ -248,7 +248,7 @@ void FmhaEmitter::GenerateInstances(FmhaProblem& fmha_problem)
         } break;
 
         case FmhaKind::FwdAppendKV: {
-            std::vector<FmhaAppendKVTileDesc> tile_descriptors;
+            std::vector<FmhaFwdAppendKVTileDesc> tile_descriptors;
 
             switch (FLAGS_FC_TUNING_MODE) {
                 case 0:  // Heuristic mode
@@ -272,7 +272,7 @@ void FmhaEmitter::GenerateInstances(FmhaProblem& fmha_problem)
         } break;
 
         case FmhaKind::FwdSplitKVCombine: {
-            std::vector<FmhaSplitKVCombineTileDesc> tile_descriptors;
+            std::vector<FmhaFwdSplitKVCombineTileDesc> tile_descriptors;
 
             switch (FLAGS_FC_TUNING_MODE) {
                 case 0:  // Heuristic mode
@@ -300,7 +300,7 @@ void FmhaEmitter::GenerateInstances(FmhaProblem& fmha_problem)
     }
 }
 
-void FmhaEmitter::CreateFwdInstances(const FmhaProblem& fmha_problem, const std::vector<FmhaTileDesc>& tile_descriptors)
+void FmhaEmitter::CreateFwdInstances(const FmhaProblem& fmha_problem, const std::vector<FmhaFwdTileDesc>& tile_descriptors)
 {
     std::map<std::string, std::string>& kind_instance_map = instance_map_[fmha_problem.kind_];
     int64_t                             generated_count   = 0;
@@ -333,7 +333,7 @@ void FmhaEmitter::CreateFwdInstances(const FmhaProblem& fmha_problem, const std:
 }
 
 void FmhaEmitter::CreateSplitKVInstances(const FmhaProblem&               fmha_problem,
-                                         const std::vector<FmhaTileDesc>& tile_descriptors)
+                                         const std::vector<FmhaFwdTileDesc>& tile_descriptors)
 {
     std::map<std::string, std::string>& kind_instance_map = instance_map_[fmha_problem.kind_];
     int64_t                             generated_count   = 0;
@@ -366,7 +366,7 @@ void FmhaEmitter::CreateSplitKVInstances(const FmhaProblem&               fmha_p
 }
 
 void FmhaEmitter::CreateSplitKVCombineInstances(const FmhaProblem&                             fmha_problem,
-                                                const std::vector<FmhaSplitKVCombineTileDesc>& tile_descriptors)
+                                                const std::vector<FmhaFwdSplitKVCombineTileDesc>& tile_descriptors)
 {
     std::map<std::string, std::string>& kind_instance_map = instance_map_[fmha_problem.kind_];
     int64_t                             generated_count   = 0;
@@ -399,7 +399,7 @@ void FmhaEmitter::CreateSplitKVCombineInstances(const FmhaProblem&              
 }
 
 void FmhaEmitter::CreateAppendKVInstances(const FmhaProblem&                       fmha_problem,
-                                          const std::vector<FmhaAppendKVTileDesc>& tile_descriptors)
+                                          const std::vector<FmhaFwdAppendKVTileDesc>& tile_descriptors)
 {
     std::map<std::string, std::string>& kind_instance_map = instance_map_[fmha_problem.kind_];
     int64_t                             generated_count   = 0;
@@ -431,7 +431,7 @@ void FmhaEmitter::CreateAppendKVInstances(const FmhaProblem&                    
             << " (total: " << num_instances_ << ")";
 }
 
-FmhaFwdCodeGen FmhaEmitter::GenFmhaFwdInstance(const FmhaProblem& fmha_problem, const FmhaTileDesc& tile_desc) const
+FmhaFwdCodeGen FmhaEmitter::GenFmhaFwdInstance(const FmhaProblem& fmha_problem, const FmhaFwdTileDesc& tile_desc) const
 {
     FmhaFwdCodeGen operation;
 
@@ -458,7 +458,7 @@ FmhaFwdCodeGen FmhaEmitter::GenFmhaFwdInstance(const FmhaProblem& fmha_problem, 
 }
 
 FmhaFwdSplitKVCodeGen FmhaEmitter::GenFmhaFwdSplitKVInstance(const FmhaProblem&  fmha_problem,
-                                                             const FmhaTileDesc& tile_desc) const
+                                                             const FmhaFwdTileDesc& tile_desc) const
 {
     FmhaFwdSplitKVCodeGen operation;
 
@@ -493,7 +493,7 @@ FmhaFwdSplitKVCodeGen FmhaEmitter::GenFmhaFwdSplitKVInstance(const FmhaProblem& 
 
 FmhaFwdSplitKVCombineCodeGen
 FmhaEmitter::GenFmhaFwdSplitKVCombineInstance(const FmhaProblem&                fmha_problem,
-                                              const FmhaSplitKVCombineTileDesc& tile_desc) const
+                                              const FmhaFwdSplitKVCombineTileDesc& tile_desc) const
 {
     FmhaFwdSplitKVCombineCodeGen operation;
 
@@ -514,7 +514,7 @@ FmhaEmitter::GenFmhaFwdSplitKVCombineInstance(const FmhaProblem&                
 }
 
 FmhaFwdAppendKVCodeGen FmhaEmitter::GenFmhaFwdAppendKVInstance(const FmhaProblem&          fmha_problem,
-                                                               const FmhaAppendKVTileDesc& tile_desc) const
+                                                               const FmhaFwdAppendKVTileDesc& tile_desc) const
 {
     FmhaFwdAppendKVCodeGen operation;
 
@@ -538,7 +538,7 @@ FmhaFwdAppendKVCodeGen FmhaEmitter::GenFmhaFwdAppendKVInstance(const FmhaProblem
 }
 
 FmhaEmitter::PaddingConfig FmhaEmitter::DetermineFwdPaddingConfig(const FmhaProblem&    problem,
-                                                                  const FmhaTileDesc&   tile_desc,
+                                                                  const FmhaFwdTileDesc&   tile_desc,
                                                                   FmhaMode              operation_mode,
                                                                   BlockFmhaPipelineEnum pipeline) const
 {
@@ -577,7 +577,7 @@ FmhaEmitter::PaddingConfig FmhaEmitter::DetermineFwdPaddingConfig(const FmhaProb
 }
 
 FmhaEmitter::PaddingConfig FmhaEmitter::DetermineSplitKVPaddingConfig(const FmhaProblem&  problem,
-                                                                      const FmhaTileDesc& tile_desc,
+                                                                      const FmhaFwdTileDesc& tile_desc,
                                                                       FmhaMode            operation_mode) const
 {
     PaddingConfig config;
@@ -602,7 +602,7 @@ FmhaEmitter::PaddingConfig FmhaEmitter::DetermineSplitKVPaddingConfig(const Fmha
 }
 
 FmhaEmitter::PaddingConfig FmhaEmitter::DetermineSplitKVCombinePaddingConfig(
-    const FmhaProblem& problem, const FmhaSplitKVCombineTileDesc& tile_desc, FmhaMode operation_mode) const
+    const FmhaProblem& problem, const FmhaFwdSplitKVCombineTileDesc& tile_desc, FmhaMode operation_mode) const
 {
     PaddingConfig config;
 
@@ -621,7 +621,7 @@ FmhaEmitter::PaddingConfig FmhaEmitter::DetermineSplitKVCombinePaddingConfig(
 }
 
 FmhaEmitter::PaddingConfig FmhaEmitter::DetermineAppendKVPaddingConfig(const FmhaProblem&          problem,
-                                                                       const FmhaAppendKVTileDesc& tile_desc,
+                                                                       const FmhaFwdAppendKVTileDesc& tile_desc,
                                                                        FmhaMode                    operation_mode) const
 {
     PaddingConfig config;

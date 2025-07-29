@@ -4,59 +4,59 @@
 
 namespace flashck {
 
-std::string FmhaTileDesc::GetInstanceName() const
+std::string FmhaFwdTileDesc::GetInstanceName() const
 {
     return Sprintf(
-        "b_{bm0}x{bn0}x{bk0}_{bn1}x{bk1}x{bk0_max}_r{rm0}x{rn0}x{rk0}_{rm1}x{rn1}x{rk1}_w{wm0}x{wn0}x{wk0}x{wm1}x{wn1}x{wk1}",
-        fmt::arg("bm0", bm0_),
-        fmt::arg("bn0", bn0_),
-        fmt::arg("bk0", bk0_),
-        fmt::arg("bn1", bn1_),
-        fmt::arg("bk1", bk1_),
-        fmt::arg("bk0_max", bk0_max_),
-        fmt::arg("rm0", rm0_),
-        fmt::arg("rn0", rn0_),
-        fmt::arg("rk0", rk0_),
-        fmt::arg("rm1", rm1_),
-        fmt::arg("rn1", rn1_),
-        fmt::arg("rk1", rk1_),
-        fmt::arg("wm0", wm0_),
-        fmt::arg("wn0", wn0_),
-        fmt::arg("wk0", wk0_),
-        fmt::arg("wm1", wm1_),
-        fmt::arg("wn1", wn1_),
-        fmt::arg("wk1", wk1_));
+        "{m0_block}x{n0_block}x{k0_block}_{n1_block}x{k1_block}x{k0_block_max}_r{m0_warp}x{n0_warp}x{k0_warp}_{m1_warp}x{n1_warp}x{k1_warp}_w{m0_warp}x{n0_warp_tile}x{k0_warp_tile}x{m1_warp_tile}x{n1_warp_tile}x{k1_warp_tile}",
+        fmt::arg("m0_block", m0_block_),
+        fmt::arg("n0_block", n0_block_),
+        fmt::arg("k0_block", k0_block_),
+        fmt::arg("n1_block", n1_block_),
+        fmt::arg("k1_block", k1_block_),
+        fmt::arg("k0_block_max", k0_block_max_),
+        fmt::arg("m0_warp", m0_warp_),
+        fmt::arg("n0_warp", n0_warp_),
+        fmt::arg("k0_warp", k0_warp_),
+        fmt::arg("m1_warp", m1_warp_),
+        fmt::arg("n1_warp", n1_warp_),
+        fmt::arg("k1_warp", k1_warp_),
+        fmt::arg("m0_warp_tile", m0_warp_tile_),
+        fmt::arg("n0_warp_tile", n0_warp_tile_),
+        fmt::arg("k0_warp_tile", k0_warp_tile_),
+        fmt::arg("m1_warp_tile", m1_warp_tile_),
+        fmt::arg("n1_warp_tile", n1_warp_tile_),
+        fmt::arg("k1_warp_tile", k1_warp_tile_));
 }
 
-std::string FmhaTileDesc::Emit() const
+std::string FmhaFwdTileDesc::Emit() const
 {
     std::string       tpl = R"(
-    ck_tile::TileFmhaShape<ck_tile::sequence<{{bm0}}, {{bn0}}, {{bk0}}, {{bn1}}, {{bk1}}, {{bk0_max}}>,
-                            ck_tile::sequence<{{rm0}}, {{rn0}}, {{rk0}}>,
-                            ck_tile::sequence<{{wm0}}, {{wn0}}, {{wk0}}>,
-                            ck_tile::sequence<{{rm1}}, {{rn1}}, {{rk1}}>,
-                            ck_tile::sequence<{{wm1}}, {{wn1}}, {{wk1}}>,
+    ck_tile::TileFmhaShape<ck_tile::sequence<{{m0_block}}, {{n0_block}}, {{k0_block}}, {{n1_block}}, {{k1_block}}, {{k0_block_max}}>,
+                            ck_tile::sequence<{{m0_warp}}, {{n0_warp}}, {{k0_warp}}>,
+                            ck_tile::sequence<{{m0_warp}}, {{n0_warp_tile}}, {{k0_warp_tile}}>,
+                            ck_tile::sequence<{{m1_warp}}, {{n1_warp}}, {{k1_warp}}>,
+                            ck_tile::sequence<{{m1_warp_tile}}, {{n1_warp_tile}}, {{k1_warp_tile}}>,
                             true /*kIsVLayoutRowMajor_*/ >
 )";
-    jinja2::ValuesMap value_map{{"bm0", bm0_},
-                                {"bn0", bn0_},
-                                {"bk0", bk0_},
-                                {"bn1", bn1_},
-                                {"bk1", bk1_},
-                                {"bk0_max", bk0_max_},
-                                {"rm0", rm0_},
-                                {"rn0", rn0_},
-                                {"rk0", rk0_},
-                                {"rm1", rm1_},
-                                {"rn1", rn1_},
-                                {"rk1", rk1_},
-                                {"wm0", wm0_},
-                                {"wn0", wn0_},
-                                {"wk0", wk0_},
-                                {"wm1", wm1_},
-                                {"wn1", wn1_},
-                                {"wk1", wk1_}};
-    return TEMPLATE_CHECK(tpl, value_map, "FmhaTileDesc::Emit");
+    jinja2::ValuesMap value_map{{"m0_block", m0_block_},
+                                {"n0_block", n0_block_},
+                                {"k0_block", k0_block_},
+                                {"n1_block", n1_block_},
+                                {"k1_block", k1_block_},
+                                {"k0_block_max", k0_block_max_},
+                                {"m0_warp", m0_warp_},
+                                {"n0_warp", n0_warp_},
+                                {"k0_warp", k0_warp_},
+                                {"m1_warp", m1_warp_},
+                                {"n1_warp", n1_warp_},
+                                {"k1_warp", k1_warp_},
+                                {"m0_warp", m0_warp_},
+                                {"n0_warp_tile", n0_warp_tile_},
+                                {"k0_warp_tile", k0_warp_tile_},
+                                {"m1_warp_tile", m1_warp_tile_},
+                                {"n1_warp_tile", n1_warp_tile_},
+                                {"k1_warp_tile", k1_warp_tile_}};
+    return TEMPLATE_CHECK(tpl, value_map, "FmhaFwdTileDesc::Emit");
 }
 
 std::string FmhaFwdCodeGen::GetPadName() const
@@ -83,8 +83,7 @@ std::string FmhaFwdCodeGen::GetInstanceName() const
                    fmt::arg("dtype", DataTypeToString(dtype_)),
                    fmt::arg("mode", GetFmhaModeName(mode_)),
                    fmt::arg("tile_desc", tile_desc_.GetInstanceName()),
-                   fmt::arg("pipeline", GetPipelineConfigName()),
-                   fmt::arg("mask", GetAttentionMaskShortName(mask_type_)));
+                   fmt::arg("pipeline", GetPipelineConfigName()));
 }
 
 std::string FmhaFwdCodeGen::Emit() const
@@ -104,17 +103,19 @@ using fmha_pipeline_problem_{{idx}} = ck_tile::BlockFmhaPipelineProblem<
     ODataType,
     {{shape}},
     {{mode}},
-    ck_tile::SimplifiedGenericAttentionMask<{{mask}}>,
+    ck_tile::ComposedAttention<{{has_logits_soft_cap}} * ck_tile::LOGITS_SOFT_CAP, CK_TILE_FMHA_FWD_FAST_EXP2>,
     ck_tile::TileFmhaTraits<{{is_pad_q_seq_len}},
                             {{is_pad_kv_seq_len}},
                             {{is_pad_qk_head_dim}},
                             {{is_pad_v_head_dim}},
+                            {{has_logits_soft_cap}},
                             {{attention_bias}},
-                            false, // kHasBiasGrad
-                            false, // kStoreLSE_
-                            false, // kHasDropout_
-                            {{is_static_quant}}, // kDoFp8StaticQuant
-                            {{block_per_cu}}>>;
+                            false, /* kHasBiasGrad */
+                            false, /* kStoreLSE_ */
+                            false, /* kHasDropout_ */
+                            {{is_static_quant}}, /* kDoFp8StaticQuant */
+                            {{block_per_cu}}, /* overwrite occupancy if not -1 */
+                            {{skip_min_q_seq_len}}, /* skip min seqlen q while chunked prefill */>>;
 
 using {{name}}  =
     ck_tile::FmhaFwdKernel<{{pipeline}}<fmha_pipeline_problem_{{idx}}>,
@@ -128,16 +129,18 @@ using {{name}}  =
         {"name", GetInstanceName()},
         {"idx", idx++},
         {"shape", tile_desc_.Emit()},
-        {"mode", mode_ == FmhaMode::Batch ? false : true},
+        {"mode", problem_.mode_ == FmhaMode::Batch ? false : true},
         {"mask",
-         mask_type_ == GenericAttentionMaskEnum::NO_MASK || (window_size_[0] == -1 && window_size_[1] == -1) ? false :
+         problem_.mask_type_ == GenericAttentionMaskEnum::NO_MASK || (problem_.window_size_[0] == -1 && problem_.window_size_[1] == -1) ? false :
                                                                                                                true},
         {"is_pad_q_seq_len", is_pad_q_seq_len_},
         {"is_pad_kv_seq_len", is_pad_kv_seq_len_},
         {"is_pad_qk_head_dim", is_pad_qk_head_dim_},
         {"is_pad_v_head_dim", is_pad_v_head_dim_},
-        {"attention_bias", GetBiasClassTag(bias_enum_)},
-        {"is_static_quant", is_static_quant_},
+        {"has_logits_soft_cap", problem_.has_logits_soft_cap_},
+        {"attention_bias", GetBiasClassTag(problem_.bias_enum_)},
+        {"skip_min_q_seq_len", problem_.is_skip_min_q_seqlen_},
+        {"is_static_quant", problem_.is_static_quant_},
         {"block_per_cu", std::to_string(block_per_cu_)},
         {"pipeline", GetFwdPipelineClassTag(pipeline_)}};
 

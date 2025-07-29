@@ -1,4 +1,4 @@
-#include "core/profiling/tile/fmha/fmha_fwd_appendkv_codegen.h"
+#include "core/profiling/tile/fmha/fmha_fwd_append_kv_codegen.h"
 
 #include "core/utils/macros.h"
 
@@ -6,9 +6,9 @@ FC_DECLARE_int32(FC_TUNING_MODE);  // Mode for GEMM operation: 0 - heuristic, 1 
 
 namespace flashck {
 
-std::string FmhaAppendKVTileDesc::GetInstanceName() const
+std::string FmhaFwdAppendKVTileDesc::GetInstanceName() const
 {
-    return Sprintf("b{bs}x{bsk}x{bd}x{bdv}",
+    return Sprintf("{bs}x{bsk}x{bd}x{bdv}",
                    fmt::arg("bs", bs_),
                    fmt::arg("bsk", bsk_),
                    fmt::arg("bd", bd_),
@@ -29,7 +29,7 @@ std::string FmhaFwdAppendKVCodeGen::GetPipelineConfigName() const
     return Sprintf("{pad_name}_{rope_short_name}_{pagedkv}{block_per_cu}",
                    fmt::arg("pad_name", GetPadName()),
                    fmt::arg("rope_short_name", GetRopeShortName(rope_type_)),
-                   fmt::arg("pagedkv", is_paged_kv_ ? "pagedkv" : "nopagedkv"),
+                   fmt::arg("pagedkv", problem_.paged_block_size_ > 0 ? "pagedkv" : "nopagedkv"),
                    fmt::arg("block_per_cu", block_per_cu_ == -1 ? "" : "_" + std::to_string(block_per_cu_)));
 }
 
@@ -75,7 +75,7 @@ using {{name}} =
                                    {"bd", std::to_string(tile_desc_.bd_)},
                                    {"bdv", std::to_string(tile_desc_.bdv_)},
                                    {"rope", GetRopeClassTag(rope_type_)},
-                                   {"pagedkv", is_paged_kv_},
+                                   {"pagedkv", problem_.paged_block_size_ > 0 ? true : false},
                                    {"is_pad_q_seq_len", is_pad_q_seq_len_},
                                    {"is_pad_kv_seq_len", is_pad_kv_seq_len_},
                                    {"is_pad_qk_head_dim", is_pad_qk_head_dim_},

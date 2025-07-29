@@ -2,6 +2,7 @@
 
 #include <array>
 #include <string>
+#include <vector>
 
 #include "core/profiling/tile/fmha/fmha_library.h"
 #include "core/utils/dtype.h"
@@ -9,13 +10,14 @@
 namespace flashck {
 
 /**
- * @class FmhaAppendKVTileDesc
- * @brief Describes the tiling configuration for FMHA AppendKV operations
+ * @class FmhaFwdTileDesc
+ * @brief Describes the tiling configuration for FMHA operations
  *
- * This class defines how the FMHA AppendKV computation is divided across thread blocks.
- * AppendKV operations handle dynamic key-value cache updates in attention computation.
+ * This class defines how the FMHA computation is divided across thread blocks
+ * and how attention computation is tiled across different dimensions.
+ * It specifies the work distribution strategy for optimal GPU performance.
  */
-class FmhaAppendKVTileDesc {
+class FmhaBatchPrefillTileDesc {
 public:
     /**
      * @brief Generate a unique name for this tile configuration
@@ -23,28 +25,54 @@ public:
      */
     std::string GetInstanceName() const;
 
-    // ====================== Tile Configuration ======================
+    /**
+     * @brief Generate code template parameters for this tile
+     * @return String representation for code generation
+     */
+    std::string Emit() const;
 
-    int64_t bs_;   ///< Tile size along query sequence length
-    int64_t bsk_;  ///< Tile size along key sequence length
-    int64_t bd_;   ///< Tile size along Q-K GEMM unroll dimension
-    int64_t bdv_;  ///< Tile size along K-V GEMM unroll dimension
+    // ====================== Q-K GEMM Tile Configuration ======================
+    int64_t m0_block_;
+    int64_t n0_block_;
+    int64_t k0_block_;
+    int64_t k0_max_block_;
+
+    int64_t n1_block_;
+    int64_t k1_block_;
+
+    // ====================== Warp Distribution ======================
+    int64_t m0_warp_;
+    int64_t n0_warp_;
+    int64_t k0_warp_;
+
+    int64_t m1_warp_;
+    int64_t n1_warp_;
+    int64_t k1_warp_;
+
+    // ====================== Warp-Level Tile Sizes ======================
+    int64_t m0_warp_tile_;
+    int64_t n0_warp_tile_;
+    int64_t k0_warp_tile_;
+    int64_t m1_warp_tile_;
+    int64_t n1_warp_tile_;
+    int64_t k1_warp_tile_;
+
 };
 
 /**
- * @class FmhaFwdAppendKVCodeGen
- * @brief Code generator for Forward FMHA AppendKV operations
+ * @class FmhaFwdCodeGen
+ * @brief Code generator for Forward FMHA operations
  *
  * This class encapsulates all the parameters and configuration needed to generate
- * optimized GPU kernels for Forward Multi-Head Attention AppendKV operations.
- * AppendKV is used for dynamic key-value cache updates during inference.
+ * optimized GPU kernels for Forward Multi-Head Attention operations. It combines
+ * problem specifications with tiling strategies and attention-specific configurations.
  */
-class FmhaFwdAppendKVCodeGen {
+class FmhaBatchPrefillCodeGen {
 public:
     /**
      * @brief Default constructor with sensible defaults
      */
-    FmhaFwdAppendKVCodeGen() = default;
+    FmhaBatchPrefillCodeGen() = default;
 
     /**
      * @brief Generate padding configuration name
@@ -70,26 +98,11 @@ public:
      */
     std::string Emit() const;
 
-    // ====================== Operation Configuration ======================
-
-    FmhaKind kind_ = FmhaKind::FwdAppendKV;  ///< Type of FMHA operation (always FwdAppendKV)
-
-    // ====================== Data Type Configuration ======================
-
-    DataType dtype_ = DataType::FLOAT16;  ///< Primary data type for Q, K, V tensors
-
-    // ====================== Attention Configuration ======================
-
-    FmhaMode mode_      = FmhaMode::Batch;  ///< Batch or Group mode for attention computation
-    RopeEnum rope_type_ = RopeEnum::NONE;   ///< Type of rotary position embedding applied
+    FmhaProblem problem_; 
 
     // ====================== Tiling Configuration ======================
 
-    FmhaAppendKVTileDesc tile_desc_;  ///< Tile configuration for this FMHA AppendKV operation
-
-    // ====================== Memory Configuration ======================
-
-    bool is_paged_kv_ = false;  ///< Enable paged key-value cache for memory efficiency
+    FmhaBatchPrefillTileDesc tile_desc_;  ///< Tile configuration for this FMHA operation
 
     // ====================== Padding Configuration ======================
 
@@ -102,6 +115,10 @@ public:
     // ====================== Performance Configuration ======================
 
     int block_per_cu_ = -1;  ///< Override occupancy if not -1 (blocks per compute unit)
+    
+    // ====================== Pipeline Configuration ======================
+
+    BlockFmhaPipelineEnum pipeline_ = BlockFmhaPipelineEnum::QRKSVS;  ///< FMHA pipeline implementation variant
 };
 
 }  // namespace flashck

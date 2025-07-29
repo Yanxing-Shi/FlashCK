@@ -1,0 +1,43 @@
+
+{
+  "tile": {
+    "block_size": { "values": [256] },
+    "m_per_block": { "values": [256] },
+    "n_per_block": { "values": [128] },
+    "k_per_block": { "values": [32] },
+    "a_k1": { "values": [8] },
+    "b_k1": { "values": [8] },
+    "m_per_xdl": { "values": [32] },
+    "n_per_xdl": { "values": [32] },
+    "m_xdl_per_wave": { "values": [4] },
+    "n_xdl_per_wave": { "values": [2] }
+  },
+  "a_block_transfer": {
+    "thread_cluster_length": { "values": [[4, 64, 1]] },
+    "arrange_order": { "values": [[1, 0, 2]] },
+    "src_access_order": { "values": [[1, 0, 2]] },
+    "src_vector_dim": { "values": [2] },
+    "src_scalar_per_vector": { "values": [16] },
+    "dst_scalar_per_vector_k1": { "values": [16] },
+    "lds_add_extra_m": { "values": [1] }
+  },
+  "b_block_transfer": {
+    "thread_cluster_length": { "values": [[4, 64, 1]] },
+    "arrange_order": { "values": [[1, 0, 2]] },
+    "src_access_order": { "values": [[1, 0, 2]] },
+    "src_vector_dim": { "values": [2] },
+    "src_scalar_per_vector": { "values": [8] },
+    "dst_scalar_per_vector_k1": { "values": [8] },
+    "lds_add_extra_m": { "values": [1] }
+  },
+  "c_block_transfer": {
+    "m_xdl_per_wave": { "values": [1] },
+    "n_xdl_per_wave": { "values": [1] },
+    "thread_cluster_length": { "values": [1, 32, 1, 8] },
+    "scalar_per_vector": { "values": [8] }
+  },
+  "pipeline": {
+    "scheduler": { "values": ["intrawave"] },
+    "version": { "values": ["v1"] }
+  }
+}

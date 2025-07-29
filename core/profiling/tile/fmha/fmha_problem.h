@@ -100,5 +100,8 @@ public:
 
     // Split-KV configuration
     int64_t num_splits_;  ///< Number of splits for key/value (for SplitKV variants)
+
+    bool has_logits_soft_cap_;
+    bool is_skip_min_q_seqlen_ = false; //  skip min seqlen q while chunked prefill
 };
 }  // namespace flashck

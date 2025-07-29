@@ -56,6 +56,16 @@ RUN git clone https://github.com/google/googletest.git -b v1.17.0 && \
     make install && \
     cd /tmp && rm -rf googletest
 
+# nlohmann_json
+WORKDIR /tmp
+RUN git clone https://github.com/nlohmann/json.git -b v3.12.0 && \
+    cd json && \
+    mkdir build && cd build && \
+    cmake -DBUILD_SHARED_LIBS=ON -DCMAKE_INSTALL_PREFIX=/usr/local .. && \
+    make -j$(nproc) && \
+    make install && \
+    cd /tmp && rm -rf json
+
 CMD ["/bin/bash"]
 
 

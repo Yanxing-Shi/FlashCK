@@ -27,3 +27,5 @@
         .value("no_sweep", flashck::FusedQuantEnum::NO_SWEEP)                                                          \
         .value("smooth_dynamic_quant", flashck::FusedQuantEnum::SMOOTH_DYNAMIC_QUANT)                                  \
         .value("dynamic_quant", flashck::FusedQuantEnum::DYNAMIC_QUANT);
+    
+    

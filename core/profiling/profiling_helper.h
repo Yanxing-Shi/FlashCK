@@ -10,8 +10,9 @@
 #include "core/utils/common.h"
 
 #include "core/profiling/legacy/gemm/gemm_problem.h"
-#include "core/profiling/tile/fmha/fmha_problem.h"
-#include "core/profiling/tile/norm/norm_problem.h"
+#include "core/profiling/tile/gemm/gemm_problem.h"
+// #include "core/profiling/tile/fmha/fmha_problem.h"
+// #include "core/profiling/tile/norm/norm_problem.h"
 
 // Flag declarations for tuning configuration
 FC_DECLARE_int32(FC_TUNING_MODE);                ///< Tuning strategy mode (heuristic, autotuning, hybrid)
@@ -365,7 +366,9 @@ public:
     InstanceData(Environment                                         env,
                  Setting                                             setting,
                  CodeGenKind                                         code_gen_kind,
-                 std::variant<NormProblem, GemmProblem, FmhaProblem> problem):
+                //  std::variant<NormProblem, GemmProblem, FmhaProblem> problem
+                std::variant<legacy::GemmProblem, tile::GemmProblem> problem
+                ):
         environment_(std::move(env)),
         setting_(std::move(setting)),
         code_gen_kind_(code_gen_kind),
@@ -385,7 +388,8 @@ public:
     InstanceData(Environment                                         env,
                  Setting                                             setting,
                  CodeGenKind                                         code_gen_kind,
-                 std::variant<NormProblem, GemmProblem, FmhaProblem> problem,
+                //  std::variant<NormProblem, GemmProblem, FmhaProblem> problem,
+                std::variant<legacy::GemmProblem, tile::GemmProblem> problem,
                  std::string                                         instance_name,
                  PerfResult                                          perf_result):
         environment_(std::move(env)),
@@ -486,7 +490,8 @@ public:
     Setting     setting_;        ///< Profiling configuration
     CodeGenKind code_gen_kind_;  ///< Type of kernel operation
 
-    std::variant<NormProblem, GemmProblem, FmhaProblem> problem_;  ///< Problem specification (extensible via variant)
+    // std::variant<NormProblem, GemmProblem, FmhaProblem> problem_;  ///< Problem specification (extensible via variant)
+    std::variant<legacy::GemmProblem, tile::GemmProblem> problem_;  ///< Problem specification (extensible via variant)
     std::string                                         instance_name_;  ///< Unique kernel instance identifier
     PerfResult                                          perf_result_;    ///< Performance measurement results
 };

@@ -156,6 +156,8 @@ FC_DEFINE_EXPORTED_string(FC_ROCM_PATH, "/opt/rocm", "ROCm installation path");
 
 FC_DEFINE_EXPORTED_string(FC_TUNING_DB_DIR, "", "Directory for profiler cache storage");
 
+FC_DEFINE_EXPORTED_string(FC_CONFIG_JSON_PATH, "", "Path to the JSON configuration file");
+
 FC_DEFINE_EXPORTED_string(FC_BUILD_CACHE_DIR, "", "Directory for build cache storage");
 
 FC_DEFINE_EXPORTED_string(FC_COMPILER_OPT_LEVEL, "o3", "Compiler optimization level (o0, o1, o2, o3)");
@@ -201,6 +203,10 @@ FC_DEFINE_EXPORTED_bool(FC_FORCE_PROFILING_DB, true, "Force the profiler to use 
 FC_DEFINE_EXPORTED_bool(FC_FORCE_PROFILING, true, "Force profiling even if cached results exist");
 
 FC_DEFINE_EXPORTED_bool(FC_FLUSH_PROFILING_DB, false, "Flush profile cache database on startup");
+
+FC_DEFINE_EXPORTED_bool(FC_ENABLE_CONFIG_JSON, true, "Enable configuration from JSON file");
+
+FC_DEFINE_EXPORTED_int32(FC_ENABLE_JSON_MODE, 0, "JSON mode: 0=only default config, 1=only user coonfig, 2=default and user config");
 
 FC_DEFINE_EXPORTED_int32(FC_TUNING_MODE, 1, "Tuning mode: 0=heuristic, 1=autotuning, 2=hybrid");
 

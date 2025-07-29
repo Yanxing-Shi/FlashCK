@@ -1,0 +1,17 @@
+{
+  "tile_config": {
+    "block": {
+      "n1": { "values": [32] }
+    }
+  },
+  "padding": {
+    "s": { "values": [true, false] },
+    "dv": { "values": [true, false] }
+  },
+  "launch": {
+    "min_block_per_cu": { "values": [1] }
+  },
+  "pipeline": {
+    "values": ["QRKSVS"]
+  }
+}

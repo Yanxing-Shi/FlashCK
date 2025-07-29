@@ -7,6 +7,8 @@
 
 namespace flashck {
 
+namespace legacy{
+
 /**
  * @enum GemmKind
  * @brief Defines the types of GEMM operations supported
@@ -14,8 +16,7 @@ namespace flashck {
 enum class GemmKind : int {
     Gemm          = 0,  ///< Standard general matrix multiplication
     GemmMultipleD = 1,  ///< GEMM with multiple D tensors
-    BatchGemm     = 2,  ///< Batched GEMM operations
-    // Add new GEMM types here
+    GemmMX       = 2,  ///< GEMM with microscaling datatype
     COUNT  // Used for iteration and validation
 };
 
@@ -36,8 +37,7 @@ static const std::unordered_map<GemmKind, GemmInfo> g_gemm_info_map = {
     {GemmKind::Gemm, {"gemm", "ck::tensor_operation::device::DeviceGemm_Xdl_CShuffleV3", "G"}},
     {GemmKind::GemmMultipleD,
      {"gemm_multiple_d", "ck::tensor_operation::device::DeviceGemmMultipleD_Xdl_CShuffle", "GM"}},
-    {GemmKind::BatchGemm, {"batch_gemm", "ck::tensor_operation::device::DeviceBatchedGemmXdl", "BG"}},
-};
+    {GemmKind::GemmMX, {"gemm_mx", "ck::tensor_operation::device::DeviceGemmMX_Xdl_CShuffleV3", "GMX"}}};
 
 /**
  * @enum LayoutType
@@ -317,6 +317,21 @@ inline std::string GetPipelineVersionTag(BlockGemmPipelineVersion version)
 }
 
 /**
+ * @brief Gets the BlockGemmPipelineVersion enum from a string (name, version_tag, or short_name)
+ * @param str The string to match
+ * @return The corresponding BlockGemmPipelineVersion, or BlockGemmPipelineVersion::COUNT if not found
+ */
+inline BlockGemmPipelineVersion GetPipelineVersionFromString(const std::string& str)
+{
+    for (const auto& [ver, info] : g_pipeline_version_map) {
+        if (info.name == str || info.version_tag == str || info.short_name == str) {
+            return ver;
+        }
+    }
+    return BlockGemmPipelineVersion::COUNT;
+}
+
+/**
  * @brief Gets the short name for a pipeline version
  * @param version The pipeline version to query
  * @return The short name string, or "unknown" if not found
@@ -359,6 +374,22 @@ inline std::string GetSchedulerClassTag(BlockGemmPipelineScheduler scheduler)
     auto it = g_scheduler_map.find(scheduler);
     return it != g_scheduler_map.end() ? it->second.class_tag : "unknown";
 }
+
+/**
+ * @brief Gets the BlockGemmPipelineScheduler enum from a string (name, class_tag, or short_name)
+ * @param str The string to match
+ * @return The corresponding BlockGemmPipelineScheduler, or BlockGemmPipelineScheduler::COUNT if not found
+ */
+inline BlockGemmPipelineScheduler GetPipelineSchedulerFromString(const std::string& str)
+{
+    for (const auto& [sched, info] : g_scheduler_map) {
+        if (info.name == str || info.class_tag == str || info.short_name == str) {
+            return sched;
+        }
+    }
+    return BlockGemmPipelineScheduler::COUNT;
+}
+
 
 /**
  * @brief Gets the name string for an epilogue type
@@ -490,4 +521,5 @@ inline bool IsValidGemmSpecialization(GemmSpecialization spec)
     return static_cast<int>(spec) >= 0 && static_cast<int>(spec) < static_cast<int>(GemmSpecialization::COUNT);
 }
 
+} // namespace legacy
 }  // namespace flashck

@@ -10,6 +10,7 @@
 #include "core/utils/dtype.h"
 
 namespace flashck {
+namespace legacy{
 
 /**
  * @class GemmProblem
@@ -108,4 +109,6 @@ public:
     int64_t ldc_;  ///< Leading dimension of matrix C
     int64_t ldd_;  ///< Leading dimension of additional D tensors
 };
-}  // namespace flashck
+
+}  // namespace legacy
+} // namespace flashck

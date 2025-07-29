@@ -4,10 +4,11 @@
 #include <vector>
 
 #include "core/profiling/legacy/gemm/gemm_library.h"
-#include "core/utils/dtype.h"
+#include "core/profiling/legacy/gemm/gemm_problem.h"
 
 namespace flashck {
 
+namespace legacy{
 /**
  * @class GemmTileDesc
  * @brief Describes the tiling configuration for GEMM operations
@@ -32,8 +33,11 @@ public:
 
     // ====================== Tile Configuration Parameters ======================
 
+    int64_t scale_block_size_; ///<  Scaling block size
+
     int64_t block_size_;  ///< The number of threads within workgroup. Defines the total thread count per block for GEMM
                           ///< computation.
+
 
     // Block-level tiling dimensions
     int64_t m_per_block_;  ///< The input/output data tile size in the M dimension. Determines how much work each block
@@ -185,8 +189,6 @@ public:
                               ///< iteration of CShuffle in N dimension.
     std::vector<int64_t> m_n_block_wave_per_xdl_;  ///< The spatial thread distribution used for storing data into
                                                    ///< output tensor across output data layout dimensions.
-    std::vector<std::string>
-            m_n_block_wave_per_xdl_vec_;  ///< String representation of block wave distribution for template generation.
     int64_t scalar_per_vector_;  ///< The size of vectorized memory access. Used when storing data to output tensor.
                                  ///< Controls write vectorization granularity.
 };
@@ -214,31 +216,7 @@ public:
      */
     std::string Emit() const;
 
-    // ====================== Layout Configuration ======================
-
-    LayoutType
-        a_layout_;  ///< Matrix A memory layout (row/column major). Determines how matrix A data is arranged in memory.
-    LayoutType
-        b_layout_;  ///< Matrix B memory layout (row/column major). Determines how matrix B data is arranged in memory.
-    LayoutType
-        c_layout_;  ///< Matrix C memory layout (row/column major). Determines how matrix C data is arranged in memory.
-    std::vector<LayoutType> ds_layout_;  ///< Data store (DS) memory layouts. Specifies how multiple data tensors are
-                                         ///< organized for GemmMultipleD operations.
-
-    // ====================== Data Type Configuration ======================
-
-    DataType              a_dtype_;   ///< Matrix A data type. Specifies the precision and format of matrix A elements.
-    DataType              b_dtype_;   ///< Matrix B data type. Specifies the precision and format of matrix B elements.
-    DataType              c_dtype_;   ///< Matrix C data type. Specifies the precision and format of matrix C elements.
-    std::vector<DataType> ds_dtype_;  ///< Data types for data store (DS) tensors. Specifies the precision and format of
-                                      ///< multiple DS tensor elements for GemmMultipleD operations.
-
-    // ====================== Epilogue Configuration ======================
-
-    GemmKind kind_;  ///< Type of GEMM operation (standard, multiple D, batched). Determines the device implementation
-                     ///< template to use.
-    EpilogueType
-        c_element_op_;  ///< Type of epilogue operation applied after GEMM computation (e.g., ReLU, addition, GELU).
+    GemmProblem problem_;
 
     // ====================== Specialization Configuration ======================
 
@@ -254,13 +232,14 @@ public:
     GemmTileDesc tile_desc_;  ///< Tile configuration for this GEMM operation. Defines how computation is divided across
                               ///< blocks and matrix multiplication units.
 
-    BlockTransferDesc a_block_transfer_desc_;  ///< Data transfer configuration for matrix A. Specifies how A data moves
+    BlockTransferDesc a_block_desc_;  ///< Data transfer configuration for matrix A. Specifies how A data moves
                                                ///< from global memory to local data store.
-    BlockTransferDesc b_block_transfer_desc_;  ///< Data transfer configuration for matrix B. Specifies how B data moves
+    BlockTransferDesc b_block_desc_;  ///< Data transfer configuration for matrix B. Specifies how B data moves
                                                ///< from global memory to local data store.
 
-    CBlockTransferDesc c_block_transfer_desc_;  ///< Output transfer configuration for matrix C. Controls how
+    CBlockTransferDesc c_block_desc_;  ///< Output transfer configuration for matrix C. Controls how
                                                 ///< computation results are written from registers to global memory.
 };
 
+} // namespace legacy
 }  // namespace flashck

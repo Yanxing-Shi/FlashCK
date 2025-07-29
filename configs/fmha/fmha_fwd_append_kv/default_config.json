@@ -1,0 +1,19 @@
+{
+  "tile_config": {
+    "block": {
+      "s": { "values": [64] },
+      "sk": { "values": [64] },
+      "d": { "values": [32] },
+      "dv": { "values": [32] }
+    }
+  },
+  "padding": {
+    "s": { "values": [true, false] },
+    "sk": { "values": [true, false] },
+    "d": { "values": [true, false] },
+    "dv": { "values": [true, false] }
+  },
+  "launch": {
+    "min_block_per_cu": { "values": [1] }
+  }
+}
