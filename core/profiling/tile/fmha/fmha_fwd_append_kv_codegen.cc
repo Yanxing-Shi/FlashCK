@@ -28,16 +28,16 @@ std::string FmhaFwdAppendKVCodeGen::GetPipelineConfigName() const
 {
     return Sprintf("{pad_name}_{rope_short_name}_{pagedkv}{block_per_cu}",
                    fmt::arg("pad_name", GetPadName()),
-                   fmt::arg("rope_short_name", GetRopeShortName(rope_type_)),
+                   fmt::arg("rope_short_name", GetRopeShortName(problem_.rope_type_)),
                    fmt::arg("pagedkv", problem_.paged_block_size_ > 0 ? "pagedkv" : "nopagedkv"),
-                   fmt::arg("block_per_cu", block_per_cu_ == -1 ? "" : "_" + std::to_string(block_per_cu_)));
+                   fmt::arg("block_per_cu", min_block_per_cu_ == -1 ? "" : "_" + std::to_string(min_block_per_cu_)));
 }
 
 std::string FmhaFwdAppendKVCodeGen::GetInstanceName() const
 {
     return Sprintf("fmha_fwd_appendkv_{dtype}_{mode}_{tile_desc}_{pipeline}",
-                   fmt::arg("dtype", DataTypeToString(dtype_)),
-                   fmt::arg("mode", GetFmhaModeName(mode_)),
+                   fmt::arg("dtype", DataTypeToString(problem_.dtype_)),
+                   fmt::arg("mode", GetFmhaModeName(problem_.mode_)),
                    fmt::arg("tile_desc", tile_desc_.GetInstanceName()),
                    fmt::arg("pipeline", GetPipelineConfigName()));
 }
@@ -74,13 +74,13 @@ using {{name}} =
                                    {"bsk", std::to_string(tile_desc_.bsk_)},
                                    {"bd", std::to_string(tile_desc_.bd_)},
                                    {"bdv", std::to_string(tile_desc_.bdv_)},
-                                   {"rope", GetRopeClassTag(rope_type_)},
+                                   {"rope", GetRopeClassTag(problem_.rope_type_)},
                                    {"pagedkv", problem_.paged_block_size_ > 0 ? true : false},
                                    {"is_pad_q_seq_len", is_pad_q_seq_len_},
                                    {"is_pad_kv_seq_len", is_pad_kv_seq_len_},
                                    {"is_pad_qk_head_dim", is_pad_qk_head_dim_},
                                    {"is_pad_v_head_dim", is_pad_v_head_dim_},
-                                   {"block_per_cu", std::to_string(block_per_cu_)}};
+                                   {"block_per_cu", std::to_string(min_block_per_cu_)}};
 
     return TEMPLATE_CHECK(source, value_map, "FmhaFwdAppendKVCodeGen::Emit");
 }

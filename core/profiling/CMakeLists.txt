@@ -5,8 +5,8 @@
 # Collect all profiling source files recursively
 file(GLOB PROFILING_SOURCES CONFIGURE_DEPENDS
     "*.cc"
-    # "tile/norm/*.cc"
-    # "tile/fmha/*.cc"
+    "tile/norm/*.cc"
+    "tile/fmha/*.cc"
     "tile/gemm/*.cc"
     "legacy/gemm/*.cc"
 )

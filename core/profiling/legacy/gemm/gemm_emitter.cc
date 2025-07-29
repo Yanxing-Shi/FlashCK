@@ -228,6 +228,12 @@ void GemmEmitter::GenerateInstances(GemmProblem& gemm_problem)
                   true,
                   Unavailable("Unsupported mode: {}, valid modes are 0 (heuristic), 1 (autotuning), 2 (hybrid)", FLAGS_FC_TUNING_MODE));
 
+    // Check if instances already exist for this GEMM kind
+    if (instance_map_.find(gemm_problem.kind_) != instance_map_.end() && !instance_map_[gemm_problem.kind_].empty()) {
+        VLOG(2) << "Instances already generated for GEMM kind: " << GetGemmKindName(gemm_problem.kind_);
+        return;
+    }
+
     // Load legacy GEMM configuration if available
     std::vector<GemmCodegen> gemm_instances;
     if (FLAGS_FC_ENABLE_CONFIG_JSON) {
@@ -252,13 +258,12 @@ void GemmEmitter::GenerateInstances(GemmProblem& gemm_problem)
             gemm_instances.insert(gemm_instances.end(), gemm_default_instances.begin(), gemm_default_instances.end());
             gemm_instances.insert(gemm_instances.end(), gemm_user_instances.begin(), gemm_user_instances.end());
         }
-        else{
+    else{
             LOG(WARNING)<< "FC_ENABLE_JSON_MODE is set to an unsupported value: " << FLAGS_FC_ENABLE_JSON_MODE;
         }
-    } else{
+    } else {
         LOG(WARNING)<< "FC_ENABLE_CONFIG_JSON is not enabled";
     }
-
 
     for (const auto& config : g_backup_legacy_gemm_config) {
         GemmCodegen gemm;
@@ -314,12 +319,6 @@ void GemmEmitter::GenerateInstances(GemmProblem& gemm_problem)
         gemm_instances.push_back(gemm);
     }
     
-
-    // Check if instances already exist for this GEMM kind
-    if (instance_map_.find(gemm_problem.kind_) != instance_map_.end() && !instance_map_[gemm_problem.kind_].empty()) {
-        VLOG(2) << "Instances already generated for GEMM kind: " << GetGemmKindName(gemm_problem.kind_);
-        return;
-    }
 
     // check instances
     std::vector<GemmCodegen> valid_gemm_instances;

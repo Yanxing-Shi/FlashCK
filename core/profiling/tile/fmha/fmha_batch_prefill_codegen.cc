@@ -7,13 +7,13 @@ namespace flashck {
 std::string FmhaBatchPrefillTileDesc::GetInstanceName() const
 {
     return Sprintf(
-        "{m0_block}x{n0_block}x{k0_block}_{n1_block}x{k1_block}x{k0_block_max}_r{m0_warp}x{n0_warp}x{k0_warp}_{m1_warp}x{n1_warp}x{k1_warp}_w{m0_warp}x{n0_warp_tile}x{k0_warp_tile}x{m1_warp_tile}x{n1_warp_tile}x{k1_warp_tile}",
+        "{m0_block}x{n0_block}x{k0_block}_{n1_block}x{k1_block}x{k0_max_block}_r{m0_warp}x{n0_warp}x{k0_warp}_{m1_warp}x{n1_warp}x{k1_warp}_w{m0_warp}x{n0_warp_tile}x{k0_warp_tile}x{m1_warp_tile}x{n1_warp_tile}x{k1_warp_tile}",
         fmt::arg("m0_block", m0_block_),
         fmt::arg("n0_block", n0_block_),
         fmt::arg("k0_block", k0_block_),
         fmt::arg("n1_block", n1_block_),
         fmt::arg("k1_block", k1_block_),
-        fmt::arg("k0_block_max", k0_block_max_),
+        fmt::arg("k0_max_block", k0_max_block_),
         fmt::arg("m0_warp", m0_warp_),
         fmt::arg("n0_warp", n0_warp_),
         fmt::arg("k0_warp", k0_warp_),
@@ -31,7 +31,7 @@ std::string FmhaBatchPrefillTileDesc::GetInstanceName() const
 std::string FmhaBatchPrefillTileDesc::Emit() const
 {
     std::string       tpl = R"(
-    ck_tile::TileFmhaShape<ck_tile::sequence<{{m0_block}}, {{n0_block}}, {{k0_block}}, {{n1_block}}, {{k1_block}}, {{k0_block_max}}>,
+    ck_tile::TileFmhaShape<ck_tile::sequence<{{m0_block}}, {{n0_block}}, {{k0_block}}, {{n1_block}}, {{k1_block}}, {{k0_max_block}}>,
                             ck_tile::sequence<{{m0_warp}}, {{n0_warp}}, {{k0_warp}}>,
                             ck_tile::sequence<{{m0_warp}}, {{n0_warp_tile}}, {{k0_warp_tile}}>,
                             ck_tile::sequence<{{m1_warp}}, {{n1_warp}}, {{k1_warp}}>,
@@ -43,7 +43,7 @@ std::string FmhaBatchPrefillTileDesc::Emit() const
                                 {"k0_block", k0_block_},
                                 {"n1_block", n1_block_},
                                 {"k1_block", k1_block_},
-                                {"k0_block_max", k0_block_max_},
+                                {"k0_max_block", k0_max_block_},
                                 {"m0_warp", m0_warp_},
                                 {"n0_warp", n0_warp_},
                                 {"k0_warp", k0_warp_},
@@ -72,16 +72,16 @@ std::string FmhaBatchPrefillCodeGen::GetPipelineConfigName() const
 {
     return Sprintf("{pad_name}_{bias_short_name}_{is_static_quant}{block_per_cu}",
                    fmt::arg("pad_name", GetPadName()),
-                   fmt::arg("bias_short_name", GetBiasShortName(bias_enum_)),
-                   fmt::arg("is_static_quant", is_static_quant_ ? "squant" : "nosquant"),
-                   fmt::arg("block_per_cu", block_per_cu_ == -1 ? "" : "_" + std::to_string(block_per_cu_)));
+                   fmt::arg("bias_short_name", GetBiasShortName(problem_.bias_enum_)),
+                   fmt::arg("is_static_quant", problem_.is_static_quant_ ? "squant" : "nosquant"),
+                   fmt::arg("block_per_cu", min_block_per_cu_ == -1 ? "" : "_" + std::to_string(min_block_per_cu_)));
 }
 
 std::string FmhaBatchPrefillCodeGen::GetInstanceName() const
 {
     return Sprintf("fmha_fwd_{dtype}_{mode}_{tile_desc}_{pipeline}",
-                   fmt::arg("dtype", DataTypeToString(dtype_)),
-                   fmt::arg("mode", GetFmhaModeName(mode_)),
+                   fmt::arg("dtype", DataTypeToString(problem_.dtype_)),
+                   fmt::arg("mode", GetFmhaModeName(problem_.mode_)),
                    fmt::arg("tile_desc", tile_desc_.GetInstanceName()),
                    fmt::arg("pipeline", GetPipelineConfigName()));
 }
@@ -111,7 +111,7 @@ using fmha_pipeline_problem_{{idx}} = ck_tile::BlockFmhaPipelineProblem<
                             {{has_logits_soft_cap}},
                             {{attention_bias}},
                             false, /* kHasBiasGrad */
-                            false, /* kStoreLSE_ */
+                            {{is_store_lse}}, /* kStoreLSE_ */
                             false, /* kHasDropout_ */
                             {{is_static_quant}}, /* kDoFp8StaticQuant */
                             {{block_per_cu}}, /* overwrite occupancy if not -1 */
@@ -139,9 +139,10 @@ using {{name}}  =
         {"is_pad_v_head_dim", is_pad_v_head_dim_},
         {"has_logits_soft_cap", problem_.has_logits_soft_cap_},
         {"attention_bias", GetBiasClassTag(problem_.bias_enum_)},
+        {"is_store_lse", problem_.is_store_lse_},
         {"skip_min_q_seq_len", problem_.is_skip_min_q_seqlen_},
         {"is_static_quant", problem_.is_static_quant_},
-        {"block_per_cu", std::to_string(block_per_cu_)},
+        {"block_per_cu", std::to_string(min_block_per_cu_)},
         {"pipeline", GetFwdPipelineClassTag(pipeline_)}};
 
     return TEMPLATE_CHECK(tpl, value_map, "FmhaFwdCodeGen::Emit");

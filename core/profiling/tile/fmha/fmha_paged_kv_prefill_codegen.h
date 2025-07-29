@@ -5,7 +5,7 @@
 #include <vector>
 
 #include "core/profiling/tile/fmha/fmha_library.h"
-#include "core/utils/dtype.h"
+#include "core/profiling/tile/fmha/fmha_problem.h"
 
 namespace flashck {
 
@@ -102,7 +102,7 @@ public:
 
     // ====================== Tiling Configuration ======================
 
-    FmhaBatchPrefillTileDesc tile_desc_;  ///< Tile configuration for this FMHA operation
+    FmhaPagedKVPrefillTileDesc tile_desc_;  ///< Tile configuration for this FMHA operation
 
     // ====================== Padding Configuration ======================
 
@@ -110,11 +110,10 @@ public:
     bool is_pad_kv_seq_len_   = false;  ///< Enable padding for key-value sequence length
     bool is_pad_qk_head_dim_  = false;  ///< Enable padding for query-key head dimension
     bool is_pad_v_head_dim_   = false;  ///< Enable padding for value head dimension
-    bool is_pad_qkv_head_dim_ = false;  ///< Enable padding for unified QKV head dimension
 
     // ====================== Performance Configuration ======================
 
-    int block_per_cu_ = -1;  ///< Override occupancy if not -1 (blocks per compute unit)
+    int min_block_per_cu_ = -1;  ///< Override occupancy if not -1 (blocks per compute unit)
     
     // ====================== Pipeline Configuration ======================
 

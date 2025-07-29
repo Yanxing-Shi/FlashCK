@@ -105,15 +105,15 @@ struct PaddingConfig {
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(PaddingConfig, m_, n_, k_)
 
 struct LaunchConfig {
-    IntEnumConfigParam max_block_per_cu_;
+    IntEnumConfigParam min_block_per_cu_;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(LaunchConfig, max_block_per_cu_)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(LaunchConfig, min_block_per_cu_)
 
 struct PartitionConfig {
     IntEnumConfigParam num_wave_groups_, tile_partitioner_group_num_, tile_partitioner_m01_;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(PartitionConfig, num_wave_groups_, tile_partitioner_group_num_, tile_partitioner_m01_)
 
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(PartitionConfig, num_wave_groups_, tile_partitioner_group_num_, tile_partitioner_m01_)
 struct TileGemmConfig {
     TileConfig tile_config_;
     PaddingConfig padding_;
@@ -150,11 +150,6 @@ struct FmhaFwdLaunchConfig {
 };
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdLaunchConfig, min_block_per_cu_, max_thread_per_block_)
 
-struct FmhaFwdPipelineConfig {
-    StrEnumConfigParam values_;
-};
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdPipelineConfig, values_)
-
 struct FmhaFwdTileConfig {
     FmhaFwdBlockConfig block_;
     FmhaFwdWarpConfig warp_;
@@ -166,7 +161,7 @@ struct FmhaFwdConfig {
     FmhaFwdTileConfig tile_config_;
     FmhaFwdPaddingConfig padding_;
     FmhaFwdLaunchConfig launch_;
-    FmhaFwdPipelineConfig pipeline_;
+    StrEnumConfigParam pipeline_;
 };
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdConfig, tile_config_, padding_, launch_, pipeline_)
 
@@ -231,7 +226,7 @@ struct FmhaBatchPrefillConfig {
     FmhaFwdTileConfig tile_config_;
     FmhaFwdPaddingConfig padding_;
     FmhaFwdLaunchConfig launch_;
-    FmhaFwdPipelineConfig pipeline_;
+    StrEnumConfigParam pipeline_;
 };
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaBatchPrefillConfig, tile_config_, padding_, launch_, pipeline_)
 
@@ -240,7 +235,7 @@ struct FmhaPagedKVConfig {
     FmhaFwdTileConfig tile_config_;
     FmhaFwdPaddingConfig padding_;
     FmhaFwdLaunchConfig launch_;
-    FmhaFwdPipelineConfig pipeline_;
+    StrEnumConfigParam pipeline_;
 };
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaPagedKVConfig, tile_config_, padding_, launch_, pipeline_)
 

@@ -6,120 +6,162 @@
 
 namespace flashck {
 
-const std::vector<flashck::FmhaConfig> g_backup_legacy_fmha_config = {
-    FmhaConfig{FmhaTileConfig{
-        flashck::BlockConfig{
-            flashck::IntEnumConfigParam{{{256}}},
-            flashck::IntEnumConfigParam{{{128}}},
-            flashck::IntEnumConfigParam{{{128}}}
+const std::vector<FmhaFwdConfig> g_backup_fmha_config = {
+    FmhaFwdConfig{FmhaFwdTileConfig{
+        FmhaFwdBlockConfig{
+            IntEnumConfigParam{{{256}}},
+            IntEnumConfigParam{{{128}}},
+            IntEnumConfigParam{{{128}}}
         },
-        flashck::WarpConfig{
-            flashck::IntEnumConfigParam{{{4}}},
-            flashck::IntEnumConfigParam{{{1}}},
-            flashck::IntEnumConfigParam{{{1}}}
+        FmhaFwdWarpConfig{
+            IntEnumConfigParam{{{4}}},
+            IntEnumConfigParam{{{1}}},
+            IntEnumConfigParam{{{1}}}
         },
-        flashck::WarpTileConfig{
-            flashck::IntEnumConfigParam{{{64}}},
-            flashck::IntEnumConfigParam{{{32}}},
-            flashck::IntEnumConfigParam{{{32}}}
+        FmhaFwdWarpTileConfig{
+            IntEnumConfigParam{{{64}}},
+            IntEnumConfigParam{{{32}}},
+            IntEnumConfigParam{{{32}}}
         }
     },
-    FmhaPaddingConfig{
-        flashck::BoolEnumConfigParam{{false}},
-        flashck::BoolEnumConfigParam{{false}},
-        flashck::BoolEnumConfigParam{{false}}
+    FmhaFwdPaddingConfig{
+        BoolEnumConfigParam{{false}},
+        BoolEnumConfigParam{{false}},
+        BoolEnumConfigParam{{false}}
     },
-    FmhaLaunchConfig{
-        flashck::IntEnumConfigParam{{{1}}},
+    FmhaFwdLaunchConfig{
+        IntEnumConfigParam{{{1}}},
     },
-    FmhaPipelineConfig{
-        flashck::StrEnumConfigParam{{"qr_ks_vs"}},
-    }}
+    StrEnumConfigParam{{"qr_ks_vs"}},
+    }
 };
 
-// Generate all possible FmhaFwdCodeGen instances from a FmhaConfig
-inline std::vector<FmhaFwdCodeGen> GenerateFmhaInstances(const FmhaFwdCodeGen& config, const GemmProblem& gemm_problem) {
+// Generate all possible FmhaFwdCodeGen instances from a FmhaFwdConfig
+inline std::vector<FmhaFwdCodeGen> GenerateFmhaInstances(const FmhaFwdConfig& config, const FmhaProblem& fmha_problem) {
     std::vector<FmhaFwdCodeGen> result;
 
-    // Helper to flatten nested vectors (e.g., vector<vector<int64_t>>) into a single vector
+    // Helper to flatten vector<vector<T>> or just return vector<T> as is
     auto flatten = [](const auto& v) {
-        using Elem = typename std::decay_t<decltype(v)>::value_type::value_type;
-        std::vector<Elem> out;
-        for (const auto& inner : v) out.insert(out.end(), inner.begin(), inner.end());
-        return out;
+        // Specialize for StrEnumConfigParam and similar types
+        if constexpr (std::is_same_v<std::decay_t<decltype(v)>, StrEnumConfigParam>) {
+            return v.values_;
+        } else {
+            using VecT = std::decay_t<decltype(v)>;
+            using ElemT = typename VecT::value_type;
+            if constexpr (std::is_same_v<ElemT, bool> || std::is_arithmetic_v<ElemT> || std::is_same_v<ElemT, std::string>) {
+                // v is vector<T>, just return as is
+                return std::vector<ElemT>(v.begin(), v.end());
+            } else {
+                // v is vector<vector<T>>
+                std::vector<typename ElemT::value_type> out;
+                for (const auto& inner : v) out.insert(out.end(), inner.begin(), inner.end());
+                return out;
+            }
+        }
     };
 
-    std::vector<std::vector<ProductElem>> product_lists = {
+    using ProductElem = std::variant<int64_t, std::vector<int64_t>>;
+    std::vector<std::vector<ProductElem>> all_lists = {
         // BlockConfig
-        flatten(config.tile_config_.block_.m_.values_),
-        flatten(config.tile_config_.block_.n_.values_),
-        flatten(config.tile_config_.block_.k_.values_),
+        [&]{ std::vector<ProductElem> v; for (auto x : flatten(config.tile_config_.block_.m0_.values_)) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<ProductElem> v; for (auto x : flatten(config.tile_config_.block_.n0_.values_)) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<ProductElem> v; for (auto x : flatten(config.tile_config_.block_.k0_.values_)) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<ProductElem> v; for (auto x : flatten(config.tile_config_.block_.k0_max_.values_)) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<ProductElem> v; for (auto x : flatten(config.tile_config_.block_.n1_.values_)) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<ProductElem> v; for (auto x : flatten(config.tile_config_.block_.k1_.values_)) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
         // WarpConfig
-        flatten(config.tile_config_.warp_.m_.values_),
-        flatten(config.tile_config_.warp_.n_.values_),
-        flatten(config.tile_config_.warp_.k_.values_),
+        [&]{ std::vector<ProductElem> v; for (auto x : flatten(config.tile_config_.warp_.m0_.values_)) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<ProductElem> v; for (auto x : flatten(config.tile_config_.warp_.n0_.values_)) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<ProductElem> v; for (auto x : flatten(config.tile_config_.warp_.k0_.values_)) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+         [&]{ std::vector<ProductElem> v; for (auto x : flatten(config.tile_config_.warp_.m1_.values_)) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<ProductElem> v; for (auto x : flatten(config.tile_config_.warp_.n1_.values_)) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<ProductElem> v; for (auto x : flatten(config.tile_config_.warp_.k1_.values_)) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
         // WarpTileConfig
-        flatten(config.tile_config_.warp_tile_.m_.values_),
-        flatten(config.tile_config_.warp_tile_.n_.values_),
-        flatten(config.tile_config_.warp_tile_.k_.values_),
+        [&]{ std::vector<ProductElem> v; for (auto x : flatten(config.tile_config_.warp_tile_.m0_.values_)) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<ProductElem> v; for (auto x : flatten(config.tile_config_.warp_tile_.n0_.values_)) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<ProductElem> v; for (auto x : flatten(config.tile_config_.warp_tile_.k0_.values_)) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<ProductElem> v; for (auto x : flatten(config.tile_config_.warp_tile_.m1_.values_)) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<ProductElem> v; for (auto x : flatten(config.tile_config_.warp_tile_.n1_.values_)) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<ProductElem> v; for (auto x : flatten(config.tile_config_.warp_tile_.k1_.values_)) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
         // PaddingConfig (convert bool to int64_t)
-        std::vector<ProductElem>(flatten(config.padding_.m_.values_).begin(), flatten(config.padding_.m_.values_).end()),
-        std::vector<ProductElem>(flatten(config.padding_.n_.values_).begin(), flatten(config.padding_.n_.values_).end()),
-        std::vector<ProductElem>(flatten(config.padding_.k_.values_).begin(), flatten(config.padding_.k_.values_).end()),
+        [&]{ std::vector<ProductElem> v; for (auto x : flatten(config.padding_.s_.values_)) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<ProductElem> v; for (auto x : flatten(config.padding_.sk_.values_)) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<ProductElem> v; for (auto x : flatten(config.padding_.d_.values_)) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<ProductElem> v; for (auto x : flatten(config.padding_.dv_.values_)) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
         // LaunchConfig
-        flatten(config.launch_.max_block_per_cu_.values_),
-        // PipelineConfig (string)
-        std::vector<ProductElem>(config.pipeline_.pipeline_.values_.begin(), config.pipeline_.pipeline_.values_.end())
+        [&]{ std::vector<ProductElem> v; for (auto x : flatten(config.launch_.min_block_per_cu_.values_)) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        // PipelineConfig (enum as int64_t)
+        [&]{ std::vector<ProductElem> v; for (const auto& x : flatten(config.pipeline_.values_)) v.emplace_back(static_cast<int64_t>(GetBlockFmhaPipelineEnumFromString(x))); return v; }(),
     };
 
-    CartesianProduct(product_lists, [&](const std::vector<flashck::ProductElem>& vals) {
+    CartesianProduct(all_lists, [&](const std::vector<flashck::ProductElem>& vals) {
         size_t idx = 0;
         // BlockConfig
-        int64_t block_m = std::get<int64_t>(vals[idx++]);
-        int64_t block_n = std::get<int64_t>(vals[idx++]);
-        int64_t block_k = std::get<int64_t>(vals[idx++]);
-        // WarpConfig
-        int64_t warp_m = std::get<int64_t>(vals[idx++]);
-        int64_t warp_n = std::get<int64_t>(vals[idx++]);
-        int64_t warp_k = std::get<int64_t>(vals[idx++]);
-        // WarpTileConfig
-        int64_t warptile_m = std::get<int64_t>(vals[idx++]);
-        int64_t warptile_n = std::get<int64_t>(vals[idx++]);
-        int64_t warptile_k = std::get<int64_t>(vals[idx++]);
+        int64_t m0_block = std::get<int64_t>(vals[idx++]);
+        int64_t n0_block = std::get<int64_t>(vals[idx++]);
+        int64_t k0_block = std::get<int64_t>(vals[idx++]);
+        int64_t n1_block = std::get<int64_t>(vals[idx++]);
+        int64_t k1_block = std::get<int64_t>(vals[idx++]);
+        int64_t k0_max_block = std::get<int64_t>(vals[idx++]);
+
+        int64_t m0_warp = std::get<int64_t>(vals[idx++]);
+        int64_t n0_warp = std::get<int64_t>(vals[idx++]);
+        int64_t k0_warp = std::get<int64_t>(vals[idx++]);
+        int64_t m1_warp = std::get<int64_t>(vals[idx++]);
+        int64_t n1_warp = std::get<int64_t>(vals[idx++]);
+        int64_t k1_warp = std::get<int64_t>(vals[idx++]);
+
+        int64_t m0_warp_tile = std::get<int64_t>(vals[idx++]);
+        int64_t n0_warp_tile = std::get<int64_t>(vals[idx++]);
+        int64_t k0_warp_tile = std::get<int64_t>(vals[idx++]);
+        int64_t m1_warp_tile = std::get<int64_t>(vals[idx++]);
+        int64_t n1_warp_tile = std::get<int64_t>(vals[idx++]);
+        int64_t k1_warp_tile = std::get<int64_t>(vals[idx++]);
+
         // PaddingConfig
-        bool pad_m = static_cast<bool>(std::get<int64_t>(vals[idx++]));
-        bool pad_n = static_cast<bool>(std::get<int64_t>(vals[idx++]));
-        bool pad_k = static_cast<bool>(std::get<int64_t>(vals[idx++]));
-        // LaunchConfig
-        int64_t max_block_per_cu = std::get<int64_t>(vals[idx++]);
+        bool is_pad_q_seq_len_ = static_cast<bool>(std::get<int64_t>(vals[idx++]));
+        bool is_pad_kv_seq_len_ = static_cast<bool>(std::get<int64_t>(vals[idx++]));
+        bool is_pad_qk_head_dim_ = static_cast<bool>(std::get<int64_t>(vals[idx++]));
+        bool is_pad_v_head_dim_ = static_cast<bool>(std::get<int64_t>(vals[idx++]));
+
+        // launch config
+        int64_t min_block_per_cu = std::get<int64_t>(vals[idx++]);
+
         // PipelineConfig
-        std::string pipeline = std::get<std::string>(vals[idx++]);
+        BlockFmhaPipelineEnum pipeline = static_cast<BlockFmhaPipelineEnum>(std::get<int64_t>(vals[idx++]));
 
         // Construct FmhaFwdCodeGen
         FmhaFwdCodeGen fmha;
-        fmha.problem_ = gemm_problem;
-        // Fill tile_desc_
-        fmha.tile_desc_.bm0_ = block_m;
-        fmha.tile_desc_.bn0_ = block_n;
-        fmha.tile_desc_.bk0_ = block_k;
-        fmha.tile_desc_.rm0_ = warp_m;
-        fmha.tile_desc_.rn0_ = warp_n;
-        fmha.tile_desc_.rk0_ = warp_k;
-        fmha.tile_desc_.wm0_ = warptile_m;
-        fmha.tile_desc_.wn0_ = warptile_n;
-        fmha.tile_desc_.wk0_ = warptile_k;
+        fmha.problem_ = fmha_problem;
+        // tile_desc
+        fmha.tile_desc_.m0_block_ = m0_block;
+        fmha.tile_desc_.n0_block_ = n0_block;
+        fmha.tile_desc_.k0_block_ = k0_block;
+        fmha.tile_desc_.k0_max_block_ = k0_max_block;
+        fmha.tile_desc_.n1_block_ = n1_block;
+        fmha.tile_desc_.k1_block_ = k1_block;
+        fmha.tile_desc_.m0_warp_ = m0_warp;
+        fmha.tile_desc_.n0_warp_ = n0_warp;
+        fmha.tile_desc_.k0_warp_ = k0_warp;
+        fmha.tile_desc_.m1_warp_ = m1_warp;
+        fmha.tile_desc_.n1_warp_ = n1_warp;
+        fmha.tile_desc_.k1_warp_ = k1_warp;
+        fmha.tile_desc_.m0_warp_tile_ = m0_warp_tile;
+        fmha.tile_desc_.n0_warp_tile_ = n0_warp_tile;
+        fmha.tile_desc_.k0_warp_tile_ = k0_warp_tile;
+        fmha.tile_desc_.m1_warp_tile_ = m1_warp_tile;
+        fmha.tile_desc_.n1_warp_tile_ = n1_warp_tile;
+        fmha.tile_desc_.k1_warp_tile_ = k1_warp_tile;
         // Padding
-        fmha.is_pad_q_seq_len_ = pad_m;
-        fmha.is_pad_kv_seq_len_ = pad_n;
-        fmha.is_pad_qk_head_dim_ = pad_k;
+        fmha.is_pad_q_seq_len_ = is_pad_q_seq_len_;
+        fmha.is_pad_kv_seq_len_ = is_pad_kv_seq_len_;
+        fmha.is_pad_qk_head_dim_ = is_pad_qk_head_dim_;
+        fmha.is_pad_v_head_dim_ = is_pad_v_head_dim_;
         // Launch
-        fmha.block_per_cu_ = static_cast<int>(max_block_per_cu);
+        fmha.min_block_per_cu_ = min_block_per_cu;
         // Pipeline
-        fmha.pipeline_ = 
+        fmha.pipeline_ = pipeline;
         result.push_back(fmha);
-
-    
-    
     });
 
     return result;

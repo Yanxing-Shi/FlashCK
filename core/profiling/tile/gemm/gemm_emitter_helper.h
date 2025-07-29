@@ -92,7 +92,7 @@ inline std::vector<GemmCodeGen> GenerateTileGemmInstances(const flashck::TileGem
         [&]{ std::vector<ProductElem> v; for (auto x : flatten(config.padding_.n_.values_)) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
         [&]{ std::vector<ProductElem> v; for (auto x : flatten(config.padding_.k_.values_)) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
         // LaunchConfig
-        [&]{ std::vector<ProductElem> v; for (auto x : flatten(config.launch_.max_block_per_cu_.values_)) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<ProductElem> v; for (auto x : flatten(config.launch_.min_block_per_cu_.values_)) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
         // PartitionConfig
         [&]{ std::vector<ProductElem> v; for (auto x : flatten(config.partition_.num_wave_groups_.values_)) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
         [&]{ std::vector<ProductElem> v; for (auto x : flatten(config.partition_.tile_partitioner_group_num_.values_)) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
@@ -124,7 +124,7 @@ inline std::vector<GemmCodeGen> GenerateTileGemmInstances(const flashck::TileGem
         bool pad_n = static_cast<bool>(std::get<int64_t>(vals[idx++]));
         bool pad_k = static_cast<bool>(std::get<int64_t>(vals[idx++]));
         // LaunchConfig
-        int64_t max_block_per_cu = std::get<int64_t>(vals[idx++]);
+        int64_t min_block_per_cu = std::get<int64_t>(vals[idx++]);
         // PartitionConfig
         int64_t num_wave_groups = std::get<int64_t>(vals[idx++]);
         int64_t tile_partitioner_group_num = std::get<int64_t>(vals[idx++]);
@@ -142,6 +142,13 @@ inline std::vector<GemmCodeGen> GenerateTileGemmInstances(const flashck::TileGem
         gemm.pipeline_version_ = version;
         gemm.pipeline_scheduler_ = scheduler;
         gemm.epilogue_ = epilogue;
+        gemm.is_pad_m_ = pad_m;
+        gemm.is_pad_n_ = pad_n;
+        gemm.is_pad_k_ = pad_k;
+        gemm.min_block_per_cu_ = min_block_per_cu;
+        gemm.num_wave_groups_ = num_wave_groups;
+        gemm.tile_partitioner_group_num_ = tile_partitioner_group_num;
+        gemm.tile_partitioner_m01_ = tile_partitioner_m01;
         result.push_back(gemm);
     });
     return result;

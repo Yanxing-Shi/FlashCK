@@ -103,5 +103,6 @@ public:
 
     bool has_logits_soft_cap_;
     bool is_skip_min_q_seqlen_ = false; //  skip min seqlen q while chunked prefill
+    bool is_store_lse_ = false;  ///< Enable storing log-sum-exp values for numerical stability
 };
 }  // namespace flashck

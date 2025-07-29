@@ -15,14 +15,14 @@ std::string FmhaFwdSplitKVCombineCodeGen::GetPipelineConfigName() const
 {
     return Sprintf("{is_static_quant}_{block_per_cu}",
                    fmt::arg("is_static_quant", problem_.is_static_quant_ ? "squant" : "nosquant"),
-                   fmt::arg("block_per_cu", block_per_cu_ == -1 ? "" : "_" + std::to_string(block_per_cu_)));
+                   fmt::arg("block_per_cu", min_block_per_cu_ == -1 ? "" : "_" + std::to_string(min_block_per_cu_)));
 }
 
 std::string FmhaFwdSplitKVCombineCodeGen::GetInstanceName() const
 {
     return Sprintf("fmha_fwd_splitkv_combine_{dtype}_{mode}_{tile_desc}_{pipeline}",
-                   fmt::arg("dtype", DataTypeToString(dtype_)),
-                   fmt::arg("mode", GetFmhaModeName(mode_)),
+                   fmt::arg("dtype", DataTypeToString(problem_.dtype_)),
+                   fmt::arg("mode", GetFmhaModeName(problem_.mode_)),
                    fmt::arg("tile_desc", tile_desc_.GetInstanceName()),
                    fmt::arg("pipeline", GetPipelineConfigName()));
 }
@@ -61,14 +61,14 @@ using {{name}} =
 
     jinja2::ValuesMap value_map = {{"name", GetInstanceName()},
                                    {"idx", std::to_string(idx++)},
-                                   {"hdim", std::to_string(problem_.hdim_)},
+                                   {"hdim", std::to_string(problem_.qk_head_dim_)},
                                    {"bn1", std::to_string(tile_desc_.bn1_)},
                                    {"mode", problem_.mode_ == FmhaMode::Batch ? "false" : "true"},
-                                   {"is_pad_q_seq_len", problem_.is_pad_q_seq_len_},
-                                   {"is_pad_v_head_dim", problem_.is_pad_v_head_dim_},
-                                   {"log_max_splits", std::to_string(problem_.log_max_splits_)},
+                                   {"is_pad_q_seq_len", is_pad_q_seq_len_},
+                                   {"is_pad_v_head_dim", is_pad_v_head_dim_},
+                                   {"log_max_splits", std::to_string(log_max_splits_)},
                                    {"is_static_quant", problem_.is_static_quant_},
-                                   {"block_per_cu", std::to_string(block_per_cu_)}};
+                                   {"block_per_cu", std::to_string(min_block_per_cu_)}};
 
     return TEMPLATE_CHECK(tpl, value_map, "FmhaFwdSplitKVCombineCodeGen::Emit");
 }

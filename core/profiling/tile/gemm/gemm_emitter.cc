@@ -131,6 +131,12 @@ void GemmEmitter::GenerateInstances(GemmProblem& gemm_problem)
                   true,
                   Unavailable("Unsupported mode: {}, valid modes are 0 (heuristic), 1 (autotuning), 2 (hybrid)", FLAGS_FC_TUNING_MODE));
 
+    // Check if instances already exist for this GEMM kind
+    if (instance_map_.find(gemm_problem.kind_) != instance_map_.end() && !instance_map_[gemm_problem.kind_].empty()) {
+        VLOG(2) << "Instances already generated for GEMM kind: " << GetGemmKindName(gemm_problem.kind_);
+        return;
+    }
+
     // Load tile GEMM configuration if available
     std::vector<GemmCodeGen> gemm_instances;
     if (FLAGS_FC_ENABLE_CONFIG_JSON) {
@@ -164,7 +170,7 @@ void GemmEmitter::GenerateInstances(GemmProblem& gemm_problem)
     for (const auto& config : g_tile_gemm_backup_tile_config) {
         GemmCodeGen gemm;
 
-            gemm.problem_ = gemm_problem;
+        gemm.problem_ = gemm_problem;
 
         gemm.tile_desc_ = GemmTileDesc{
             config.tile_config_.block_.m_.values_[0][0],
@@ -180,18 +186,14 @@ void GemmEmitter::GenerateInstances(GemmProblem& gemm_problem)
 
         gemm.pipeline_version_ = GetPipelineVersionEnumFromString(config.pipeline_.version_.values_[0]);
         gemm.pipeline_scheduler_ = GetPipelineSchedulerEnumFromString(config.pipeline_.scheduler_.values_[0]);
-
         gemm.epilogue_ = GetEpilogueEnumFromString(config.epilogue_.values_[0]);
 
-            gemm_instances.push_back(gemm);
-    }
-    
+        gemm.min_block_per_cu_ = config.launch_.min_block_per_cu_.values_[0][0];
+        gemm.num_wave_groups_ = config.partition_.num_wave_groups_.values_[0][0];
+        gemm.tile_partitioner_group_num_ = config.partition_.tile_partitioner_group_num_.values_[0][0];
+        gemm.tile_partitioner_m01_ = config.partition_.tile_partitioner_m01_.values_[0][0];
 
-
-    // Check if instances already exist for this GEMM kind
-    if (instance_map_.find(gemm_problem.kind_) != instance_map_.end() && !instance_map_[gemm_problem.kind_].empty()) {
-        VLOG(2) << "Instances already generated for GEMM kind: " << GetGemmKindName(gemm_problem.kind_);
-        return;
+        gemm_instances.push_back(gemm);
     }
 
     // check instances

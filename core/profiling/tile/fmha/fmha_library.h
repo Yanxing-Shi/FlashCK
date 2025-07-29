@@ -488,6 +488,26 @@ inline std::string GetFwdSplitKVPipelineClassTag(BlockFmhaPipelineEnum pipeline)
 
 // ====================== Validation Functions ======================
 
+inline BlockFmhaPipelineEnum GetBlockFmhaPipelineEnumFromString(const std::string& str)
+{
+    BlockFmhaPipelineEnum out_enum;
+    // Check forward pipeline map
+    for (const auto& kv : g_block_fmha_fwd_pipeline_map) {
+        if (kv.second.name == str || kv.second.short_name == str) {
+            out_enum = kv.first;
+            return out_enum;
+        }
+    }
+    // Check split-KV pipeline map
+    for (const auto& kv : g_block_fmha_fwd_splitkv_pipeline_map) {
+        if (kv.second.name == str || kv.second.short_name == str) {
+            out_enum = kv.first;
+            return out_enum;
+        }
+    }
+    return out_enum;
+}
+
 /**
  * @brief Validates if an FMHA mode is valid
  * @param mode The FMHA mode to validate

@@ -3,7 +3,7 @@
 #include <string>
 
 #include "core/profiling/tile/fmha/fmha_library.h"
-#include "core/utils/dtype.h"
+#include "core/profiling/tile/fmha/fmha_problem.h"
 
 namespace flashck {
 
@@ -64,6 +64,10 @@ public:
 
     FmhaProblem problem_;
 
+    int64_t log_max_splits_;
+
+    FmhaFwdSplitKVCombineTileDesc tile_desc_;
+
     // ====================== Padding Configuration ======================
 
     bool is_pad_q_seq_len_  = false;  ///< Enable padding for query sequence length
@@ -71,7 +75,7 @@ public:
 
     // ====================== Performance Configuration ======================
 
-    int block_per_cu_ = -1;  ///< Override occupancy if not -1 (blocks per compute unit)
+    int min_block_per_cu_ = -1;  ///< Override occupancy if not -1 (blocks per compute unit)
 };
 
 }  // namespace flashck
