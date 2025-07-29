@@ -1,5 +1,5 @@
 {
-  "tile_config": {
+  "tile": {
     "block": {
       "s": { "values": [64] },
       "sk": { "values": [64] },

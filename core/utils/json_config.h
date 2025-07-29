@@ -12,7 +12,7 @@ using json = nlohmann::json;
 // ========== Common Parameter Structs ==========
 
 struct IntEnumConfigParam {
-    std::vector<std::vector<int>> values_;
+    std::vector<std::vector<int>> values;
 };
 
 // Custom serialization to support both vector<int> and vector<vector<int>>
@@ -27,217 +27,217 @@ inline void from_json(const nlohmann::json& j, IntEnumConfigParam& p) {
 }
 
 inline void to_json(nlohmann::json& j, const IntEnumConfigParam& p) {
-    j = nlohmann::json{{"values_", p.values_}};
+    j = nlohmann::json{{"values", p.values}};
 }
 
 struct BoolEnumConfigParam {
-    std::vector<bool> values_;
+    std::vector<bool> values;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(BoolEnumConfigParam, values_)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(BoolEnumConfigParam, values)
 
 struct StrEnumConfigParam {
-    std::vector<std::string> values_;
+    std::vector<std::string> values;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(StrEnumConfigParam, values_)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(StrEnumConfigParam, values)
 
 // ========== Legacy GEMM Config Structs ==========
 struct LegacyTileConfig {
-    IntEnumConfigParam scale_block_size_, block_size_, m_per_block_, n_per_block_, k_per_block_, a_k1_, b_k1_, m_per_xdl_, n_per_xdl_, m_xdl_per_wave_, n_xdl_per_wave_;
+    IntEnumConfigParam scale_block_size, block_size, m_per_block, n_per_block, k_per_block, a_k1, b_k1, m_per_xdl, n_per_xdl, m_xdl_per_wave, n_xdl_per_wave;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(LegacyTileConfig, scale_block_size_, block_size_, m_per_block_, n_per_block_, k_per_block_, a_k1_, b_k1_, m_per_xdl_, n_per_xdl_, m_xdl_per_wave_, n_xdl_per_wave_)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(LegacyTileConfig, scale_block_size, block_size, m_per_block, n_per_block, k_per_block, a_k1, b_k1, m_per_xdl, n_per_xdl, m_xdl_per_wave, n_xdl_per_wave)
 
 struct LegacyBlockTransferConfig {
-    IntEnumConfigParam thread_cluster_length_;
-    IntEnumConfigParam arrange_order_;
-    IntEnumConfigParam src_access_order_;
-    IntEnumConfigParam src_vector_dim_;
-    IntEnumConfigParam src_scalar_per_vector_;
-    IntEnumConfigParam dst_scalar_per_vector_k1_;
-    IntEnumConfigParam lds_add_extra_m_;
+    IntEnumConfigParam thread_cluster_length;
+    IntEnumConfigParam arrange_order;
+    IntEnumConfigParam src_access_order;
+    IntEnumConfigParam src_vector_dim;
+    IntEnumConfigParam src_scalar_per_vector;
+    IntEnumConfigParam dst_scalar_per_vector_k1;
+    IntEnumConfigParam lds_add_extra_m;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(LegacyBlockTransferConfig, thread_cluster_length_, arrange_order_, src_access_order_, src_vector_dim_, src_scalar_per_vector_, dst_scalar_per_vector_k1_, lds_add_extra_m_)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(LegacyBlockTransferConfig, thread_cluster_length, arrange_order, src_access_order, src_vector_dim, src_scalar_per_vector, dst_scalar_per_vector_k1, lds_add_extra_m)
 
 struct LegacyCBlockTransferConfig {
-    IntEnumConfigParam m_xdl_per_wave_, n_xdl_per_wave_, thread_cluster_length_, scalar_per_vector_;
+    IntEnumConfigParam m_xdl_per_wave, n_xdl_per_wave, thread_cluster_length, scalar_per_vector;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(LegacyCBlockTransferConfig, m_xdl_per_wave_, n_xdl_per_wave_, thread_cluster_length_, scalar_per_vector_)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(LegacyCBlockTransferConfig, m_xdl_per_wave, n_xdl_per_wave, thread_cluster_length, scalar_per_vector);
 
 struct PipelineConfig{
-    StrEnumConfigParam version_, scheduler_;
+    StrEnumConfigParam version, scheduler;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(PipelineConfig, version_, scheduler_)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(PipelineConfig, version, scheduler)
 
 struct LegacyGemmConfig {
-    LegacyTileConfig tile_config_;
-    LegacyBlockTransferConfig a_block_config_;
-    LegacyBlockTransferConfig b_block_config_;
-    LegacyCBlockTransferConfig c_block_config_;
-    PipelineConfig pipeline_;
+    LegacyTileConfig tile;
+    LegacyBlockTransferConfig a_block;
+    LegacyBlockTransferConfig b_block;
+    LegacyCBlockTransferConfig c_block;
+    PipelineConfig pipeline;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(LegacyGemmConfig, tile_config_, a_block_config_, b_block_config_, c_block_config_, pipeline_)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(LegacyGemmConfig, tile, a_block, b_block, c_block, pipeline)
 
 // ========== Tile-based GEMM Structs ==========
 struct BlockConfig {
-    IntEnumConfigParam m_, n_, k_;
+    IntEnumConfigParam m, n, k;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(BlockConfig, m_, n_, k_)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(BlockConfig, m, n, k)
 
 struct WarpConfig {
-    IntEnumConfigParam m_, n_, k_;
+    IntEnumConfigParam m, n, k;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(WarpConfig, m_, n_, k_)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(WarpConfig, m, n, k)
 
 struct WarpTileConfig {
-    IntEnumConfigParam m_, n_, k_;
+    IntEnumConfigParam m, n, k;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(WarpTileConfig, m_, n_, k_)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(WarpTileConfig, m, n, k)
 
 struct TileConfig {
-    BlockConfig block_;
-    WarpConfig warp_;
-    WarpTileConfig warp_tile_;
+    BlockConfig block;
+    WarpConfig warp;
+    WarpTileConfig warp_tile;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(TileConfig, block_, warp_, warp_tile_)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(TileConfig, block, warp, warp_tile)
 
 struct PaddingConfig {
-    BoolEnumConfigParam m_, n_, k_;
+    BoolEnumConfigParam m, n, k;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(PaddingConfig, m_, n_, k_)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(PaddingConfig, m, n, k)
 
 struct LaunchConfig {
-    IntEnumConfigParam min_block_per_cu_;
+    IntEnumConfigParam min_block_per_cu;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(LaunchConfig, min_block_per_cu_)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(LaunchConfig, min_block_per_cu)
 
 struct PartitionConfig {
-    IntEnumConfigParam num_wave_groups_, tile_partitioner_group_num_, tile_partitioner_m01_;
+    IntEnumConfigParam num_wave_groups, tile_partitioner_group_num, tile_partitioner_m01;
 };
 
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(PartitionConfig, num_wave_groups_, tile_partitioner_group_num_, tile_partitioner_m01_)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(PartitionConfig, num_wave_groups, tile_partitioner_group_num, tile_partitioner_m01)
 struct TileGemmConfig {
-    TileConfig tile_config_;
-    PaddingConfig padding_;
-    LaunchConfig launch_;
-    PartitionConfig partition_;
-    PipelineConfig pipeline_;
-    StrEnumConfigParam epilogue_;
+    TileConfig tile_config;
+    PaddingConfig padding;
+    LaunchConfig launch;
+    PartitionConfig partition;
+    PipelineConfig pipeline;
+    StrEnumConfigParam epilogue;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(TileGemmConfig, tile_config_, padding_, launch_, partition_, pipeline_, epilogue_)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(TileGemmConfig, tile_config, padding, launch, partition, pipeline, epilogue)
 
 // ========== FMHA Fwd Structs ==========
 struct FmhaFwdBlockConfig {
-    IntEnumConfigParam m0_, n0_, k0_, n1_, k1_, k0_max_;
+    IntEnumConfigParam m0, n0, k0, n1, k1, k0_max;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdBlockConfig, m0_, n0_, k0_, n1_, k1_, k0_max_)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdBlockConfig, m0, n0, k0, n1, k1, k0_max)
 
 struct FmhaFwdWarpConfig {
-    IntEnumConfigParam m0_, n0_, k0_, m1_, n1_, k1_;
+    IntEnumConfigParam m0, n0, k0, m1, n1, k1;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdWarpConfig, m0_, n0_, k0_, m1_, n1_, k1_)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdWarpConfig, m0, n0, k0, m1, n1, k1)
 
 struct FmhaFwdWarpTileConfig {
-    IntEnumConfigParam m0_, n0_, k0_, m1_, n1_, k1_;
+    IntEnumConfigParam m0, n0, k0, m1, n1, k1;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdWarpTileConfig, m0_, n0_, k0_, m1_, n1_, k1_)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdWarpTileConfig, m0, n0, k0, m1, n1, k1)
 
 struct FmhaFwdPaddingConfig {
-    BoolEnumConfigParam s_, sk_, d_, dv_;
+    BoolEnumConfigParam s, sk, d, dv;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdPaddingConfig, s_, sk_, d_, dv_)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdPaddingConfig, s, sk, d, dv)
 
 struct FmhaFwdLaunchConfig {
-    IntEnumConfigParam min_block_per_cu_, max_thread_per_block_;
+    IntEnumConfigParam min_block_per_cu;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdLaunchConfig, min_block_per_cu_, max_thread_per_block_)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdLaunchConfig, min_block_per_cu)
 
 struct FmhaFwdTileConfig {
-    FmhaFwdBlockConfig block_;
-    FmhaFwdWarpConfig warp_;
-    FmhaFwdWarpTileConfig warp_tile_;
+    FmhaFwdBlockConfig block;
+    FmhaFwdWarpConfig warp;
+    FmhaFwdWarpTileConfig warp_tile;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdTileConfig, block_, warp_, warp_tile_)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdTileConfig, block, warp, warp_tile)
 
 struct FmhaFwdConfig {
-    FmhaFwdTileConfig tile_config_;
-    FmhaFwdPaddingConfig padding_;
-    FmhaFwdLaunchConfig launch_;
-    StrEnumConfigParam pipeline_;
+    FmhaFwdTileConfig tile;
+    FmhaFwdPaddingConfig padding;
+    FmhaFwdLaunchConfig launch;
+    StrEnumConfigParam pipeline;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdConfig, tile_config_, padding_, launch_, pipeline_)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdConfig, tile, padding, launch, pipeline)
 
 // ========== FMHA Fwd append kv Structs ==========
 struct FmhaFwdAppendKVBlockConfig {
-    IntEnumConfigParam s_, sk_ , d_, dv_;
+    IntEnumConfigParam s, sk, d, dv;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdAppendKVBlockConfig, s_, sk_ , d_, dv_)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdAppendKVBlockConfig, s, sk, d, dv)
 
 struct FmhaFwdAppendKVTileConfig {
-    FmhaFwdAppendKVBlockConfig block_;
+    FmhaFwdAppendKVBlockConfig block;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdAppendKVTileConfig, block_)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdAppendKVTileConfig, block)
 
 struct FmhaFwdAppendKVConfig {
-    FmhaFwdTileConfig tile_config_;
-    FmhaFwdPaddingConfig padding_;
-    FmhaFwdLaunchConfig launch_;
+    FmhaFwdTileConfig tile;
+    FmhaFwdPaddingConfig padding;
+    FmhaFwdLaunchConfig launch;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdAppendKVConfig, tile_config_, padding_, launch_)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdAppendKVConfig, tile, padding, launch)
 
 // ========== FMHA Fwd split kv Structs ==========
 
 struct FmhaFwdSplitKVTileConfig {
-    FmhaFwdBlockConfig block_;
+    FmhaFwdBlockConfig block;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdSplitKVTileConfig, block_)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdSplitKVTileConfig, block)
 
 struct FmhaFwdSplitKVConfig {
-    FmhaFwdSplitKVTileConfig tile_config_;
-    FmhaFwdPaddingConfig padding_;
-    FmhaFwdLaunchConfig launch_;
+    FmhaFwdSplitKVTileConfig tile;
+    FmhaFwdPaddingConfig padding;
+    FmhaFwdLaunchConfig launch;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdSplitKVConfig, tile_config_, padding_, launch_)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdSplitKVConfig, tile, padding, launch)
 
 // ========== FMHA Fwd split kv combine Structs ==========
 
 struct FmhaFwdSplitKVCombineBlockConfig {
-    FmhaFwdBlockConfig m0_, n1_;
+    FmhaFwdBlockConfig m0, n1;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdSplitKVCombineBlockConfig, m0_, n1_)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdSplitKVCombineBlockConfig, m0, n1)
 
 struct FmhaFwdSplitKVCombineTileConfig {
-    FmhaFwdBlockConfig block_;
+    FmhaFwdBlockConfig block;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdSplitKVCombineTileConfig, block_)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdSplitKVCombineTileConfig, block)
 
 struct FmhaFwdSplitKVCombinePaddingConfig {
-    BoolEnumConfigParam s_, dv_;
+    BoolEnumConfigParam s, dv;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdSplitKVCombinePaddingConfig, s_, dv_)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdSplitKVCombinePaddingConfig, s, dv)
 
 struct FmhaFwdSplitKVCombineConfig {
-    FmhaFwdSplitKVCombineTileConfig tile_config_;
-    FmhaFwdSplitKVCombinePaddingConfig padding_;
-    FmhaFwdLaunchConfig launch_;
+    FmhaFwdSplitKVCombineTileConfig tile;
+    FmhaFwdSplitKVCombinePaddingConfig padding;
+    FmhaFwdLaunchConfig launch;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdSplitKVCombineConfig, tile_config_, padding_, launch_)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdSplitKVCombineConfig, tile, padding, launch)
 
 // ========== FMHA batch prefill Structs ==========
 struct FmhaBatchPrefillConfig {
-    FmhaFwdTileConfig tile_config_;
-    FmhaFwdPaddingConfig padding_;
-    FmhaFwdLaunchConfig launch_;
-    StrEnumConfigParam pipeline_;
+    FmhaFwdTileConfig tile;
+    FmhaFwdPaddingConfig padding;
+    FmhaFwdLaunchConfig launch;
+    StrEnumConfigParam pipeline;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaBatchPrefillConfig, tile_config_, padding_, launch_, pipeline_)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaBatchPrefillConfig, tile, padding, launch, pipeline)
 
 // ========== FMHA bat Structs ==========
 struct FmhaPagedKVConfig {
-    FmhaFwdTileConfig tile_config_;
-    FmhaFwdPaddingConfig padding_;
-    FmhaFwdLaunchConfig launch_;
-    StrEnumConfigParam pipeline_;
+    FmhaFwdTileConfig tile;
+    FmhaFwdPaddingConfig padding;
+    FmhaFwdLaunchConfig launch;
+    StrEnumConfigParam pipeline;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaPagedKVConfig, tile_config_, padding_, launch_, pipeline_)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaPagedKVConfig, tile, padding, launch, pipeline)
 
 
 // Generic loader for any config type

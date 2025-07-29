@@ -1,5 +1,5 @@
 {
-  "tile_config": {
+  "tile": {
     "block": {
       "n1": { "values": [32] }
     }

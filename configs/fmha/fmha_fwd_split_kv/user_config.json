@@ -1,5 +1,5 @@
 {
-  "tile_config": {
+  "tile": {
     "block": {
       "m0": { "values": [128] },
       "n0": { "values": [64] },
