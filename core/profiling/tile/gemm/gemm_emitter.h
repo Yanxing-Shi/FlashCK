@@ -7,7 +7,8 @@
 
 #include "core/profiling/tile/gemm/gemm_codegen.h"
 #include "core/profiling/tile/gemm/gemm_problem.h"
-#include "core/profiling/tile/gemm/gemm_emitter_helper.h"
+
+#include "core/profiling/tile/gemm/gemm_backup_config.h"
 
 namespace flashck {
 
@@ -98,6 +99,7 @@ public:
 
     bool IsValidInstance(const GemmCodeGen& instance);
 
+    std::vector<GemmCodeGen> CreateInstanceForConfig(const flashck::TileGemmConfig& config, const GemmProblem& gemm_problem);
 
     /**
      * @brief Generates gemm operation instances based on the problem specification

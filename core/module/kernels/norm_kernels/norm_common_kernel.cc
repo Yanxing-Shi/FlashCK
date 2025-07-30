@@ -75,7 +75,7 @@ NormCommonKernel::CommonCodeGenForTuning(const std::string&    model_name,
                                          {"dtype_decl", dtype_decl},
                                          {"instance_decl", instance_decl},
                                          {"func_signature", func_signature},
-                                         {"execute_func", running_program},
+                                         {"running_func", running_program},
                                          {"is_running", false}};
         std::string       kernel_func = TemplateLoadAndRender(g_norm_kernel_func_tpl, func_value_map);
 
@@ -225,7 +225,7 @@ std::string NormCommonKernel::CommonCodeGenForRunning(const std::string&        
                                             {"c_flag", "extern \"C\""},
                                             {"instance_decl", instance_decl},
                                             {"func_signature", func_signature},
-                                            {"execute_func", running_paths},
+                                            {"running_func", running_paths},
                                             {"is_running", true}};
 
     return TemplateLoadAndRender(g_norm_kernel_func_tpl, kernel_func_value_map);

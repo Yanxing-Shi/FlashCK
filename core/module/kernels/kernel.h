@@ -4,8 +4,24 @@
 #include "core/utils/common.h"
 
 #include "core/module/kernels/norm_kernels/norm_kernel_args.h"
+#include "core/module/kernels/gemm_kernels/gemm_kernel_args.h"
+#include "core/module/kernels/fmha_kernels/fmha_kernel_args.h"
+
+
+#include "core/module/kernels/norm_kernels/norm_common_kernel.h"
 #include "core/module/kernels/norm_kernels/norm_kernel_call_def.h"
+
 #include "core/profiling/tile/norm/norm_codegen.h"
+#include "core/profiling/tile/gemm/gemm_codegen.h"
+#include "core/profiling/tile/fmha/fmha_fwd_codegen.h"
+#include "core/profiling/tile/fmha/fmha_fwd_append_kv_codegen.h"
+#include "core/profiling/tile/fmha/fmha_fwd_split_kv_codegen.h"
+#include "core/profiling/tile/fmha/fmha_fwd_split_kv_combine_codegen.h"
+#include "core/profiling/tile/fmha/fmha_batch_prefill_codegen.h"
+#include "core/profiling/tile/fmha/fmha_paged_kv_prefill_codegen.h"
+
+
+
 
 namespace flashck {
 
@@ -88,10 +104,15 @@ struct RunningTpl {
 class Kernel {
 public:
     /// @brief Type alias for kernel argument variants
-    using KernelArgs_t = std::variant<NormKernelArgs>;
+    using KernelArgs_t = std::variant<NormKernelArgs, GemmKernelArgs, FmhaKernelArgs>;
 
     /// @brief Type alias for code generation map
     using norm_codegen_map_t = std::map<std::string, NormCodeGen>;
+    using gemm_codegen_map_t = std::map<std::string, GemmCodeGen>;
+    using fmha_fwd_codegen_map_t = std::map<std::string, FmhaFwdCodeGen>;
+    using fmha_fwd_append_kv_codegen_map_t = std::map<std::string, FmhaFwdAppendKVCodeGen>;
+    using fmha_fwd_split_kv_codegen_map_t = std::map<std::string, FmhaFwdSplitKVCodeGen>;
+    using fmha_fwd_split_kv_combine_codegen_map_t = std::map<std::string, FmhaFwdSplitKVCombineCodeGen>;
 
     /// @brief Type alias for instance map variants
     using instance_map_t = std::variant<norm_codegen_map_t>;

@@ -3,22 +3,13 @@
 #include "core/profiling/legacy/gemm/gemm_codegen.h"
 #include "core/profiling/legacy/gemm/gemm_library.h"
 #include "core/profiling/legacy/gemm/gemm_problem.h"
-#include "core/profiling/legacy/gemm/gemm_emitter_helper.h"
+#include "core/profiling/legacy/gemm/gemm_backup_config.h"
 
 #include "core/utils/common.h"
 
 namespace flashck {
 
 namespace legacy{
-// GemmSpecialization name mapping for backward compatibility
-const std::map<std::string, GemmSpecialization> g_gemm_spec_names = {{"", GemmSpecialization::Default},
-                                                                     {"M", GemmSpecialization::MPadding},
-                                                                     {"N", GemmSpecialization::NPadding},
-                                                                     {"K", GemmSpecialization::KPadding},
-                                                                     {"MN", GemmSpecialization::MNPadding},
-                                                                     {"MK", GemmSpecialization::MKPadding},
-                                                                     {"NK", GemmSpecialization::NKPadding},
-                                                                     {"MNK", GemmSpecialization::MNKPadding}};
 
 /**
  * @class GemmEmitter
@@ -54,6 +45,11 @@ public:
     bool IsValidCBlockTransfer(const GemmTileDesc& tile_desc, const CBlockTransferDesc& c_block_transfer_desc) const;
 
     bool IsValidInstance(const GemmCodegen& gemm_instance, const GemmProblem& gemm_problem) const;
+
+    GemmSpecialization DetermineGemmSpecialization(const GemmProblem&  gemm_problem,
+                                               const GemmTileDesc& tile_desc);
+
+    std::vector<GemmCodegen> GenerateLegacyGemmInstances(const flashck::LegacyGemmConfig& config, const GemmProblem& gemm_problem);
 
     /**
      * @brief Generates GEMM operation instances based on the problem specification

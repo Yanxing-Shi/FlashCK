@@ -222,6 +222,176 @@ bool GemmEmitter::IsValidInstance(const GemmCodegen& gemm_instance, const GemmPr
 //     return filtered_instances;
 // }
 
+GemmSpecialization GemmEmitter::DetermineGemmSpecialization(const GemmProblem&  gemm_problem,
+                                               const GemmTileDesc& tile_desc) 
+{
+    auto IntegerDivideCeil = [](int64_t dividend, int64_t divisor) -> int64_t {
+        return (dividend + divisor - 1) / divisor;
+    };
+
+    if (gemm_problem.m_ % tile_desc.m_per_block_ != 0 && gemm_problem.n_ % tile_desc.n_per_block_ != 0
+        && gemm_problem.k_ % tile_desc.k_per_block_ != 0) {
+        return GemmSpecialization::MNKPadding;
+    }
+    else if (gemm_problem.m_ % tile_desc.m_per_block_ != 0 && gemm_problem.n_ % tile_desc.n_per_block_ != 0) {
+        return GemmSpecialization::MNPadding;
+    }
+    else if (gemm_problem.m_ % tile_desc.m_per_block_ != 0 && gemm_problem.k_ % tile_desc.k_per_block_ != 0) {
+        return GemmSpecialization::MKPadding;
+    }
+    else if (gemm_problem.n_ % tile_desc.n_per_block_ != 0 && gemm_problem.k_ % tile_desc.k_per_block_ != 0) {
+        return GemmSpecialization::NKPadding;
+    }
+    else if (gemm_problem.m_ % tile_desc.m_per_block_ != 0) {
+        return GemmSpecialization::MPadding;
+    }
+    else if (gemm_problem.n_ % tile_desc.n_per_block_ != 0) {
+        return GemmSpecialization::NPadding;
+    }
+    else if (gemm_problem.k_ % tile_desc.k_per_block_ != 0) {
+        return GemmSpecialization::KPadding;
+    }
+    else {
+        return GemmSpecialization::Default;
+    }
+}
+
+
+// Generate all possible GemmCodegen instances from a LegacyGemmConfig
+std::vector<GemmCodegen> GemmEmitter::GenerateLegacyGemmInstances(const flashck::LegacyGemmConfig& config, const GemmProblem& gemm_problem) {
+    std::vector<GemmCodegen> result;
+    // Directly use config fields for clarity
+    auto flatten = [](const std::vector<std::vector<int>>& v) -> std::vector<int64_t> {
+        std::vector<int64_t> out;
+        for (const auto& inner : v) out.insert(out.end(), inner.begin(), inner.end());
+        return out;
+    };
+    std::vector<std::vector<int64_t>> all_lists = {
+        flatten(config.tile.scale_block_size.values),
+        flatten(config.tile.block_size.values),
+        flatten(config.tile.m_per_block.values),
+        flatten(config.tile.n_per_block.values),
+        flatten(config.tile.k_per_block.values),
+        flatten(config.tile.a_k1.values),
+        flatten(config.tile.b_k1.values),
+        flatten(config.tile.m_per_xdl.values),
+        flatten(config.tile.n_per_xdl.values),
+        flatten(config.tile.m_xdl_per_wave.values),
+        flatten(config.tile.n_xdl_per_wave.values),
+        flatten(config.a_block.thread_cluster_length.values),
+        flatten(config.a_block.arrange_order.values),
+        flatten(config.a_block.src_access_order.values),
+        flatten(config.a_block.src_vector_dim.values),
+        flatten(config.a_block.src_scalar_per_vector.values),
+        flatten(config.a_block.dst_scalar_per_vector_k1.values),
+        flatten(config.a_block.lds_add_extra_m.values),
+        flatten(config.b_block.thread_cluster_length.values),
+        flatten(config.b_block.arrange_order.values),
+        flatten(config.b_block.src_access_order.values),
+        flatten(config.b_block.src_vector_dim.values),
+        flatten(config.b_block.src_scalar_per_vector.values),
+        flatten(config.b_block.dst_scalar_per_vector_k1.values),
+        flatten(config.b_block.lds_add_extra_m.values),
+        flatten(config.c_block.m_xdl_per_wave.values),
+        flatten(config.c_block.n_xdl_per_wave.values),
+        flatten(config.c_block.thread_cluster_length.values),
+        flatten(config.c_block.scalar_per_vector.values)
+    };
+
+    // Prepare all string lists
+    std::vector<BlockGemmPipelineScheduler> pipeline_schedulers;
+    for (const auto& s : config.pipeline.scheduler.values) {
+        auto sched = GetPipelineSchedulerFromString(s);
+        if (sched != BlockGemmPipelineScheduler::COUNT)
+            pipeline_schedulers.push_back(sched);
+    }
+
+    std::vector<BlockGemmPipelineVersion> pipeline_versions;
+    for (const auto& s : config.pipeline.version.values) {
+        auto ver = GetPipelineVersionFromString(s);
+        if (ver != BlockGemmPipelineVersion::COUNT)
+            pipeline_versions.push_back(ver);
+    }
+
+    std::vector<std::vector<flashck::ProductElem>> product_lists;
+    product_lists.reserve(all_lists.size());
+    for (const auto& vec : all_lists) {
+        std::vector<flashck::ProductElem> tmp;
+        tmp.reserve(vec.size());
+        for (auto v : vec) tmp.emplace_back(flashck::ProductElem(v));
+        product_lists.push_back(std::move(tmp));
+    }
+    flashck::CartesianProduct(product_lists, [&](const std::vector<flashck::ProductElem>& vals) {
+        std::vector<int64_t> flat_vals;
+        for (const auto& v : vals) {
+            if (std::holds_alternative<int64_t>(v)) {
+                flat_vals.push_back(std::get<int64_t>(v));
+            } else {
+                const auto& vec = std::get<std::vector<int64_t>>(v);
+                flat_vals.insert(flat_vals.end(), vec.begin(), vec.end());
+            }
+        }
+        size_t idx = 0;
+        // Tile
+        GemmTileDesc tile_desc;
+        tile_desc.scale_block_size_ = flat_vals[idx++];
+        tile_desc.block_size_ = flat_vals[idx++];
+        tile_desc.m_per_block_ = flat_vals[idx++];
+        tile_desc.n_per_block_ = flat_vals[idx++];
+        tile_desc.k_per_block_ = flat_vals[idx++];
+        tile_desc.a_k1_ = flat_vals[idx++];
+        tile_desc.b_k1_ = flat_vals[idx++];
+        tile_desc.m_per_xdl_ = flat_vals[idx++];
+        tile_desc.n_per_xdl_ = flat_vals[idx++];
+        tile_desc.m_xdl_per_wave_ = flat_vals[idx++];
+        tile_desc.n_xdl_per_wave_ = flat_vals[idx++];
+
+        auto gemm_spec = DetermineGemmSpecialization(gemm_problem, tile_desc);
+
+        // A block
+        auto a0 = flat_vals[idx++];
+        auto a1 = flat_vals[idx++];
+        auto a2 = flat_vals[idx++];
+        auto a3 = flat_vals[idx++];
+        auto a4 = flat_vals[idx++];
+        auto a5 = flat_vals[idx++];
+        auto a6 = flat_vals[idx++];
+        BlockTransferDesc a_desc({a0}, {a1}, {a2}, a3, a4, a5, a6);
+        // B block
+        auto b0 = flat_vals[idx++];
+        auto b1 = flat_vals[idx++];
+        auto b2 = flat_vals[idx++];
+        auto b3 = flat_vals[idx++];
+        auto b4 = flat_vals[idx++];
+        auto b5 = flat_vals[idx++];
+        auto b6 = flat_vals[idx++];
+        BlockTransferDesc b_desc({b0}, {b1}, {b2}, b3, b4, b5, b6);
+        // C block
+        auto c0 = flat_vals[idx++];
+        auto c1 = flat_vals[idx++];
+        auto c2 = flat_vals[idx++];
+        auto c3 = flat_vals[idx++];
+        CBlockTransferDesc c_desc(c0, c1, {c2}, c3);
+        // For all string combinations
+        for (const auto& sch : pipeline_schedulers) {
+            for (const auto& p : pipeline_versions) {
+                GemmCodegen gemm;
+                gemm.problem_ = gemm_problem;
+                gemm.tile_desc_ = tile_desc;
+                gemm.a_block_desc_ = a_desc;
+                gemm.b_block_desc_ = b_desc;
+                gemm.c_block_desc_ = c_desc;
+                gemm.gemm_spec_ = gemm_spec; 
+                gemm.pipeline_scheduler_ = sch; 
+                gemm.pipeline_version_ = p;
+                result.push_back(gemm);
+            }
+        }
+    });
+    return result;
+}
+
+
 void GemmEmitter::GenerateInstances(GemmProblem& gemm_problem)
 {
     FC_ENFORCE_EQ(FLAGS_FC_TUNING_MODE == 0 || FLAGS_FC_TUNING_MODE == 1 || FLAGS_FC_TUNING_MODE == 2,
@@ -271,50 +441,50 @@ void GemmEmitter::GenerateInstances(GemmProblem& gemm_problem)
         gemm.problem_ = gemm_problem;
 
         gemm.tile_desc_ = GemmTileDesc{
-            config.tile_config_.scale_block_size_.values_[0][0],
-            config.tile_config_.block_size_.values_[0][0],
-            config.tile_config_.m_per_block_.values_[0][0],
-            config.tile_config_.n_per_block_.values_[0][0],
-            config.tile_config_.k_per_block_.values_[0][0],
-            config.tile_config_.a_k1_.values_[0][0],
-            config.tile_config_.b_k1_.values_[0][0],
-            config.tile_config_.m_per_xdl_.values_[0][0],
-            config.tile_config_.n_per_xdl_.values_[0][0],
-            config.tile_config_.m_xdl_per_wave_.values_[0][0],
-            config.tile_config_.n_xdl_per_wave_.values_[0][0]
+            config.tile.scale_block_size.values[0][0],
+            config.tile.block_size.values[0][0],
+            config.tile.m_per_block.values[0][0],
+            config.tile.n_per_block.values[0][0],
+            config.tile.k_per_block.values[0][0],
+            config.tile.a_k1.values[0][0],
+            config.tile.b_k1.values[0][0],
+            config.tile.m_per_xdl.values[0][0],
+            config.tile.n_per_xdl.values[0][0],
+            config.tile.m_xdl_per_wave.values[0][0],
+            config.tile.n_xdl_per_wave.values[0][0]
         };
 
         gemm.a_block_desc_ = BlockTransferDesc{
-            std::vector<int64_t>(config.a_block_config_.thread_cluster_length_.values_[0].begin(), config.a_block_config_.thread_cluster_length_.values_[0].end()),
-            std::vector<int64_t>(config.a_block_config_.arrange_order_.values_[0].begin(), config.a_block_config_.arrange_order_.values_[0].end()),
-            std::vector<int64_t>(config.a_block_config_.src_access_order_.values_[0].begin(), config.a_block_config_.src_access_order_.values_[0].end()),
-            config.a_block_config_.src_vector_dim_.values_[0][0],
-            config.a_block_config_.src_scalar_per_vector_.values_[0][0],
-            config.a_block_config_.dst_scalar_per_vector_k1_.values_[0][0],
-            config.a_block_config_.lds_add_extra_m_.values_[0][0]
+            std::vector<int64_t>(config.a_block.thread_cluster_length.values[0].begin(), config.a_block.thread_cluster_length.values[0].end()),
+            std::vector<int64_t>(config.a_block.arrange_order.values[0].begin(), config.a_block.arrange_order.values[0].end()),
+            std::vector<int64_t>(config.a_block.src_access_order.values[0].begin(), config.a_block.src_access_order.values[0].end()),
+            config.a_block.src_vector_dim.values[0][0],
+            config.a_block.src_scalar_per_vector.values[0][0],
+            config.a_block.dst_scalar_per_vector_k1.values[0][0],
+            config.a_block.lds_add_extra_m.values[0][0]
         };
 
         gemm.b_block_desc_ = BlockTransferDesc{
-            std::vector<int64_t>(config.b_block_config_.thread_cluster_length_.values_[0].begin(), config.b_block_config_.thread_cluster_length_.values_[0].end()),
-            std::vector<int64_t>(config.b_block_config_.arrange_order_.values_[0].begin(), config.b_block_config_.arrange_order_.values_[0].end()),
-            std::vector<int64_t>(config.b_block_config_.src_access_order_.values_[0].begin(), config.b_block_config_.src_access_order_.values_[0].end()),
-            config.b_block_config_.src_vector_dim_.values_[0][0],
-            config.b_block_config_.src_scalar_per_vector_.values_[0][0],
-            config.b_block_config_.dst_scalar_per_vector_k1_.values_[0][0],
-            config.b_block_config_.lds_add_extra_m_.values_[0][0]
+            std::vector<int64_t>(config.b_block.thread_cluster_length.values[0].begin(), config.b_block.thread_cluster_length.values[0].end()),
+            std::vector<int64_t>(config.b_block.arrange_order.values[0].begin(), config.b_block.arrange_order.values[0].end()),
+            std::vector<int64_t>(config.b_block.src_access_order.values[0].begin(), config.b_block.src_access_order.values[0].end()),
+            config.b_block.src_vector_dim.values[0][0],
+            config.b_block.src_scalar_per_vector.values[0][0],
+            config.b_block.dst_scalar_per_vector_k1.values[0][0],
+            config.b_block.lds_add_extra_m.values[0][0]
         };
 
         gemm.c_block_desc_ = CBlockTransferDesc{
-            config.c_block_config_.m_xdl_per_wave_.values_[0][0],
-            config.c_block_config_.n_xdl_per_wave_.values_[0][0],
-            std::vector<int64_t>(config.c_block_config_.thread_cluster_length_.values_[0].begin(), config.c_block_config_.thread_cluster_length_.values_[0].end()),
-            config.c_block_config_.scalar_per_vector_.values_[0][0]
+            config.c_block.m_xdl_per_wave.values[0][0],
+            config.c_block.n_xdl_per_wave.values[0][0],
+            std::vector<int64_t>(config.c_block.thread_cluster_length.values[0].begin(), config.c_block.thread_cluster_length.values[0].end()),
+            config.c_block.scalar_per_vector.values[0][0]
         };
 
         gemm.gemm_spec_ = DetermineGemmSpecialization(gemm_problem, gemm.tile_desc_);
 
-        gemm.pipeline_version_ = GetPipelineVersionFromString(config.pipeline_.version_.values_[0]);
-        gemm.pipeline_scheduler_ = GetPipelineSchedulerFromString(config.pipeline_.scheduler_.values_[0]);
+        gemm.pipeline_version_ = GetPipelineVersionFromString(config.pipeline.version.values[0]);
+        gemm.pipeline_scheduler_ = GetPipelineSchedulerFromString(config.pipeline.scheduler.values[0]);
 
         gemm_instances.push_back(gemm);
     }

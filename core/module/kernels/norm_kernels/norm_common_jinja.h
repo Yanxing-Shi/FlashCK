@@ -7,6 +7,9 @@
 static const std::string g_norm_running_cond_tpl = R"(
     if ({{cond}}) {
         {{program}}
+    } else {
+        std::cerr << "wrong! "<< "{{cond}}" << " does not support this Gemm instance." << std::endl;
+        return;
     }
 )";
 
@@ -82,8 +85,8 @@ static const std::string g_norm_running_tpl = R"(
                            sizeof(YDataType) * m * n;
     {% endif %}
     float gb_per_sec = num_byte / 1.E6 / ave_time;
-
     float tflops = static_cast<float>(flop) / 1.E9 / ave_time;
+    
     std::cout << "KERNEL: " << "{{instance_name}}" << std::endl;
     std::cout << "LATENCY: " << ave_time << " ms" << std::endl;
     std::cout << "TFLOPS: " << tflops << " Tflops" << std::endl;

@@ -2,7 +2,6 @@
 
 #include <string>
 
-
 static const std::string g_fmha_exec_cond_source = R"(
     if ({{cond}}) {
         {{program}}
