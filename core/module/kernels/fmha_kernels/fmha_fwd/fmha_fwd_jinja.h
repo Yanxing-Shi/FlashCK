@@ -1,8 +1,6 @@
 #pragma once
 
-#include "lightinfer/core/module/kernels/fmha_kernels/fmha_common_kernel.h"
-
-#include "lightinfer/core/module/kernels/kernel_registry.h"
+#include <string>
 
 static const std::string g_fmha_fwd_create_args_source = R"(
 auto create_args(int argc, char* argv[])
@@ -128,7 +126,7 @@ struct FmhaFwdArgs
 )";
 
 static const std::string g_fmha_fwd_func_signature_source = R"(
-{% if is_execute %} {{c_flag}} FC_EXPORT {% endif %} void {{function_name}}(
+void {{function_name}}(
     void* q_buf_ptr,
     void* k_buf_ptr,
     void* v_buf_ptr,
@@ -529,4 +527,3 @@ const static std::string g_fmha_fwd_tensor_generate_source = R"(
 {% endif %}
 
 )";
-

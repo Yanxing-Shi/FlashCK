@@ -12,41 +12,20 @@ FC_DECLARE_int32(FC_TUNING_ROTATING_COUNT);      ///< Rotation count for measure
 namespace flashck {
 
 std::vector<std::tuple<std::filesystem::path, std::filesystem::path>>
-FmhaCommonKernel::GenFmhaCommonKernelProfiler(const std::string&                               model_name,
-                                              const std::unordered_map<std::string, std::any>& kernel_func_map,
-                                              const std::string&                               create_args_source,
-                                              const std::string&                               args_parser_source,
-                                              const std::string&                               args_decl_source,
-                                              const std::string&                               func_signature_source,
-                                              const std::string&                               tensor_decl_source,
-                                              const std::string&                               tensor_generate_source,
-                                              const std::string&                               prepare_args_source,
-                                              const std::string&                               func_call_source,
-                                              const std::string&                               make_args_source,
-                                              const std::string&                               fmha_flag,
-                                              const std::string&                               folder_name)
+FmhaCommonKernel::GenFmhaCommonKernelProfiler(const std::string&    model_name,
+                                              const std::string&    kind_name,
+                                              const instance_map_t& instance_map,
+                                              const TuningTpl&      tuning_tpl,
+                                              const std::string&    folder_name)
 {
-    auto kernel_name = std::any_cast<std::string>(kernel_func_map.at("op_name"));
-    auto op_mode     = std::any_cast<FmhaOperationMode>(kernel_func_map.at("op_mode"));
-    auto dtype       = std::any_cast<DataType>(kernel_func_map.at("dtype"));
-
-    auto kernel_instance_map =
-        std::any_cast<std::map<std::string, std::shared_ptr<void>>>(kernel_func_map.at("kernel_instance_map"));
-
     std::vector<std::tuple<std::filesystem::path, std::filesystem::path>> file_tuples;
 
-    std::filesystem::path prefix_path =
-        std::filesystem::path(FLAGS_LI_HOME_PATH) / folder_name / model_name / "profiler" / kernel_name;
-    if (!std::filesystem::exists(prefix_path)) {
-        std::filesystem::create_directories(prefix_path);
-    }
-
     // common header file
-    jinja2::ValuesMap common_header_value_map{{"dtype_config_utils", g_fmha_dtype_config_utils_source},
-                                              {"rotary_utils", g_fmha_rotary_utils_source},
-                                              {"seq_utils", g_fmha_seq_utils_source},
-                                              {"args_decl", args_decl_source}};
-    std::string       common_header = TemplateLoadAndRender(g_fmha_utils_source, common_header_value_map);
+    jinja2::ValuesMap common_header_value_map{{"dtype_config_utils", g_fmha_dtype_config_utils_tpl},
+                                              {"rotary_utils", g_fmha_rotary_utils_tpl},
+                                              {"seq_utils", g_fmha_seq_utils_tpl},
+                                              {"args_decl", args_decl_tpl}};
+    std::string       common_header = TemplateLoadAndRender(g_fmha_utils_tpl, common_header_value_map);
 
     std::filesystem::path common_header_path = prefix_path / ("fmha_" + fmha_flag + "_common.h");
     std::ofstream         common_header_file(common_header_path.c_str());
@@ -59,83 +38,68 @@ FmhaCommonKernel::GenFmhaCommonKernelProfiler(const std::string&                
     }
 
     // kernel instance file
-    for (const auto& [kernel_config_name, kernel_instance] : kernel_instance_map) {
-        std::string config, config_name;
+    for (const auto& [instance_name, instance] : kernel_instance_map) {
+        std::string instance_code = instance.Emit();
 
-        if (fmha_flag == "fwd") {
-            auto fmha_fwd_kernel_instance = std::static_pointer_cast<FmhaFwdOperation>(kernel_instance);
-            config                        = fmha_fwd_kernel_instance->Emit();
-            config_name                   = fmha_fwd_kernel_instance->GetConfigName();
-        }
-        else if (fmha_flag == "fwd_appendkv") {
-            auto fmha_fwd_kernel_instance = std::static_pointer_cast<FmhaFwdAppendKVOperation>(kernel_instance);
-            config                        = fmha_fwd_kernel_instance->Emit();
-            config_name                   = fmha_fwd_kernel_instance->GetConfigName();
-        }
-        else if (fmha_flag == "fwd_splitkv") {
-            auto fmha_fwd_kernel_instance = std::static_pointer_cast<FmhaFwdSplitKVOperation>(kernel_instance);
-            config                        = fmha_fwd_kernel_instance->Emit();
-            config_name                   = fmha_fwd_kernel_instance->GetConfigName();
-        }
-        else if (fmha_flag == "fwd_splitkv_combine") {
-            auto fmha_fwd_kernel_instance = std::static_pointer_cast<FmhaFwdSplitKVCombineOperation>(kernel_instance);
-            config                        = fmha_fwd_kernel_instance->Emit();
-            config_name                   = fmha_fwd_kernel_instance->GetConfigName();
-        }
-        else {
-            LI_THROW(Unavailable("not implemented for operation kind"));
-        }
+        // Generate data type declarations
+        jinja2::ValuesMap dtype_decl_value_map{{"DataType", DataTypeToTileString(instance.problem_.dtype_)}};
+        std::string       dtype_decl = TemplateLoadAndRender(g_fmha_dtype_decl_tpl, dtype_decl_value_map); 
 
-        jinja2::ValuesMap dtype_decl_value_map{{"DataType", TileDataTypeToString(dtype)}};
-        std::string       dtype_decl = TemplateLoadAndRender(g_fmha_dtype_decl_source, dtype_decl_value_map);
-        // VLOG(1) << "dtype_decl:" << dtype_decl;
+        // Generate instance declarations
+        jinja2::ValuesMap instance_decl_value_map{{"instance_alias_name", "FmhaInstance"},
+                                                  {"instance_name", instance_name},
+                                                  {"instance_code", instance_code}};
+        std::string       instance_decl = TemplateLoadAndRender(g_norm_instance_tpl, instance_decl_value_map);
 
-        jinja2::ValuesMap instances_decl_value_map{
-            {"kernel_name", "FmhaInstance"}, {"config_name", config_name}, {"config", config}};
-        std::string instances_decl = TemplateLoadAndRender(g_fmha_instance_source, instances_decl_value_map);
-        // VLOG(1) << "instances_decl:" << instances_decl;
-
-        jinja2::ValuesMap exec_value_map{{"kernel_name", "FmhaInstance"},
-                                         {"is_profile_kernel", "true"},
-                                         {"prepare_args", prepare_args_source},
-                                         {"make_args", make_args_source},
-                                         {"is_execute", false},
-                                         {"config_name", config_name}};
-        std::string       exec_program = TemplateLoadAndRender(g_fmha_execute_source, exec_value_map);
-        // VLOG(1) << "exec_program:" << exec_program;
+        // Generate runtime execution configuration with profiling parameters
+        jinja2::ValuesMap running_value_map{{"kind", kind_name},
+                                             {"prepare_args", prepare_args_tpl},
+                                             {"make_args", make_args_tpl},
+                                             {"instance_alias_name", "NormInstance"},
+                                             {"is_running", false},
+                                             {"instance_name", instance_name},
+                                         {"log_level", FLAGS_FC_TUNING_LOG},
+                                        {"cold_niters", FLAGS_FC_TUNING_NUM_COLD_ITERATION},
+                                        {"nrepeat", FLAGS_FC_TUNING_NUM_REPEATS},
+                                        {"is_gpu_timer", FLAGS_FC_TUNING_GPU_TIMER},
+                                        {"flush_cache", FLAGS_FC_TUNING_FLUSH_CACHE},
+                                        {"rotating_count", FLAGS_FC_TUNING_ROTATING_COUNT}};
+        std::string       running_program = TemplateLoadAndRender(g_fmha_running_tpl, running_value_map);
 
         jinja2::ValuesMap func_value_map{{"dtype_decl", dtype_decl},
-                                         {"instances_decl", instances_decl},
-                                         {"func_signature", func_signature_source},
-                                         {"execute_func", exec_program},
+                                         {"instance_decl", instance_decl},
+                                         {"func_signature", func_signature_tpl},
+                                         {"running_func", running_program},
                                          {"fmha_flag", fmha_flag}};
         std::string       kernel_func = TemplateLoadAndRender(g_fmha_kernel_func, func_value_map);
-        // VLOG(1) << "kernel_func:" << kernel_func;
+
+
+
 
         jinja2::ValuesMap tensor_decl_value_map{{"fmha_flag", fmha_flag},
                                                 {"mode_str", g_fmha_operation_mode_name_map.at(op_mode)},
-                                                {"decl_source", tensor_decl_source}};
-        std::string       tensor_decl = TemplateLoadAndRender(g_fmha_tenosr_decl_source, tensor_decl_value_map);
+                                                {"decl_tpl", tensor_decl_tpl}};
+        std::string       tensor_decl = TemplateLoadAndRender(g_fmha_tenosr_decl_tpl, tensor_decl_value_map);
         // VLOG(1) << "tensor_decl: " << tensor_decl;
 
-        jinja2::ValuesMap profiler_value_map{{"create_args", create_args_source},
+        jinja2::ValuesMap profiler_value_map{{"create_args", create_args_tpl},
                                              {"kernel_func", kernel_func},
-                                             {"args_parser", args_parser_source},
-                                             {"tensor_generate", tensor_generate_source},
+                                             {"args_parser", args_parser_tpl},
+                                             {"tensor_generate", tensor_generate_tpl},
                                              {"tensor_decl", tensor_decl},
-                                             {"func_call", func_call_source}};
-        std::string       profiler_source = TemplateLoadAndRender(g_fmha_profiler_source, profiler_value_map);
-        // VLOG(1) << "profiler_source: " << profiler_source;
+                                             {"func_call", func_call_tpl}};
+        std::string       profiler_tpl = TemplateLoadAndRender(g_fmha_profiler_tpl, profiler_value_map);
+        // VLOG(1) << "profiler_tpl: " << profiler_tpl;
 
-        std::filesystem::path src_path = prefix_path / (kernel_config_name + ".cc");
-        std::filesystem::path obj_path = prefix_path / kernel_config_name;
+        std::filesystem::path src_path = prefix_path / (instance_name + ".cc");
+        std::filesystem::path obj_path = prefix_path / instance_name;
         if (std::filesystem::exists(obj_path)) {
             continue;
         }
 
         std::ofstream src_file(src_path.c_str());
         if (src_file.is_open()) {
-            src_file << profiler_source;
+            src_file << profiler_tpl;
             src_file.close();
         }
         else {
@@ -152,32 +116,22 @@ std::string
 FmhaCommonKernel::GenFmhaCommonKernelFunction(const std::string&                               func_name,
                                               const std::string&                               model_name,
                                               const std::unordered_map<std::string, std::any>& kernel_func_map,
-                                              const std::string&                               args_decl_source,
-                                              const std::string&                               func_signature_source,
-                                              const std::string&                               prepare_args_source,
-                                              const std::string&                               make_args_source,
+                                              const std::string&                               args_decl_tpl,
+                                              const std::string&                               func_signature_tpl,
+                                              const std::string&                               prepare_args_tpl,
+                                              const std::string&                               make_args_tpl,
                                               const std::string&                               fmha_flag,
                                               const std::string&                               folder_name)
 {
-    auto kernel_name = std::any_cast<std::string>(kernel_func_map.at("op_name"));
-    auto kernel_instance_map =
-        std::any_cast<std::map<std::string, std::shared_ptr<void>>>(kernel_func_map.at("kernel_instance_map"));
-    auto exec_path = std::any_cast<std::map<std::string, std::shared_ptr<ExecItem>>>(kernel_func_map.at("exec_path"));
-    auto op_mode   = std::any_cast<FmhaOperationMode>(kernel_func_map.at("op_mode"));
-    auto bias_enum = std::any_cast<BiasEnum>(kernel_func_map.at("bias_enum"));
-    auto bias_rank_info   = std::any_cast<int64_t>(kernel_func_map.at("bias_rank_info"));
-    auto dtype            = std::any_cast<DataType>(kernel_func_map.at("dtype"));
-    auto paged_block_size = std::any_cast<int64_t>(kernel_func_map.at("paged_block_size"));
-
     std::filesystem::path prefix_path = std::filesystem::path(FLAGS_LI_HOME_PATH) / folder_name / model_name;
     if (!std::filesystem::exists(prefix_path)) {
         std::filesystem::create_directories(prefix_path);
     }
 
     // common header file
-    jinja2::ValuesMap common_header_value_map{{"dtype_config_utils", g_fmha_dtype_config_utils_source},
-                                              {"args_decl", args_decl_source}};
-    std::string       common_header = TemplateLoadAndRender(g_fmha_utils_source, common_header_value_map);
+    jinja2::ValuesMap common_header_value_map{{"dtype_config_utils", g_fmha_dtype_config_utils_tpl},
+                                              {"args_decl", args_decl_tpl}};
+    std::string       common_header = TemplateLoadAndRender(g_fmha_utils_tpl, common_header_value_map);
 
     std::filesystem::path common_header_path = prefix_path / ("fmha_" + fmha_flag + "_common.h");
     std::ofstream         common_header_file(common_header_path.c_str());
@@ -200,25 +154,25 @@ FmhaCommonKernel::GenFmhaCommonKernelFunction(const std::string&                
 
         std::string config, config_name;
         if (instance_def_flag.find(instance_name) == instance_def_flag.end()) {
-            auto kernel_instance = kernel_instance_map.at(algo);
+            auto instance = kernel_instance_map.at(algo);
             if (fmha_flag == "fwd") {
-                auto fmha_fwd_kernel_instance = std::static_pointer_cast<FmhaFwdOperation>(kernel_instance);
+                auto fmha_fwd_kernel_instance = std::static_pointer_cast<FmhaFwdOperation>(instance);
                 config                        = fmha_fwd_kernel_instance->Emit();
                 config_name                   = fmha_fwd_kernel_instance->GetConfigName();
             }
             else if (fmha_flag == "fwd_appendkv") {
-                auto fmha_fwd_kernel_instance = std::static_pointer_cast<FmhaFwdAppendKVOperation>(kernel_instance);
+                auto fmha_fwd_kernel_instance = std::static_pointer_cast<FmhaFwdAppendKVOperation>(instance);
                 config                        = fmha_fwd_kernel_instance->Emit();
                 config_name                   = fmha_fwd_kernel_instance->GetConfigName();
             }
             else if (fmha_flag == "fwd_splitkv") {
-                auto fmha_fwd_kernel_instance = std::static_pointer_cast<FmhaFwdSplitKVOperation>(kernel_instance);
+                auto fmha_fwd_kernel_instance = std::static_pointer_cast<FmhaFwdSplitKVOperation>(instance);
                 config                        = fmha_fwd_kernel_instance->Emit();
                 config_name                   = fmha_fwd_kernel_instance->GetConfigName();
             }
             else if (fmha_flag == "fwd_splitkv_combine") {
                 auto fmha_fwd_kernel_instance =
-                    std::static_pointer_cast<FmhaFwdSplitKVCombineOperation>(kernel_instance);
+                    std::static_pointer_cast<FmhaFwdSplitKVCombineOperation>(instance);
                 config      = fmha_fwd_kernel_instance->Emit();
                 config_name = fmha_fwd_kernel_instance->GetConfigName();
             }
@@ -234,7 +188,7 @@ FmhaCommonKernel::GenFmhaCommonKernelFunction(const std::string&                
 
         jinja2::ValuesMap instance_value_map{
             {"kernel_name", instance_name}, {"config_name", config_name}, {"config", config}};
-        std::string instance = TemplateLoadAndRender(g_fmha_instance_source, instance_value_map);
+        std::string instance = TemplateLoadAndRender(g_fmha_instance_tpl, instance_value_map);
         std::get<1>(exec_instance_map[value->exec_cond_]) = instance;
         std::get<0>(exec_instance_map[value->exec_cond_]) = split_k;
 
@@ -251,21 +205,21 @@ FmhaCommonKernel::GenFmhaCommonKernelFunction(const std::string&                
                                                  {"paged_block_size", paged_block_size},
                                                  {"bias_str", g_bias_enum_names_map.at(bias_enum)},
                                                  {"bias_rank_info", bias_rank_info}};
-        std::string       prepare_args = TemplateLoadAndRender(prepare_args_source, prepare_args_value_map);
+        std::string       prepare_args = TemplateLoadAndRender(prepare_args_tpl, prepare_args_value_map);
 
         jinja2::ValuesMap make_args_value_map{{"mode_str", g_fmha_operation_mode_name_map.at(op_mode)},
                                               {"kernel_name", instance_name}};
-        std::string       make_args = TemplateLoadAndRender(make_args_source, make_args_value_map);
+        std::string       make_args = TemplateLoadAndRender(make_args_tpl, make_args_value_map);
 
         jinja2::ValuesMap exec_value_map{{"kernel_name", instance_name},
                                          {"is_profile_kernel", "false"},
                                          {"prepare_args", prepare_args},
                                          {"make_args", make_args},
                                          {"is_execute", true}};
-        std::string       exec_program = TemplateLoadAndRender(g_fmha_execute_source, exec_value_map);
+        std::string       exec_program = TemplateLoadAndRender(g_fmha_execute_tpl, exec_value_map);
 
         jinja2::ValuesMap exec_instance_value_map{{"cond", exec_cond}, {"program", exec_program}};
-        std::string       exec_instance = TemplateLoadAndRender(g_fmha_exec_cond_source, exec_instance_value_map);
+        std::string       exec_instance = TemplateLoadAndRender(g_fmha_exec_cond_tpl, exec_instance_value_map);
 
         exec_paths += exec_instance;
     }
@@ -273,11 +227,11 @@ FmhaCommonKernel::GenFmhaCommonKernelFunction(const std::string&                
     std::string macro_decl = TemplateLoadAndRender(g_fmha_macro_decl, {{}});
 
     jinja2::ValuesMap dtype_decl_value_map{{"DataType", TileDataTypeToString(dtype)}};
-    std::string       dtype_decl = TemplateLoadAndRender(g_fmha_dtype_decl_source, dtype_decl_value_map);
+    std::string       dtype_decl = TemplateLoadAndRender(g_fmha_dtype_decl_tpl, dtype_decl_value_map);
 
     jinja2::ValuesMap func_signature_value_map{
         {"function_name", func_name}, {"is_execute", true}, {"c_flag", "extern \"C\""}};
-    std::string func_signature = TemplateLoadAndRender(func_signature_source, func_signature_value_map);
+    std::string func_signature = TemplateLoadAndRender(func_signature_tpl, func_signature_value_map);
 
     jinja2::ValuesMap kernel_func_value_map{{"macro_decl", macro_decl},
                                             {"dtype_decl", dtype_decl},

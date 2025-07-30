@@ -44,6 +44,7 @@ namespace flashck {
  * during the kernel tuning and profiling process.
  */
 struct TuningTpl {
+    std::string header_tpl_;
     std::string dtype_config_tpl_;    ///< Data type configuration template
     std::string dtype_decl_tpl_;      ///< Data type declaration template
     std::string func_signature_tpl_;  ///< Function signature template

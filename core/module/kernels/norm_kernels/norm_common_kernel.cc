@@ -20,7 +20,7 @@ NormCommonKernel::CommonCodeGenForTuning(const std::string&    model_name,
                                          const std::string&    folder_name)
 {
     std::vector<std::tuple<std::filesystem::path, std::filesystem::path>> file_tuples;
-
+    
     // Load common header template
     std::string common_header = TemplateLoadAndRender(tuning_tpl.dtype_config_tpl_, {{}});
 
@@ -56,7 +56,6 @@ NormCommonKernel::CommonCodeGenForTuning(const std::string&    model_name,
         jinja2::ValuesMap running_value_map{{"kind", kind_name},
                                             {"make_args", make_args},
                                             {"instance_alias_name", "NormInstance"},
-                                            {"is_profiling", true},
                                             {"is_running", false},
                                             {"instance_name", instance_name},
                                             {"log_level", FLAGS_FC_TUNING_LOG},
