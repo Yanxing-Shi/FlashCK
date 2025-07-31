@@ -25,7 +25,6 @@ public:
     /// @return Vector of tuples containing source and object file paths
     std::vector<std::tuple<std::filesystem::path, std::filesystem::path>>
     CodeGenForTuning(const std::string&    model_name,
-                     const std::string&    kind_name,
                      const instance_map_t& instance_map,
                      const std::string&    folder_name = "kernel_profile") override;
 

@@ -206,7 +206,7 @@ bool GemmEmitter::IsValidCBlockTransfer(const GemmTileDesc& tile_desc, const CBl
     return true;
 }
 
-bool GemmEmitter::IsValidInstance(const GemmCodegen& gemm_instance, const GemmProblem& gemm_problem) const
+bool GemmEmitter::IsValidInstance(const GemmCodeGen& gemm_instance, const GemmProblem& gemm_problem) const
 {
     // Check if the instance is valid for the given GEMM problem
     return IsValidTile(gemm_instance.tile_desc_, gemm_problem) &&
@@ -215,7 +215,7 @@ bool GemmEmitter::IsValidInstance(const GemmCodegen& gemm_instance, const GemmPr
            IsValidCBlockTransfer(gemm_instance.tile_desc_, gemm_instance.c_block_desc_);
 }
 
-// std::vector<GemmCodegen> GemmEmitter::HeuristicFilter(const std::vector<GemmCodegen>& gemm_instances,
+// std::vector<GemmCodeGen> GemmEmitter::HeuristicFilter(const std::vector<GemmCodeGen>& gemm_instances,
 //                                                        const GemmProblem&               gemm_problem) const
 // {
 
@@ -257,9 +257,9 @@ GemmSpecialization GemmEmitter::DetermineGemmSpecialization(const GemmProblem&  
 }
 
 
-// Generate all possible GemmCodegen instances from a LegacyGemmConfig
-std::vector<GemmCodegen> GemmEmitter::GenerateLegacyGemmInstances(const flashck::LegacyGemmConfig& config, const GemmProblem& gemm_problem) {
-    std::vector<GemmCodegen> result;
+// Generate all possible GemmCodeGen instances from a LegacyGemmConfig
+std::vector<GemmCodeGen> GemmEmitter::GenerateLegacyGemmInstances(const flashck::LegacyGemmConfig& config, const GemmProblem& gemm_problem) {
+    std::vector<GemmCodeGen> result;
     // Directly use config fields for clarity
     auto flatten = [](const std::vector<std::vector<int>>& v) -> std::vector<int64_t> {
         std::vector<int64_t> out;
@@ -375,7 +375,7 @@ std::vector<GemmCodegen> GemmEmitter::GenerateLegacyGemmInstances(const flashck:
         // For all string combinations
         for (const auto& sch : pipeline_schedulers) {
             for (const auto& p : pipeline_versions) {
-                GemmCodegen gemm;
+                GemmCodeGen gemm;
                 gemm.problem_ = gemm_problem;
                 gemm.tile_desc_ = tile_desc;
                 gemm.a_block_desc_ = a_desc;
@@ -405,7 +405,7 @@ void GemmEmitter::GenerateInstances(GemmProblem& gemm_problem)
     }
 
     // Load legacy GEMM configuration if available
-    std::vector<GemmCodegen> gemm_instances;
+    std::vector<GemmCodeGen> gemm_instances;
     if (FLAGS_FC_ENABLE_CONFIG_JSON) {
         auto base_json_path = std::filesystem::path(FLAGS_FC_CONFIG_JSON_PATH) / GetGemmKindName(gemm_problem.kind_);
         if(FLAGS_FC_ENABLE_JSON_MODE == 0) {
@@ -436,7 +436,7 @@ void GemmEmitter::GenerateInstances(GemmProblem& gemm_problem)
     }
 
     for (const auto& config : g_backup_legacy_gemm_config) {
-        GemmCodegen gemm;
+        GemmCodeGen gemm;
 
         gemm.problem_ = gemm_problem;
 
@@ -491,7 +491,7 @@ void GemmEmitter::GenerateInstances(GemmProblem& gemm_problem)
     
 
     // check instances
-    std::vector<GemmCodegen> valid_gemm_instances;
+    std::vector<GemmCodeGen> valid_gemm_instances;
     for (const auto& gemm_instance : gemm_instances) {
         if (IsValidInstance(gemm_instance, gemm_problem)) {
             valid_gemm_instances.push_back(gemm_instance);
@@ -539,7 +539,7 @@ void GemmEmitter::GenerateInstances(GemmProblem& gemm_problem)
     }
 
     // Generate instances
-    std::map<std::string, GemmCodegen>& kind_instance_map = instance_map_[gemm_problem.kind_];
+    std::map<std::string, GemmCodeGen>& kind_instance_map = instance_map_[gemm_problem.kind_];
     int64_t                             generated_count   = 0;
 
     for (const auto& instance : valid_gemm_instances) {

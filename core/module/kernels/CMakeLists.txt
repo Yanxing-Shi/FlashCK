@@ -3,9 +3,8 @@
 # ==============================================================================
 
 # Collect all module source files recursively
-file(GLOB_RECURSE KERNEL_SOURCES CONFIGURE_DEPENDS
-    "*.cc"
-    "norm_kernels/*.cc"
+file(GLOB KERNEL_SOURCES CONFIGURE_DEPENDS
+    "fmha_kernels/*/*.cc"
 )
 
 # Create kernel

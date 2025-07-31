@@ -44,12 +44,12 @@ public:
 
     bool IsValidCBlockTransfer(const GemmTileDesc& tile_desc, const CBlockTransferDesc& c_block_transfer_desc) const;
 
-    bool IsValidInstance(const GemmCodegen& gemm_instance, const GemmProblem& gemm_problem) const;
+    bool IsValidInstance(const GemmCodeGen& gemm_instance, const GemmProblem& gemm_problem) const;
 
     GemmSpecialization DetermineGemmSpecialization(const GemmProblem&  gemm_problem,
                                                const GemmTileDesc& tile_desc);
 
-    std::vector<GemmCodegen> GenerateLegacyGemmInstances(const flashck::LegacyGemmConfig& config, const GemmProblem& gemm_problem);
+    std::vector<GemmCodeGen> GenerateLegacyGemmInstances(const flashck::LegacyGemmConfig& config, const GemmProblem& gemm_problem);
 
     /**
      * @brief Generates GEMM operation instances based on the problem specification
@@ -68,7 +68,7 @@ public:
      * @param gemm_problem The GEMM problem configuration
      * @return Reference to the instance map for the specific GEMM kind
      */
-    std::map<std::string, GemmCodegen>& GetInstanceMap(GemmProblem gemm_problem)
+    std::map<std::string, GemmCodeGen>& GetInstanceMap(GemmProblem gemm_problem)
     {
         GenerateInstances(gemm_problem);
         return instance_map_[gemm_problem.kind_];
@@ -81,7 +81,7 @@ public:
 
 private:
     
-    std::map<GemmKind, std::map<std::string, GemmCodegen>> instance_map_;
+    std::map<GemmKind, std::map<std::string, GemmCodeGen>> instance_map_;
     int64_t                                                num_instances_ = 0;
 };
 

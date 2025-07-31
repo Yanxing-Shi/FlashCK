@@ -194,7 +194,7 @@ public:
 };
 
 /**
- * @class GemmCodegen
+ * @class GemmCodeGen
  * @brief Code generator for GEMM operations
  *
  * This class encapsulates all the parameters and configuration needed to generate
@@ -202,7 +202,7 @@ public:
  * with tiling strategies and data transfer configurations to produce efficient
  * implementations.
  */
-class GemmCodegen {
+class GemmCodeGen {
 public:
     /**
      * @brief Generate a unique instance name for this configuration

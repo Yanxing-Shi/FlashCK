@@ -13,7 +13,6 @@ public:
 
     std::vector<std::tuple<std::filesystem::path, std::filesystem::path>>
     CodeGenForTuning(const std::string&    model_name,
-                     const std::string&    kind_name,
                      const instance_map_t& instance_map,
                      const std::string&    folder_name = "kernel_profile") override;
 
@@ -28,4 +27,4 @@ public:
 
 }  // namespace flashck
 
-FC_REGISTER_KERNEL(TILE, fmha_fwd, flashck::FmhaFwdKernel, ALL_LAYOUT, FP16, FP32, BF16);
+FC_REGISTER_KERNEL(TILE, fmha_fwd, flashck::FmhaFwdKernel, ALL_LAYOUT, FP16, BF16);

@@ -3,7 +3,7 @@
 #include <string>
 
 /// @brief GEMM data type declaration template
-static const std::string g_gemm_common_dtype_decl_tpl = R"(
+static const std::string g_tile_gemm_dtype_decl_tpl = R"(
 using ADataType         = {{a_dtype}};
 using BDataType         = {{b_dtype}};
 using CDataType         = {{c_dtype}};
@@ -13,7 +13,7 @@ using D1DataType = {{d1_dtype}};
 )";
 
 /// @brief GEMM layout declaration template
-static const std::string g_gemm_common_layout_decl_tpl = R"(
+static const std::string g_tile_gemm_layout_decl_tpl = R"(
 using ALayout         = {{a_layout}};
 using BLayout         = {{b_layout}};
 using CLayout         = {{c_layout}};
@@ -22,14 +22,14 @@ using D1Layout = {{d1_layout}};
 )";
 
 /// @brief Template for conditional code generation
-static const std::string g_gemm_common_common_running_cond_tpl = R"(
+static const std::string g_tile_gemm_running_cond_tpl = R"(
     if ({{cond}}) {
         {{program}}
     }
 )";
 
 /// @brief Macro declarations for symbol visibility
-static const std::string g_gemm_common_macro_decl = R"(
+static const std::string g_tile_gemm_macro_decl = R"(
 // Symbol visibility macros
 #ifdef __GNUC__
 #define FC_EXPORT __attribute__((__visibility__("default")))
@@ -43,17 +43,15 @@ static const std::string g_gemm_common_macro_decl = R"(
 )";
 
 /// @brief Template for kernel instance declaration
-static const std::string g_gemm_common_instance_tpl = R"(
+static const std::string g_tile_gemm_instance_tpl = R"(
 {{instance_code}}
 using {{instance_alias_name}} = {{instance_name}};
 )";
 
 
 /// @brief Template for kernel execution runtime code
-static const std::string g_gemm_common_running_tpl = R"(
+static const std::string g_tile_gemm_running_tpl = R"(
     {{make_args}}
-
-    {{instance_decl}}
 
     float ave_time{0};
 
@@ -143,7 +141,7 @@ static const std::string g_gemm_common_running_tpl = R"(
 )";
 
 /// @brief Template for kernel function generation
-static const std::string g_gemm_common_kernel_func_tpl = R"(
+static const std::string g_tile_gemm_kernel_func_tpl = R"(
 #include "ck_tile/core.hpp"
 #include "ck_tile/host/kernel_launch.hpp"
 #include <ck_tile/ops/epilogue.hpp>
@@ -158,14 +156,18 @@ static const std::string g_gemm_common_kernel_func_tpl = R"(
 
 {{dtype_decl}}
 
+{{layout_decl}}
+
+{{instance_decl}}
+
 {% if is_running %} {{c_flag}} FC_EXPORT {% endif %} {{func_signature}} {
-    {{execute_func}}
+    {{running_func}}
 }
 )";
 
 
 /// @brief Template for profiling main function
-static const std::string g_gemm_common_profiling_tpl = R"(
+static const std::string g_tile_gemm_profiling_tpl = R"(
 {{kernel_func}}
 
 {{create_args}}

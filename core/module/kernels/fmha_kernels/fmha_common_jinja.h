@@ -50,14 +50,13 @@ static const std::string g_fmha_running_tpl = R"(
 
     constexpr dim3 blocks             = {{kernel_name}}::BlockSize();
     constexpr ck_tile::index_t kBlockPerCu = {{kernel_name}}::kBlockPerCu;
-    auto                       s           = ck_tile::stream_config{stream, {{is_profile_kernel}}, 0, 5/*warmup*/, 20/*repeat*/};
 
     {{make_args}}
 
 {% if is_running %}
-    auto s = ck_tile::stream_config{stream, {{is_profiling}}/*time_kernel*/};
+    auto s = ck_tile::stream_config{stream, {{not is_running}}/*time_kernel*/};
 {% else %}
-    auto s = ck_tile::stream_config{stream, {{is_profiling}}/*time_kernel*/, 
+    auto s = ck_tile::stream_config{stream, {{not is_running}}/*time_kernel*/, 
             {{log_level}}/*log_level*/, {{cold_niters}}/*cold_niters*/, 
             {{nrepeat}}/*nrepeat*/, {{is_gpu_timer}}/*is_gpu_timer*/, 
             {{flush_cache}}/*flush_cache*/, {{rotating_count}}/*rotating_count*/};
@@ -90,8 +89,6 @@ static const std::string g_fmha_kernel_func_tpl = R"(
 #include <cstring>
 #include <algorithm>
 
-{{header_file}}
-
 {{macro_decl}}
 
 {{dtype_decl}}
@@ -99,7 +96,7 @@ static const std::string g_fmha_kernel_func_tpl = R"(
 {{instance_decl}}
 
 {% if is_running %} {{c_flag}} FC_EXPORT {% endif %} {{func_signature}} {
-    {{execute_func}}
+    {{running_func}}
 }
 )";
 

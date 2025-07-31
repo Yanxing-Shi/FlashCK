@@ -4,30 +4,20 @@
 
 namespace flashck {
 
-struct FmhaFwdKernelArgs {
-    void* q_ptr_;
-    void* k_ptr_;
-    void* v_ptr_;
-    void* bias_ptr_;
-    void* out_ptr_;
+namespace tile{
 
-    int64_t* q_seq_start_ptr_;
-    int64_t* kv_seq_start_ptr_;
-    int64_t* k_seq_len_ptr_;
+struct BatchGemmKernelArgs {
+    void* a_ptr_;
+    void* b_ptr_;
+    void* c_ptr_;
 
+    int64_t split_k_;
+    int64_t m_;
+    int64_t n_;
+    int64_t k_;
 
-    int64_t batch_;
-    int64_t q_seq_len_;
-    int64_t kv_seq_len_;
-    int64_t q_num_heads_;
-    int64_t kv_num_heads_;
-    int64_t qk_head_dim_;
-    int64_t v_head_dim_;
-
-    int64_t                q_max_seq_len_;
-    float                  scale_;
-    std::array<int64_t, 2> window_size_;
-    uint32_t               mask_type_;
+    int64_t a_stride_;
+    
 
     hipStream_t            stream_;
 
@@ -54,5 +44,6 @@ void FmhaFwd(void* /*q_buf_ptr*/,
              uint32_t /*mask_type*/,
              hipStream_t /*stream*/);
 
+} // namespace tile
 
 } // namespace flashck

@@ -2,7 +2,7 @@
 
 #include <string>
 
-static const std::string g_fmha_fwd_create_args_source = R"(
+static const std::string g_fmha_fwd_create_args_tpl = R"(
 auto create_args(int argc, char* argv[])
 {
     ck_tile::ArgParser arg_parser;
@@ -15,10 +15,10 @@ auto create_args(int argc, char* argv[])
         .insert(
             "s",
             "3328",
-            "seqlen_q. if group-mode, means the average value of seqlen_q\n"
-            "total_seqlen_q = seqlen_q * batch, and seqlen_q per batch may vary\n"
+            "q_seq_len. if group-mode, means the average value of q_seq_len\n"
+            "total_seqlen_q = q_seq_len * batch, and q_seq_len per batch may vary\n"
             "also with \"-s=s0,s1,s2...\" comma seperated int to set per batch seqlen group-mode")
-        .insert("s_k", "-1", "seqlen_k (not including new key/value), -1 means equal to s")
+        .insert("s_k", "-1", "kv_seq_len (not including new key/value), -1 means equal to s")
         .insert("d", "128", "head dim for q, k")
         .insert("d_v", "-1", "head dim for v, -1 means equal to d")
         .insert("scale",
@@ -35,36 +35,37 @@ auto create_args(int argc, char* argv[])
 }
 )";
 
-static const std::string g_fmha_fwd_args_parser_source = R"(
+static const std::string g_fmha_fwd_args_parser_tpl = R"(
     ck_tile::index_t batch   = arg_parser.get_int("b");
-    ck_tile::index_t seqlen_q = arg_parser.get_int("s");
-    ck_tile::index_t seqlen_k = arg_parser.get_int("s_k");
-    ck_tile::index_t nhead_q = arg_parser.get_int("h");
-    ck_tile::index_t nhead_k = arg_parser.get_int("h_k");
-    if(nhead_k < 0)
-        nhead_k = nhead_q;
+    ck_tile::index_t q_seq_len = arg_parser.get_int("s");
+    ck_tile::index_t kv_seq_len = arg_parser.get_int("s_k");
+    ck_tile::index_t q_num_heads = arg_parser.get_int("h");
+    ck_tile::index_t kv_num_heads = arg_parser.get_int("h_k");
+    if(kv_num_heads < 0)
+        kv_num_heads = q_num_heads;
 
-    if(nhead_q % nhead_k != 0)
+    if(q_num_heads % kv_num_heads != 0)
     {
-        std::cerr << "nhead_q:" << nhead_q << " must be multiple of nhead_k:" << nhead_k << std::endl;
+        std::cerr << "q_num_heads:" << q_num_heads << " must be multiple of kv_num_heads:" << kv_num_heads << std::endl;
     }
 
-    ck_tile::index_t hdim_q = arg_parser.get_int("d");
-    ck_tile::index_t hdim_v = arg_parser.get_int("d_v");
-    if(hdim_v < 0)
-        hdim_v = hdim_q;
+    ck_tile::index_t qk_head_dim = arg_parser.get_int("d");
+    ck_tile::index_t v_head_dim = arg_parser.get_int("d_v");
+    if(v_head_dim < 0)
+        v_head_dim = qk_head_dim;
 
     float scale = arg_parser.get_float("scale");
     if(scale == .0f)
-        scale = 1.0 / ck_tile::sqrt(static_cast<float>(hdim_q));
+        scale = 1.0 / ck_tile::sqrt(static_cast<float>(qk_head_dim));
     
     uint32_t mask_type = arg_parser.get_uint32("mask");
+
     ck_tile::index_t window_left_size = arg_parser.get_int("window_left_size");
     ck_tile::index_t window_right_size = arg_parser.get_int("window_right_size");
 
 )";
 
-static const std::string g_fmha_fwd_args_decl_source = R"(
+static const std::string g_fmha_fwd_args_decl_tpl = R"(
 
 // runtime args, some will passed to karg, some will used to compute grids/blocks
 struct FmhaFwdArgs
@@ -75,74 +76,69 @@ struct FmhaFwdArgs
     const void* bias_ptr; // bias or alibi_slope pointer
     void* o_ptr;
 
-    const void* seqstart_q_ptr;
-    const void* seqstart_k_ptr;
+    const void* q_seq_start_ptr;
+    const void* k_seq_start_ptr;
     const void*
-        seqlen_k_ptr; // only used if both 'seqstart_q_ptr' & 'seqstart_k_ptr' are not nullptr
+        k_seq_len_ptr; // only used if both 'q_seq_start_ptr' & 'k_seq_start_ptr' are not nullptr
 
-    ck_tile::index_t seqlen_q;
-    ck_tile::index_t seqlen_k;
+    ck_tile::index_t q_seq_len;
+    ck_tile::index_t kv_seq_len;
     ck_tile::index_t batch;
-    ck_tile::index_t max_seqlen_q;
-    ck_tile::index_t hdim_q;
-    ck_tile::index_t hdim_v;
-    ck_tile::index_t nhead_q;
-    ck_tile::index_t nhead_k;
+    ck_tile::index_t q_max_seq_len;
+    ck_tile::index_t qk_head_dim;
+    ck_tile::index_t v_head_dim;
+    ck_tile::index_t q_num_heads;
+    ck_tile::index_t kv_num_heads;
 
     float scale_s;
 
-    ck_tile::index_t stride_q;
-    ck_tile::index_t stride_k;
-    ck_tile::index_t stride_v;
-    ck_tile::index_t stride_bias; // if alibi, b*h need set this to h, 1*h need set this to 0
-    ck_tile::index_t stride_randval;
-    ck_tile::index_t stride_o;
-    ck_tile::index_t nhead_stride_q;
-    ck_tile::index_t nhead_stride_k;
-    ck_tile::index_t nhead_stride_v;
-    ck_tile::index_t nhead_stride_bias;
-    ck_tile::index_t nhead_stride_randval;
-    ck_tile::index_t nhead_stride_lse;
-    ck_tile::index_t nhead_stride_o;
-    ck_tile::index_t batch_stride_q;
-    ck_tile::index_t batch_stride_k;
-    ck_tile::index_t batch_stride_v;
-    ck_tile::index_t batch_stride_bias;
-    ck_tile::index_t batch_stride_randval;
-    ck_tile::index_t batch_stride_lse;
-    ck_tile::index_t batch_stride_o;
+    ck_tile::index_t q_stride;
+    ck_tile::index_t k_stride;
+    ck_tile::index_t v_stride;
+    ck_tile::index_t bias_stride; // if alibi, b*h need set this to h, 1*h need set this to 0
+    ck_tile::index_t randval_stride;
+    ck_tile::index_t o_stride;
+
+    ck_tile::index_t q_num_heads_stride;
+    ck_tile::index_t k_num_heads_stride;
+    ck_tile::index_t v_num_heads_stride;
+    ck_tile::index_t bias_num_heads_stride;
+    ck_tile::index_t lse_num_heads_stride;
+    ck_tile::index_t o_num_heads_stride;
+
+    ck_tile::index_t q_batch_stride;
+    ck_tile::index_t k_batch_stride;
+    ck_tile::index_t v_batch_stride;
+    ck_tile::index_t bias_batch_stride;
+    ck_tile::index_t lse_batch_stride;
+    ck_tile::index_t o_batch_stride;
 
     ck_tile::index_t window_size_left;
     ck_tile::index_t window_size_right;
+
     ck_tile::index_t mask_type;
-
-    float p_drop;
-
-    std::variant<std::pair<uint64_t, uint64_t>, std::pair<const void*, const void*>>
-        drop_seed_offset;
-
 };
 
 )";
 
-static const std::string g_fmha_fwd_func_signature_source = R"(
+static const std::string g_fmha_fwd_func_signature_tpl = R"(
 void {{function_name}}(
     void* q_buf_ptr,
     void* k_buf_ptr,
     void* v_buf_ptr,
     void* bias_buf_ptr,
     void* o_buf_ptr,
-    int64_t* seqstart_q_ptr,
-    int64_t* seqstart_k_ptr,
-    int64_t* seqlen_k_ptr,
+    int64_t* q_seq_start_ptr,
+    int64_t* k_seq_start_ptr,
+    int64_t* k_seq_len_ptr,
     int64_t batch,
-    int64_t seqlen_q,
-    int64_t seqlen_k,
-    int64_t nhead_q,
-    int64_t nhead_k,
-    int64_t hdim_q,
-    int64_t hdim_v,
-    int64_t max_seqlen_q,
+    int64_t q_seq_len,
+    int64_t kv_seq_len,
+    int64_t q_num_heads,
+    int64_t kv_num_heads,
+    int64_t qk_head_dim,
+    int64_t v_head_dim,
+    int64_t q_max_seq_len,
     float scale,
     std::array<int64_t,2> window_size,
     uint32_t mask_type,
@@ -150,36 +146,36 @@ void {{function_name}}(
 )
 )";
 
-static const std::string g_fmha_fwd_func_call_source = R"(
+static const std::string g_fmha_fwd_func_call_tpl = R"(
     {{function_name}}(
         q_buf.GetDeviceBuffer(),
         k_buf.GetDeviceBuffer(),
         v_buf.GetDeviceBuffer(),
-{% if bias_str == "alibi" %}
+{% if bias == "alibi" %}
         alibi_slope_buf.GetDeviceBuffer(),
-{% elif bias_str == "elementwise" %}
+{% elif bias == "elementwise" %}
         bias_buf.GetDeviceBuffer(),
 {% else %}
         nullptr,
 {% endif %}
         o_buf.GetDeviceBuffer(),
-{% if mode_str == "group" %}
-        seqstart_q.GetDeviceBuffer(),
+{% if mode == "group" %}
+        q_seq_start.GetDeviceBuffer(),
         seqstart_k.GetDeviceBuffer(),
-        seqlen_k_buf.GetDeviceBuffer(),
+        kv_seqlen_buf.GetDeviceBuffer(),
 {% else %}
         nullptr,
         nullptr,
         nullptr,
 {% endif %}
         batch,
-        shape_seqlen_q,
-        shape_seqlen_k,
-        nhead_q,
-        nhead_k,
-        hdim_q,
-        hdim_v,
-        max_seqlen_q,
+        q_shape_seqlen,
+        kv_shape_seqlen,
+        q_num_heads,
+        kv_num_heads,
+        qk_head_dim,
+        v_head_dim,
+        q_max_seq_len,
         scale,
         {window_left_size,window_right_size},
         mask_type,
@@ -187,130 +183,132 @@ static const std::string g_fmha_fwd_func_call_source = R"(
     );
 )";
 
-static const std::string g_fmha_fwd_prepare_args_source = R"(
+static const std::string g_fmha_fwd_prepare_args_tpl = R"(
    const auto init_args = [&](auto& args){  
 
-    const ck_tile::index_t shape_batch = {% if mode_str == "batch" %} batch; {% else %} 1; {% endif %}
-    const ck_tile::index_t shape_seqlen_q = {% if mode_str == "batch" %} seqlen_q; {% else %} seqstart_q_ptr[sizeof(seqstart_q_ptr)/sizeof(seqstart_q_ptr[0]) - 1]; {% endif %}
-    const ck_tile::index_t shape_seqlen_k =
-{% if mode_str == "batch" %} seqlen_k; {% else %} seqstart_k_ptr[sizeof(seqstart_q_ptr)/sizeof(seqstart_q_ptr[0]) - 1]; {% endif %}
+    const ck_tile::index_t shape_batch = {% if mode == "batch" %} batch; {% else %} 1; {% endif %}
+    const ck_tile::index_t q_shape_seqlen = {% if mode == "batch" %} q_seq_len; {% else %} q_seq_start_ptr[sizeof(q_seq_start_ptr)/sizeof(q_seq_start_ptr[0]) - 1]; {% endif %}
+    const ck_tile::index_t kv_shape_seqlen =
+{% if mode == "batch" %} kv_seq_len; {% else %} k_seq_start_ptr[sizeof(q_seq_start_ptr)/sizeof(q_seq_start_ptr[0]) - 1]; {% endif %}
     
     // setup stride_* arguments
-    const ck_tile::index_t stride_q = nhead_q * hdim_q;
-    const ck_tile::index_t stride_k = nhead_k * hdim_q;
-    const ck_tile::index_t stride_v = nhead_k * hdim_v;
+    const ck_tile::index_t q_stride = q_num_heads * qk_head_dim;
+    const ck_tile::index_t k_stride = kv_num_heads * qk_head_dim;
+    const ck_tile::index_t v_stride = kv_num_heads * v_head_dim;
 
 {% if bias_rank_info == 0 %}
-    const ck_tile::index_t stride_bias = shape_seqlen_k;
+    const ck_tile::index_t bias_stride = kv_shape_seqlen;
 {% elif bias_rank_info == 1 %}
-    const ck_tile::index_t stride_bias = shape_seqlen_k;
+    const ck_tile::index_t bias_stride = kv_shape_seqlen;
 {% elif bias_rank_info == 2 %}
-    const ck_tile::index_t stride_bias = shape_seqlen_k;
+    const ck_tile::index_t bias_stride = kv_shape_seqlen;
 {% endif %}
 
-    const ck_tile::index_t stride_o       = nhead_q * hdim_v;
+    const ck_tile::index_t o_stride       = q_num_heads * v_head_dim;
 
     // setup nhead_stride_* arguments
-    const ck_tile::index_t nhead_stride_q = hdim_q;
-    const ck_tile::index_t nhead_stride_k = hdim_q;
-    const ck_tile::index_t nhead_stride_v = hdim_v;
+    const ck_tile::index_t q_num_heads_stride = qk_head_dim;
+    const ck_tile::index_t k_num_heads_stride = qk_head_dim;
+    const ck_tile::index_t v_num_heads_stride = v_head_dim;
 {% if bias_rank_info == 0 %}
-    const ck_tile::index_t nhead_stride_bias = 0 * shape_seqlen_q * shape_seqlen_k;
+    const ck_tile::index_t bias_num_heads_stride = 0 * q_shape_seqlen * kv_shape_seqlen;
 {% elif bias_rank_info == 1 %}
-    const ck_tile::index_t nhead_stride_bias = shape_seqlen_q * shape_seqlen_k;
+    const ck_tile::index_t bias_num_heads_stride = q_shape_seqlen * kv_shape_seqlen;
 {% elif bias_rank_info == 2 %}
-    const ck_tile::index_t nhead_stride_bias = shape_seqlen_q * shape_seqlen_k;
+    const ck_tile::index_t bias_num_heads_stride = q_shape_seqlen * kv_shape_seqlen;
 {% endif %}
 
 
-    const ck_tile::index_t nhead_stride_o       = hdim_v;
+    const ck_tile::index_t o_num_heads_stride       = v_head_dim;
 
     // setup batch_stride_* arguments
-    const ck_tile::index_t batch_stride_q = nhead_q * shape_seqlen_q * hdim_q;
-    const ck_tile::index_t batch_stride_k = nhead_k * shape_seqlen_k * hdim_q;
-    const ck_tile::index_t batch_stride_v = nhead_k * hdim_v * shape_seqlen_k;
+    const ck_tile::index_t q_batch_stride = q_num_heads * q_shape_seqlen * qk_head_dim;
+    const ck_tile::index_t k_batch_stride = kv_num_heads * kv_shape_seqlen * qk_head_dim;
+    const ck_tile::index_t v_batch_stride = kv_num_heads * v_head_dim * kv_shape_seqlen;
 {% if bias_rank_info == 0 %}
-    const ck_tile::index_t batch_stride_bias    = 0 * nhead_q * shape_seqlen_q * shape_seqlen_k;
+    const ck_tile::index_t bias_batch_stride    = 0 * q_num_heads * q_shape_seqlen * kv_shape_seqlen;
 {% elif bias_rank_info == 1 %}
-    const ck_tile::index_t batch_stride_bias    = 0 * nhead_q * shape_seqlen_q * shape_seqlen_k;
+    const ck_tile::index_t bias_batch_stride    = 0 * q_num_heads * q_shape_seqlen * kv_shape_seqlen;
 {% elif bias_rank_info == 2 %}
-    const ck_tile::index_t batch_stride_bias    = nhead_q * shape_seqlen_q * shape_seqlen_k;
+    const ck_tile::index_t bias_batch_stride    = q_num_heads * q_shape_seqlen * kv_shape_seqlen;
 {% endif %}
-    const ck_tile::index_t batch_stride_o     = nhead_q * shape_seqlen_q * hdim_v;
+    const ck_tile::index_t o_batch_stride     = q_num_heads * q_shape_seqlen * v_head_dim;
 
     args.q_ptr = q_buf_ptr;
     args.k_ptr = k_buf_ptr;
     args.v_ptr = v_buf_ptr;
 
     args.batch    = batch;
-    args.seqlen_q = shape_seqlen_q; // unused in group mode
-    args.hdim_q   = hdim_q;
-    args.hdim_v   = hdim_v;
-    args.nhead_q  = nhead_q;
-    args.nhead_k  = nhead_k;
+    args.q_seq_len = q_shape_seqlen; // unused in group mode
+    args.qk_head_dim   = qk_head_dim;
+    args.v_head_dim   = v_head_dim;
+    args.q_num_heads  = q_num_heads;
+    args.kv_num_heads  = kv_num_heads;
 
-    args.stride_q       = stride_q;
-    args.stride_k       = stride_k;
-    args.stride_v       = stride_v;
-    args.nhead_stride_q = nhead_stride_q;
-    args.nhead_stride_k = nhead_stride_k;
-    args.nhead_stride_v = nhead_stride_v;
-    args.batch_stride_q = batch_stride_q;
-    args.batch_stride_k = batch_stride_k;
-    args.batch_stride_v = batch_stride_v;
+    args.q_stride       = q_stride;
+    args.k_stride       = k_stride;
+    args.v_stride       = v_stride;
+    args.q_num_heads_stride = q_num_heads_stride;
+    args.k_num_heads_stride = k_num_heads_stride;
+    args.v_num_heads_stride = v_num_heads_stride;
+    args.q_batch_stride = q_batch_stride;
+    args.k_batch_stride = k_batch_stride;
+    args.v_batch_stride = v_batch_stride;
 
     args.bias_ptr = bias_buf_ptr;
     args.o_ptr    = o_buf_ptr;    
 
-    args.seqstart_q_ptr = seqstart_q_ptr;
-    args.seqstart_k_ptr = seqstart_k_ptr;
-    args.seqlen_k_ptr = seqlen_k_ptr;
+    args.q_seq_start_ptr = q_seq_start_ptr;
+    args.k_seq_start_ptr = k_seq_start_ptr;
+    args.k_seq_len_ptr = k_seq_len_ptr;
     
-    args.seqlen_k     = seqlen_k; // unused in group mode (or kvcache enabled)
-    args.max_seqlen_q = max_seqlen_q;
+    args.kv_seq_len     = kv_seq_len; // unused in group mode (or kvcache enabled)
+    args.q_max_seq_len = q_max_seq_len;
 
     args.scale_s = scale;
 
-    args.stride_bias = 
-{% if bias_str == "alibi" %}
-{% if bias_rank_info == 0 %} 0 * nhead_q; {% else %} nhead_q; {% endif %}
-{% elif bias_str == "elementwise" %}
-    stride_bias;
+    args.bias_stride = 
+{% if bias == "alibi" %}
+    {% if bias_rank_info == 0 %} 0 * q_num_heads; {% else %} q_num_heads; {% endif %}
+{% elif bias == "elementwise" %}
+    bias_stride;
 {% else %}
     0;
 {% endif %}
 
-    args.stride_o          = stride_o;
-    args.nhead_stride_bias = 
-{% if bias_str == "alibi" %}
+    args.o_stride          = o_stride;
+    args.bias_num_heads_stride = 
+{% if bias == "alibi" %}
     0;
-{% elif bias_str == "elementwise" %}
-    nhead_stride_bias;
+{% elif bias == "elementwise" %}
+    bias_num_heads_stride;
 {% else %}
     0;
 {% endif %}
-    args.nhead_stride_o    = nhead_stride_o;
-    args.batch_stride_bias = 
-{% if bias_str == "alibi" %}
+    args.o_num_heads_stride    = o_num_heads_stride;
+    args.bias_batch_stride = 
+{% if bias == "alibi" %}
     0;
-{% elif bias_str == "elementwise" %}
-    batch_stride_bias;
+{% elif bias == "elementwise" %}
+    bias_batch_stride;
 {% else %}
     0;
 {% endif %}
-    args.batch_stride_o    = batch_stride_o;
+    args.o_batch_stride    = o_batch_stride;
 
     args.window_size_left  = window_size[0];
     args.window_size_right = window_size[1];
+
     args.mask_type         = mask_type;
     };
 )";
 
-static const std::string g_fmha_fwd_make_args_source = R"(
+static const std::string g_fmha_fwd_make_args_tpl = R"(
     FmhaFwdArgs fmha_fwd_args;
+
     init_args(fmha_fwd_args);
     
-{% if mode_str == "group" %}
+{% if mode == "group" %}
     auto kargs = {{kernel_name}}::MakeKargs(fmha_fwd_args.q_ptr,
                                             fmha_fwd_args.k_ptr,
                                             fmha_fwd_args.v_ptr,
@@ -318,29 +316,29 @@ static const std::string g_fmha_fwd_make_args_source = R"(
                                             nullptr, // rand_val_ptr
                                             nullptr, // lse_ptr
                                             fmha_fwd_args.o_ptr,
-                                            fmha_fwd_args.seqstart_q_ptr,
-                                            fmha_fwd_args.seqstart_k_ptr,
-                                            fmha_fwd_args.seqlen_k_ptr,
-                                            fmha_fwd_args.hdim_q,
-                                            fmha_fwd_args.hdim_v,
-                                            fmha_fwd_args.nhead_q,
-                                            fmha_fwd_args.nhead_q / fmha_fwd_args.nhead_k, // nhead_ratio_qk
+                                            fmha_fwd_args.q_seq_start_ptr,
+                                            fmha_fwd_args.k_seq_start_ptr,
+                                            fmha_fwd_args.k_seq_len_ptr,
+                                            fmha_fwd_args.qk_head_dim,
+                                            fmha_fwd_args.v_head_dim,
+                                            fmha_fwd_args.q_num_heads,
+                                            fmha_fwd_args.q_num_heads / fmha_fwd_args.kv_num_heads, // nhead_ratio_qk
                                             fmha_fwd_args.scale_s,
                                             1.0f, // scale_p
                                             1.0f, // scale_o
-                                            fmha_fwd_args.stride_q,
-                                            fmha_fwd_args.stride_k,
-                                            fmha_fwd_args.stride_v,
-                                            fmha_fwd_args.stride_bias,
+                                            fmha_fwd_args.q_stride,
+                                            fmha_fwd_args.k_stride,
+                                            fmha_fwd_args.v_stride,
+                                            fmha_fwd_args.bias_stride,
                                             0, // stride_rand_val
-                                            fmha_fwd_args.stride_o,
-                                            fmha_fwd_args.nhead_stride_q,
-                                            fmha_fwd_args.nhead_stride_k,
-                                            fmha_fwd_args.nhead_stride_v,
-                                            fmha_fwd_args.nhead_stride_bias,
+                                            fmha_fwd_args.o_stride,
+                                            fmha_fwd_args.q_num_heads_stride,
+                                            fmha_fwd_args.k_num_heads_stride,
+                                            fmha_fwd_args.v_num_heads_stride,
+                                            fmha_fwd_args.bias_num_heads_stride,
                                             0, // nhead_stride_rand_val
                                             0, // nhead_stride_lse
-                                            fmha_fwd_args.batch_stride_o,
+                                            fmha_fwd_args.o_batch_stride,
                                             fmha_fwd_args.window_size_left,
                                             fmha_fwd_args.window_size_right,
                                             fmha_fwd_args.mask_type,
@@ -348,7 +346,7 @@ static const std::string g_fmha_fwd_make_args_source = R"(
                                             false, // is_store_randval
                                             std::make_pair(static_cast<uint64_t>(0), static_cast<uint64_t>(0)));
      dim3 grids = FmhaKernel::GridSize(
-            fmha_fwd_args.batch, fmha_fwd_args.nhead_q, fmha_fwd_args.max_seqlen_q, fmha_fwd_args.hdim_v, fmha_fwd_args.seqlen_k_ptr != nullptr);
+            fmha_fwd_args.batch, fmha_fwd_args.q_num_heads, fmha_fwd_args.q_max_seq_len, fmha_fwd_args.v_head_dim, fmha_fwd_args.k_seq_len_ptr != nullptr);
 {% else %}
     auto kargs = {{kernel_name}}::MakeKargs(fmha_fwd_args.q_ptr,
                                             fmha_fwd_args.k_ptr,
@@ -357,35 +355,35 @@ static const std::string g_fmha_fwd_make_args_source = R"(
                                             nullptr, // rand_val_ptr
                                             nullptr, // lse_ptr
                                             fmha_fwd_args.o_ptr,
-                                            fmha_fwd_args.seqlen_q,
-                                            fmha_fwd_args.seqlen_k,
-                                            fmha_fwd_args.hdim_q,
-                                            fmha_fwd_args.hdim_v,
-                                            fmha_fwd_args.nhead_q,
-                                            fmha_fwd_args.nhead_q / fmha_fwd_args.nhead_k, // nhead_ratio_qk
+                                            fmha_fwd_args.q_seq_len,
+                                            fmha_fwd_args.kv_seq_len,
+                                            fmha_fwd_args.qk_head_dim,
+                                            fmha_fwd_args.v_head_dim,
+                                            fmha_fwd_args.q_num_heads,
+                                            fmha_fwd_args.q_num_heads / fmha_fwd_args.kv_num_heads, // nhead_ratio_qk
                                             fmha_fwd_args.scale_s,
                                             1.0f, // scale_p
                                             1.0f, // scale_o
-                                            fmha_fwd_args.stride_q,
-                                            fmha_fwd_args.stride_k,
-                                            fmha_fwd_args.stride_v,
-                                            fmha_fwd_args.stride_bias,
+                                            fmha_fwd_args.q_stride,
+                                            fmha_fwd_args.k_stride,
+                                            fmha_fwd_args.v_stride,
+                                            fmha_fwd_args.bias_stride,
                                             0, // stride_rand_val
-                                            fmha_fwd_args.stride_o,
-                                            fmha_fwd_args.nhead_stride_q,
-                                            fmha_fwd_args.nhead_stride_k,
-                                            fmha_fwd_args.nhead_stride_v,
-                                            fmha_fwd_args.nhead_stride_bias,
+                                            fmha_fwd_args.o_stride,
+                                            fmha_fwd_args.q_num_heads_stride,
+                                            fmha_fwd_args.k_num_heads_stride,
+                                            fmha_fwd_args.v_num_heads_stride,
+                                            fmha_fwd_args.bias_num_heads_stride,
                                             0, // nhead_stride_rand_val
                                             0, // nhead_stride_lse
-                                            fmha_fwd_args.nhead_stride_o,
-                                            fmha_fwd_args.batch_stride_q,
-                                            fmha_fwd_args.batch_stride_k,
-                                            fmha_fwd_args.batch_stride_v,
-                                            fmha_fwd_args.batch_stride_bias,
+                                            fmha_fwd_args.o_num_heads_stride,
+                                            fmha_fwd_args.q_batch_stride,
+                                            fmha_fwd_args.k_batch_stride,
+                                            fmha_fwd_args.v_batch_stride,
+                                            fmha_fwd_args.bias_batch_stride,
                                             0, // batch_stride_rand_val
                                             0, // batch_stride_lse
-                                            fmha_fwd_args.batch_stride_o,
+                                            fmha_fwd_args.o_batch_stride,
                                             fmha_fwd_args.window_size_left,
                                             fmha_fwd_args.window_size_right,
                                             fmha_fwd_args.mask_type,
@@ -393,34 +391,34 @@ static const std::string g_fmha_fwd_make_args_source = R"(
                                             false, // is_store_randval
                                             std::make_pair(static_cast<uint64_t>(0), static_cast<uint64_t>(0)));
     dim3 grids =
-            {{kernel_name}}::GridSize(fmha_fwd_args.batch, fmha_fwd_args.nhead_q, fmha_fwd_args.max_seqlen_q, fmha_fwd_args.hdim_v, false);
+            {{kernel_name}}::GridSize(fmha_fwd_args.batch, fmha_fwd_args.q_num_heads, fmha_fwd_args.q_max_seq_len, fmha_fwd_args.v_head_dim, false);
 {% endif %}
 )";
 
-static const std::string g_fmha_fwd_tensor_decl_source = R"(
+static const std::string g_fmha_fwd_tensor_decl_tpl = R"(
     ck_tile::HostTensor<QDataType> q_host(
-        {shape_batch, shape_seqlen_q, nhead_q, hdim_q});
+        {shape_batch, q_shape_seqlen, q_num_heads, qk_head_dim});
     ck_tile::HostTensor<KDataType> k_host(
-        {shape_batch, shape_seqlen_k, nhead_k, hdim_q});
+        {shape_batch, kv_shape_seqlen, kv_num_heads, qk_head_dim});
     ck_tile::HostTensor<VDataType> v_host(
-        {shape_batch, shape_seqlen_k, nhead_k, hdim_v});
+        {shape_batch, kv_shape_seqlen, kv_num_heads, v_head_dim});
 
     ck_tile::HostTensor<ODataType> o_host(
-        {shape_batch, shape_seqlen_q, nhead_q, hdim_v});
+        {shape_batch, q_shape_seqlen, q_num_heads, v_head_dim});
     
-{% if bias_str == "elementwise" %}
-    ck_tile::HostTensor<BiasDataType> bias_host({1, 1, shape_seqlen_q, shape_seqlen_k});
+{% if bias == "elementwise" %}
+    ck_tile::HostTensor<BiasDataType> bias_host({1, 1, q_shape_seqlen, kv_shape_seqlen});
 {% else %}
     ck_tile::HostTensor<BiasDataType> bias_host({1, 1, 1, 1}); // dummy shape for simplifying code
 {% endif %}
 
-{% if bias_str == "alibi" %}
+{% if bias == "alibi" %}
 {% if bias_rank_info == 0 %}
     // alibi in 1*h
-    ck_tile::HostTensor<SaccDataType> alibi_slope_host({1, nhead_q});
+    ck_tile::HostTensor<SaccDataType> alibi_slope_host({1, q_num_heads});
 {% else %}
     // alibi in b*h
-    ck_tile::HostTensor<SaccDataType> alibi_slope_host({batch, nhead_q});
+    ck_tile::HostTensor<SaccDataType> alibi_slope_host({batch, q_num_heads});
 {% endif %}
 {% else %}
     // alibi in 1*1
@@ -429,52 +427,52 @@ static const std::string g_fmha_fwd_tensor_decl_source = R"(
 
 )";
 
-const static std::string g_fmha_fwd_tensor_generate_source = R"(
-{% if init_method_str == "uri" %}
+const static std::string g_fmha_fwd_tensor_generate_tpl = R"(
+{% if init_method == "uri" %}
     ck_tile::FillUniformDistributionIntegerValue<QDataType>{-3.f, 3.f, {{seed}}}(q_host);
     ck_tile::FillUniformDistributionIntegerValue<KDataType>{-3.f, 3.f, {{seed}}}(k_host);
     ck_tile::FillUniformDistributionIntegerValue<VDataType>{-3.f, 3.f, {{seed}}}(v_host);
-{% if bias_str == "elementwise" %}
+{% if bias == "elementwise" %}
     ck_tile::FillUniformDistributionIntegerValue<BiasDataType>{-3.f, 3.f, {{seed}}}(bias_host);
 {% endif %}
 
-{% elif init_method_str == "nri" %}
+{% elif init_method == "nri" %}
     ck_tile::FillNormalDistributionIntegerValue<QDataType>{-3.f, 3.f, {{seed}}}(q_host);
     ck_tile::FillNormalDistributionIntegerValue<KDataType>{-3.f, 3.f, {{seed}}}(k_host);
     ck_tile::FillNormalDistributionIntegerValue<VDataType>{-3.f, 3.f, {{seed}}}(v_host);
-{% if bias_str == "elementwise" %}    
+{% if bias == "elementwise" %}    
     ck_tile::FillNormalDistributionIntegerValue<BiasDataType>{-3.f, 3.f, {{seed}}}(bias_host);
 {% endif %}
 
-{% elif init_method_str == "uf" %}
+{% elif init_method == "uf" %}
     ck_tile::FillUniformDistribution<QDataType>{0.f, 1.f, {{seed}}}(q_host);
     ck_tile::FillUniformDistribution<KDataType>{0.f, 1.f, {{seed}}}(k_host);
     ck_tile::FillUniformDistribution<VDataType>{0.f, 1.f, {{seed}}}(v_host);
-{% if bias_str == "elementwise" %}
+{% if bias == "elementwise" %}
     ck_tile::FillUniformDistribution<BiasDataType>{0.f, 1.f, {{seed}}}(bias_host);
 {% endif %}
 
-{% elif init_method_str == "nf" %}
+{% elif init_method == "nf" %}
     ck_tile::FillNormalDistribution<QDataType>{0.f, 3.f, {{seed}}}(q_host);
     ck_tile::FillNormalDistribution<KDataType>{0.f, 3.f, {{seed}}}(k_host);
     ck_tile::FillNormalDistribution<VDataType>{0.f, 3.f, {{seed}}}(v_host);
-{% if bias_str == "elementwise" %}
+{% if bias == "elementwise" %}
     ck_tile::FillNormalDistribution<BiasDataType>{0.f, 3.f, {{seed}}}(bias_host);
 {% endif %}
 
-{% elif init_method_str == "tf" %}
+{% elif init_method == "tf" %}
     ck_tile::FillTrigValue<QDataType>{}(q_host);
     ck_tile::FillTrigValue<KDataType>{}(k_host);
     ck_tile::FillTrigValue<VDataType>{}(v_host);
-{% if bias_str == "elementwise" %}
+{% if bias == "elementwise" %}
     ck_tile::FillTrigValue<BiasDataType>{}(bias_host);
 {% endif %}
 
-{% elif init_method_str == "uf8q" %}
+{% elif init_method == "uf8q" %}
     ck_tile::FillUniformDistribution<QDataType>{-dtype_max, dtype_max, {{seed}}}(q_host);
     ck_tile::FillUniformDistribution<KDataType>{-dtype_max, dtype_max, {{seed}}}(k_host);
     ck_tile::FillUniformDistribution<VDataType>{-dtype_max, dtype_max, {{seed}}}(v_host);
-{% if bias_str == "elementwise" %}
+{% if bias == "elementwise" %}
     // bias_fp8 = qscale_bias * bias_fp32
     float qscale_bias = (dtype_max / range_q) * (dtype_max / range_k);
     // Assume bias is in [-1.f, 1.f] in original fp32
@@ -483,9 +481,9 @@ const static std::string g_fmha_fwd_tensor_generate_source = R"(
 
 {% endif %}
 
-{% if bias_str == "alibi" %}
-    auto slopes = ck_tile::get_alibi_slopes<SaccDataType>(nhead_q);
-    assert(slopes.size() == static_cast<std::size_t>(nhead_q));
+{% if bias == "alibi" %}
+    auto slopes = ck_tile::get_alibi_slopes<SaccDataType>(q_num_heads);
+    assert(slopes.size() == static_cast<std::size_t>(q_num_heads));
 {% if bias_rank_info == 0 %}
     // alibi in 1*h
     std::copy(slopes.begin(), slopes.end(), alibi_slope_host.begin());
@@ -493,7 +491,7 @@ const static std::string g_fmha_fwd_tensor_generate_source = R"(
     // alibi in b*h
     for(auto i_b = 0; i_b < batch; i_b++)
     {
-        std::copy(slopes.begin(), slopes.end(), alibi_slope_host.begin() + i_b * nhead_q);
+        std::copy(slopes.begin(), slopes.end(), alibi_slope_host.begin() + i_b * q_num_heads);
     }
 {% endif %}
 {% endif %}
@@ -504,26 +502,26 @@ const static std::string g_fmha_fwd_tensor_generate_source = R"(
     k_buf.ToDevice(k_host.data());
     ck_tile::DeviceMem v_buf(v_host.get_element_space_size_in_bytes());
     v_buf.ToDevice(v_host.data());
-{% if bias_str == "elementwise" %}
+{% if bias == "elementwise" %}
     ck_tile::DeviceMem bias_buf(bias_host.get_element_space_size_in_bytes());
     bias_buf.ToDevice(bias_host.data());
 {% endif %}
-{% if bias_str == "alibi" %}
+{% if bias == "alibi" %}
     ck_tile::DeviceMem alibi_slope_buf(alibi_slope_host.get_element_space_size_in_bytes());
     alibi_slope_buf.ToDevice(alibi_slope_host.data());
 {% endif %}
     ck_tile::DeviceMem o_buf(o_host.get_element_space_size_in_bytes());
 
-{% if mode_str == "group" %}
-    ck_tile::DeviceMem seqstart_q(seqstart_q_host.size() * sizeof(int64_t));
-    seqstart_q.ToDevice(seqstart_q_host.data());
-    ck_tile::DeviceMem seqstart_k(seqstart_k_host.size() * sizeof(int64_t));
-    seqstart_k.ToDevice(seqstart_k_host.data());
+{% if mode == "group" %}
+    ck_tile::DeviceMem q_seq_start(q_seq_start_host.size() * sizeof(int64_t));
+    q_seq_start.ToDevice(q_seq_start_host.data());
+    ck_tile::DeviceMem kv_seq_start(kv_seq_start_host.size() * sizeof(int64_t));
+    kv_seq_start.ToDevice(kv_seq_start_host.data());
 {% endif %}
 
-{% if mode_str == "group" %}
-    ck_tile::DeviceMem seqlen_k_buf(0 <= seqlen_kpads[0] ? seqlen_ks.size() * sizeof(int64_t) : 0);
-    seqlen_k_buf.ToDevice(seqlen_ks.data());
+{% if mode == "group" %}
+    ck_tile::DeviceMem kv_seqlen_buf(0 <= seqlen_kpads[0] ? kv_seq_len.size() * sizeof(int64_t) : 0);
+    kv_seqlen_buf.ToDevice(kv_seq_len.data());
 {% endif %}
 
 )";

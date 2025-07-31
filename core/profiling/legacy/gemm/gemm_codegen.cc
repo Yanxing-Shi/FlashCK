@@ -170,7 +170,7 @@ std::string CBlockTransferDesc::Emit() const
     return TEMPLATE_CHECK(tpl, value_map, "CBlockTransferDesc::Emit");
 }
 
-std::string GemmCodegen::GetInstanceName() const
+std::string GemmCodeGen::GetInstanceName() const
 {
     return Sprintf(
         "{kind}_{epilogue}_{tile_desc}_{a_layout}{b_layout}{c_layout}_{a_dtype}{b_dtype}{c_dtype}_{a_block_transfer}_{b_block_transfer}_{c_block_transfer}_{pipeline_scheduler}_{pipeline_version}_{gemm_spec}",
@@ -191,7 +191,7 @@ std::string GemmCodegen::GetInstanceName() const
         fmt::arg("gemm_spec", GetGemmSpecializationShortName(gemm_spec_)));
 }
 
-std::string GemmCodegen::Emit() const
+std::string GemmCodeGen::Emit() const
 {
     std::string tpl            = R"(
 using GemmInstance_{{idx}} = {{device_tag}}<
@@ -272,7 +272,7 @@ using GemmInstance_{{idx}} = {{device_tag}}<
         {"pipeline_version", GetPipelineVersionTag(pipeline_version_)},
     };
 
-    return TEMPLATE_CHECK(tpl, value_map, "GemmCodegen::Emit");
+    return TEMPLATE_CHECK(tpl, value_map, "GemmCodeGen::Emit");
 }
 
 } // namespace legacy

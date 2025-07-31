@@ -1,33 +1,29 @@
+
+#pragma once
+
+#include "lightinfer/core/module/kernels/kernel.h"
+#include "lightinfer/core/module/kernels/kernel_registry.h"
+
+#include "lightinfer/core/module/kernels/fmha_kernels/fmha_common_jinja.h"
+
+
 namespace flashck {
 
 class FmhaCommonKernel: public Kernel {
 public:
-    std::map<std::string, std::shared_ptr<void>> ExtractConfig(const FmhaOperationKind& op_kind,
-                                                               const TensorOperation&   extra_kind);
 
     std::vector<std::tuple<std::filesystem::path, std::filesystem::path>>
-    GenFmhaCommonKernelProfiler(const std::string&                               model_name,
-                                const std::unordered_map<std::string, std::any>& kernel_func_map,
-                                const std::string&                               create_args_source,
-                                const std::string&                               args_parser_source,
-                                const std::string&                               args_decl_source,
-                                const std::string&                               func_signature_source,
-                                const std::string&                               tensor_decl_source,
-                                const std::string&                               tensor_generate_source,
-                                const std::string&                               func_call_source,
-                                const std::string&                               prepare_args_source,
-                                const std::string&                               make_args_source,
-                                const std::string&                               fmha_flag,
-                                const std::string&                               folder_name = "kernel_profile");
+    CommonCodeGenForTuning(const std::string&    model_name,
+                           const std::string&    kind_name,
+                           const instance_map_t& instance_map,
+                           const FmhaTuningTpl&      tuning_tpl,
+                           const std::string&    folder_name = "kernel_profile");
 
-    std::string GenFmhaCommonKernelFunction(const std::string&                               func_name,
-                                            const std::string&                               model_name,
-                                            const std::unordered_map<std::string, std::any>& kernel_func_map,
-                                            const std::string&                               args_decl_source,
-                                            const std::string&                               func_signature_source,
-                                            const std::string&                               prepare_args_source,
-                                            const std::string&                               make_args_source,
-                                            const std::string&                               fmha_flag,
-                                            const std::string& folder_name = "kernel_profile");
+    std::string CommonCodeGenForRunning(const std::string&                        func_name,
+                                        const std::string&                        model_name,
+                                        const std::map<std::string, RunningItem>& running_infos,
+                                        const instance_map_t&                     instance_map,
+                                        const FmhaRunningTpl&                         running_tpl,
+                                        const std::string&                        folder_name = "kernel_profile");
 };
 }  // namespace lightinfer

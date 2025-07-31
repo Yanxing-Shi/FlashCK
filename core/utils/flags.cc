@@ -218,6 +218,10 @@ FC_DEFINE_EXPORTED_int32(FC_TUNING_NUM_REPEATS, 64, "Number of profiling iterati
 
 FC_DEFINE_EXPORTED_bool(FC_TUNING_GPU_TIMER, true, "Enable GPU timer for accurate profiling");
 
+FC_DEFINE_EXPORTED_string(FC_TUNING_INIT_METHOD, "UniformRandomFloat", "Initialization method for tuning, uri-UniformRandomInt, urf-UniformRandomFloat, nri-NormalizedRandomInt,nrf-NormalizedRandomFloat, tf-TrigFloat, uf8q-UniformFloat8Quantization");
+
+FC_DEFINE_EXPORTED_int32(FC_TUNING_SEED, 42, "Random seed for tuning");
+
 // FC_DEFINE_EXPORTED_bool(FC_TUNING_VERIFY, false, "Enable profiling result verification");
 
 FC_DEFINE_EXPORTED_bool(FC_TUNING_LOG, false, "Enable detailed tuning logs");

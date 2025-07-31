@@ -22,6 +22,8 @@ FC_DECLARE_bool(FC_TUNING_GPU_TIMER);            ///< Use GPU-based timing vs CP
 FC_DECLARE_bool(FC_TUNING_LOG);                  ///< Enable detailed logging during tuning
 FC_DECLARE_bool(FC_TUNING_FLUSH_CACHE);          ///< Flush caches between measurements
 FC_DECLARE_int32(FC_TUNING_ROTATING_COUNT);      ///< Rotation count for measurement stability
+FC_DECLARE_string(FC_TUNING_INIT_METHOD);        ///< Initialization method for tuning
+FC_DECLARE_int32(FC_TUNING_SEED);                ///< Random seed for tuning
 
 namespace flashck {
 
@@ -128,6 +130,38 @@ static const std::unordered_map<InitMethod, std::string> g_init_method_short_nam
 };
 
 /**
+ * @brief Convert short string to InitMethod enum value
+ * @param short_name Short string identifier (e.g., "uri", "nri", ...)
+ * @return Corresponding InitMethod enum value
+ * @throws std::invalid_argument if the string is not recognized
+ */
+inline InitMethod InitMethodFromString(const std::string& short_name)
+{
+    for (const auto& kv : g_init_method_short_names_map) {
+        if (kv.second == short_name) {
+            return kv.first;
+        }
+    }
+    throw std::invalid_argument("Unknown InitMethod short name: " + short_name);
+}
+
+/**
+ * @brief Get short name for initialization method
+ * @param method Initialization method enum value
+ * @return Short string identifier, or "unknown" if not found
+ *
+ * Provides concise identifiers for initialization methods used in
+ * configuration and logging contexts.
+ */
+inline std::string GetInitMethodShortName(InitMethod method)
+{
+    auto it = g_init_method_short_names_map.find(method);
+    return (it != g_init_method_short_names_map.end()) ? it->second : "unknown";
+}
+
+
+
+/**
  * @class Environment
  * @brief Hardware and software environment information for profiling context
  *
@@ -182,11 +216,10 @@ public:
         is_gpu_timer_(FLAGS_FC_TUNING_GPU_TIMER),
         log_(FLAGS_FC_TUNING_LOG),
         flush_cache_(FLAGS_FC_TUNING_FLUSH_CACHE),
-        rotating_count_(FLAGS_FC_TUNING_ROTATING_COUNT)
+        rotating_count_(FLAGS_FC_TUNING_ROTATING_COUNT),
+        init_method_(InitMethodFromString(FLAGS_FC_TUNING_INIT_METHOD)),
+        seed_(FLAGS_FC_TUNING_SEED)
     {
-        // Note: Aliases for backward compatibility and clarity
-        n_warmup_ = num_cold_iterations_;
-        n_repeat_ = num_repeats_;
     }
 
     /**
@@ -201,13 +234,15 @@ public:
         std::ostringstream oss;
         oss << "{\n"
             << "   \"tuning_mode\": " << tuning_mode_ << ",\n"
-            << "   \"n_warmup\": " << n_warmup_ << ",\n"
-            << "   \"n_repeat\": " << n_repeat_ << ",\n"
+            << "   \"n_warmup\": " << num_cold_iterations_ << ",\n"
+            << "   \"n_repeat\": " << num_repeats_ << ",\n"
             << "   \"is_gpu_timer\": " << (is_gpu_timer_ ? "true" : "false") << ",\n"
             << "   \"verify\": " << (verify_ ? "true" : "false") << ",\n"
             << "   \"log\": " << (log_ ? "true" : "false") << ",\n"
             << "   \"flush_cache\": " << (flush_cache_ ? "true" : "false") << ",\n"
-            << "   \"rotating_count\": " << rotating_count_ << "\n"
+            << "   \"rotating_count\": " << rotating_count_ << ",\n"
+            << "   \"init_method\": " << GetInitMethodShortName(init_method_) << ",\n"
+            << "   \"seed\": " << seed_ << "\n"
             << "}";
         return oss.str();
     }
@@ -229,6 +264,10 @@ public:
 
     // Future features
     bool verify_ = false;  ///< Enable result verification (TODO: implementation needed)
+
+    // Init
+    InitMethod init_method_;
+    int seed_;
 };
 
 /**
@@ -602,19 +641,6 @@ inline std::string ProfilingStrategyToString(ProfilingStrategy strategy)
     }
 }
 
-/**
- * @brief Get short name for initialization method
- * @param method Initialization method enum value
- * @return Short string identifier, or "unknown" if not found
- *
- * Provides concise identifiers for initialization methods used in
- * configuration and logging contexts.
- */
-inline std::string GetInitMethodShortName(InitMethod method)
-{
-    auto it = g_init_method_short_names_map.find(method);
-    return (it != g_init_method_short_names_map.end()) ? it->second : "unknown";
-}
 
 /**
  * @brief Compare two performance results using specified metric and tolerance

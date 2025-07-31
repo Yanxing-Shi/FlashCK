@@ -32,10 +32,10 @@ NormCommonKernel::CommonCodeGenForTuning(const std::string&    model_name,
 
         // Generate data type declarations
         jinja2::ValuesMap dtype_decl_value_map{
-            {"x_dtype", DataTypeToTileString(instance.x_dtype_)},
-            {"y_dtype", DataTypeToTileString(instance.y_dtype_)},
-            {"smooth_scale_dtype", DataTypeToTileString(instance.smooth_scale_dtype_)},
-            {"y_scale_dtype", DataTypeToTileString(instance.y_scale_dtype_)}};
+            {"x_dtype", DataTypeToTileString(instance.problem_.x_dtype_)},
+            {"y_dtype", DataTypeToTileString(instance.problem_.y_dtype_)},
+            {"smooth_scale_dtype", DataTypeToTileString(instance.problem_.smooth_scale_dtype_)},
+            {"y_scale_dtype", DataTypeToTileString(instance.problem_.y_scale_dtype_)}};
         std::string dtype_decl = TemplateLoadAndRender(tuning_tpl.dtype_decl_tpl_, dtype_decl_value_map);
 
         std::string create_args = TemplateLoadAndRender(g_norm_create_args_tpl, {{}});
@@ -47,9 +47,9 @@ NormCommonKernel::CommonCodeGenForTuning(const std::string&    model_name,
         std::string       instance_decl = TemplateLoadAndRender(g_norm_instance_tpl, instance_decl_value_map);
 
         // Generate argument creation code with feature flags
-        jinja2::ValuesMap make_args_value_map{{"is_add_bias", GetNormBiasName(instance.is_add_bias_)},
-                                              {"fused_add", GetFusedAddName(instance.fused_add_)},
-                                              {"fused_quant", GetFusedQuantName(instance.fused_quant_)}};
+        jinja2::ValuesMap make_args_value_map{{"is_add_bias", GetNormBiasName(instance.problem_.is_add_bias_)},
+                                              {"fused_add", GetFusedAddName(instance.problem_.fused_add_)},
+                                              {"fused_quant", GetFusedQuantName(instance.problem_.fused_quant_)}};
         std::string       make_args = TemplateLoadAndRender(tuning_tpl.make_args_tpl_, make_args_value_map);
 
         // Generate runtime execution configuration with profiling parameters
@@ -80,15 +80,15 @@ NormCommonKernel::CommonCodeGenForTuning(const std::string&    model_name,
 
         // Generate function call template with conditional feature support
         jinja2::ValuesMap func_call_value_map{{"function_name", "Norm"},
-                                              {"is_add_bias", GetNormBiasName(instance.is_add_bias_)},
-                                              {"fused_add", GetFusedAddName(instance.fused_add_)},
-                                              {"fused_quant", GetFusedQuantName(instance.fused_quant_)}};
+                                              {"is_add_bias", GetNormBiasName(instance.problem_.is_add_bias_)},
+                                              {"fused_add", GetFusedAddName(instance.problem_.fused_add_)},
+                                              {"fused_quant", GetFusedQuantName(instance.problem_.fused_quant_)}};
         std::string       func_call = TemplateLoadAndRender(tuning_tpl.func_call_tpl_, func_call_value_map);
 
         // Generate tensor declarations for profiling setup
-        jinja2::ValuesMap tensor_decl_value_map{{"is_add_bias", GetNormBiasName(instance.is_add_bias_)},
-                                                {"fused_add", GetFusedAddName(instance.fused_add_)},
-                                                {"fused_quant", GetFusedQuantName(instance.fused_quant_)}};
+        jinja2::ValuesMap tensor_decl_value_map{{"is_add_bias", GetNormBiasName(instance.problem_.is_add_bias_)},
+                                                {"fused_add", GetFusedAddName(instance.problem_.fused_add_)},
+                                                {"fused_quant", GetFusedQuantName(instance.problem_.fused_quant_)}};
         std::string       tensor_decl = TemplateLoadAndRender(tuning_tpl.tensor_decl_tpl_, tensor_decl_value_map);
 
         // Assemble complete profiling template
@@ -96,7 +96,7 @@ NormCommonKernel::CommonCodeGenForTuning(const std::string&    model_name,
                                               {"tensor_decl", tensor_decl},
                                               {"kernel_func", kernel_func},
                                               {"func_call", func_call}};
-        std::string       profiler_tpl = TemplateLoadAndRender(g_norm_profiling_tpl, profiling_value_map);
+        std::string       profiling_tpl = TemplateLoadAndRender(g_norm_profiling_tpl, profiling_value_map);
 
         // Setup output file paths and create directories
         std::filesystem::path prefix_path = std::filesystem::path(FLAGS_FC_HOME_PATH) / folder_name / model_name
@@ -117,7 +117,7 @@ NormCommonKernel::CommonCodeGenForTuning(const std::string&    model_name,
         }
 
         // Write generated source code and track for compilation
-        FileManager::WriteFile(src_path, profiler_tpl);
+        FileManager::WriteFile(src_path, profiling_tpl);
         file_tuples.push_back(std::make_tuple(src_path, obj_path));
     }
 
@@ -170,14 +170,14 @@ std::string NormCommonKernel::CommonCodeGenForRunning(const std::string&        
 
     // Extract common configuration from first instance (assumes all instances share these properties)
     auto           instance           = norm_instance_map.begin()->second;
-    auto           kind_name          = GetNormKindName(instance.kind_);
-    DataType       x_dtype            = instance.x_dtype_;
-    DataType       y_dtype            = instance.y_dtype_;
-    DataType       smooth_scale_dtype = instance.smooth_scale_dtype_;
-    DataType       y_scale_dtype      = instance.y_scale_dtype_;
-    NormBiasEnum   is_add_bias        = instance.is_add_bias_;
-    FusedAddEnum   fused_add          = instance.fused_add_;
-    FusedQuantEnum fused_quant        = instance.fused_quant_;
+    auto           kind_name          = GetNormKindName(instance.problem_.kind_);
+    DataType       x_dtype            = instance.problem_.x_dtype_;
+    DataType       y_dtype            = instance.problem_.y_dtype_;
+    DataType       smooth_scale_dtype = instance.problem_.smooth_scale_dtype_;
+    DataType       y_scale_dtype      = instance.problem_.y_scale_dtype_;
+    NormBiasEnum   is_add_bias        = instance.problem_.is_add_bias_;
+    FusedAddEnum   fused_add          = instance.problem_.fused_add_;
+    FusedQuantEnum fused_quant        = instance.problem_.fused_quant_;
 
     // Generate conditional runtime execution paths
     std::string running_paths;
@@ -194,7 +194,6 @@ std::string NormCommonKernel::CommonCodeGenForRunning(const std::string&        
         jinja2::ValuesMap running_value_map{{"kind", kind_name},
                                             {"make_args", make_args},
                                             {"instance_alias_name", instance_name},
-                                            {"is_profiling", "false"},
                                             {"is_running", true}};
         std::string       running_program = TemplateLoadAndRender(g_norm_running_tpl, running_value_map);
 

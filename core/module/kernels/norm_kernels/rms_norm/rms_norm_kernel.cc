@@ -39,7 +39,7 @@ std::string RMSNormKernel::CodeGenForRunning(const std::string&                 
 /// @brief Execute RMSNorm kernel with given arguments
 void RMSNormKernel::KernelLauncher(const std::string& kernel_func_name, const KernelArgs_t& args)
 {
-    const auto& kernel_args = std::get<NormKernelArgs>(args);
+    const auto& kernel_args = std::get<RmsNormKernelArgs>(args);
 
     // Load kernel function symbol dynamically
     decltype(&RMSNorm) kernel_func = nullptr;
