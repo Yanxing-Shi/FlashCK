@@ -2,7 +2,7 @@
 
 #include "core/profiling/compiler.h"
 #include "core/profiling/gpu_profiling_runner.h"
-#include "core/profiling/tile/norm/norm_emitter.h"
+#include "core/profiling/norm/norm_emitter.h"
 
 FC_DECLARE_bool(FC_FORCE_PROFILING);  ///< Force re-profiling flag
 FC_DECLARE_string(FC_HOME_PATH);      ///< Base path for generated files

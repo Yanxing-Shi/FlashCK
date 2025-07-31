@@ -1,0 +1,37 @@
+{
+  "tile": {
+    "block": {
+      "m": { "values": [128, 256] },
+      "n": { "values": [128] },
+      "k": { "values": [128] }
+    },
+    "warp": {
+      "m": { "values": [4] },
+      "n": { "values": [1] },
+      "k": { "values": [1] }
+    },
+    "warp_tile": {
+      "m": { "values": [16, 32] },
+      "n": { "values": [16, 32] },
+      "k": { "values": [16, 32] }
+    }
+  },
+  "pipeline": {
+    "version": { "values": ["mem, compv3"] },
+    "scheduler": { "values": ["interwave, interwave"] },
+    "epilogue": { "values": ["cshuffle, default"] }
+  },
+  "padding": {
+    "m": { "values": [false] },
+    "n": { "values": [false] },
+    "k": { "values": [false] }
+  },
+  "launch": {
+    "max_block_per_cu": { "values": [8] }
+  },
+  "partition": {
+    "num_wave_groups": { "values": [1] },
+    "tile_partitioner_group_num": { "values": [8] },
+    "tile_partitioner_m01": { "values": [4] }
+  }
+}

@@ -1,0 +1,209 @@
+#include "core/profiling/fmha/fmha_fwd_split_kv_combine/fmha_fwd_split_kv_combine_emitter.h"
+
+FC_DECLARE_int32(FC_TUNING_MODE);  // Mode for FMHA operation: 0 - heuristic, 1 - autotuning, 2 - hybrid
+FC_DECLARE_bool(FC_ENABLE_CONFIG_JSON);
+FC_DECLARE_string(FC_CONFIG_JSON_PATH);
+FC_DECLARE_int32(FC_ENABLE_JSON_MODE);
+
+namespace flashck {
+
+bool FmhaFwdSplitKVCombineEmitter::IsValidTile(const FmhaFwdSplitKVCombineTileDesc& tile_desc, const FmhaProblem& fmha_problem)
+{
+    
+
+    return true;
+}
+
+bool FmhaFwdSplitKVCombineEmitter::IsValidInstance(const FmhaFwdSplitKVCombineCodeGen& instance)
+{
+    return IsValidTile(instance.tile_desc_, instance.problem_);
+} 
+
+
+// std::vector<FmhaFwdSplitKVCombineTileDesc> FmhaFwdSplitKVCombineEmitter::HeuristicFilter(const std::vector<FmhaFwdSplitKVCombineTileDesc>& fmha_tile_desc,
+//                                                        const FmhaProblem&               fmha_problem) const
+// {
+// }
+
+// std::vector<FmhaFwdSplitKVCombineAppendKVTileDesc> FmhaFwdSplitKVCombineEmitter::HeuristicFilter(const std::vector<FmhaFwdSplitKVCombineAppendKVTileDesc>& fmha_tile_desc,
+//                                                                const FmhaProblem& fmha_problem) const
+// {   
+// }
+
+// std::vector<FmhaFwdSplitKVCombineSplitKVCombineTileDesc>
+// FmhaFwdSplitKVCombineEmitter::HeuristicFilter(const std::vector<FmhaFwdSplitKVCombineSplitKVCombineTileDesc>& fmha_tile_desc,
+//                              const FmhaProblem&                             fmha_problem) const
+// {
+// }
+
+
+// Generate all possible FmhaFwdSplitKVCombineCodeGen instances from a FmhaFwdSplitKVCombineConfig
+std::vector<FmhaFwdSplitKVCombineCodeGen> FmhaFwdSplitKVCombineEmitter::CreateInstanceForConfig(const FmhaFwdSplitKVCombineConfig& config, const FmhaProblem& fmha_problem) {
+    std::vector<FmhaFwdSplitKVCombineCodeGen> result;
+
+    std::vector<std::vector<int64_t>> all_lists = {
+        // BlockConfig
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile.block.n1.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+
+        // PaddingConfig (convert bool to int64_t)
+        [&]{ std::vector<int64_t> v; for (auto x : config.padding.s.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.padding.dv.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        // LaunchConfig
+        [&]{ std::vector<int64_t> v; for (auto x : config.launch.min_block_per_cu.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+    };
+
+    CartesianProduct(all_lists, [&](const std::vector<int64_t>& vals) {
+        size_t idx = 0;
+        // BlockConfig
+        int64_t n1_block = vals[idx++];
+
+        // PaddingConfig
+        bool is_pad_q_seq_len = static_cast<bool>(vals[idx++]);
+        bool is_pad_v_head_dim = static_cast<bool>(vals[idx++]);
+
+        // launch config
+        int64_t min_block_per_cu = vals[idx++];
+
+        // Construct FmhaFwdSplitKVCombineCodeGen
+        FmhaFwdSplitKVCombineCodeGen fmha;
+        fmha.problem_ = fmha_problem;
+        // tile_desc
+        fmha.tile_desc_.n1_block_ = n1_block;
+        // Padding
+        fmha.is_pad_q_seq_len_ = is_pad_q_seq_len;
+        fmha.is_pad_v_head_dim_ = is_pad_v_head_dim;
+        // Launch
+        fmha.min_block_per_cu_ = min_block_per_cu;
+        result.push_back(fmha);
+    });
+
+    return result;
+}
+
+void FmhaFwdSplitKVCombineEmitter::GenerateInstances(FmhaProblem& fmha_problem)
+{
+    FC_ENFORCE_EQ(FLAGS_FC_TUNING_MODE == 0 || FLAGS_FC_TUNING_MODE == 1 || FLAGS_FC_TUNING_MODE == 2,
+                  true,
+                  Unavailable("Unsupported mode: {}, valid modes are 0 (heuristic), 1 (autotuning), 2 (hybrid)", FLAGS_FC_TUNING_MODE));
+
+
+    // Check if instances already exist for this FMHA kind
+    if (instance_map_.find(fmha_problem.kind_) != instance_map_.end() && !instance_map_[fmha_problem.kind_].empty()) {
+        VLOG(2) << "Instances already generated for FMHA kind: " << GetFmhaKindName(fmha_problem.kind_);
+        return;
+    }
+
+    // Load legacy GEMM configuration if available
+    std::vector<FmhaFwdSplitKVCombineCodeGen> fmha_instances;
+    if (FLAGS_FC_ENABLE_CONFIG_JSON) {
+        auto base_json_path = std::filesystem::path(FLAGS_FC_CONFIG_JSON_PATH) / GetFmhaKindName(fmha_problem.kind_);
+        if(FLAGS_FC_ENABLE_JSON_MODE == 0) {
+            std::filesystem::path json_path = base_json_path / "default_config.json";
+            FmhaFwdSplitKVCombineConfig config = LoadConfigJson<FmhaFwdSplitKVCombineConfig>(json_path);
+            fmha_instances = CreateInstanceForConfig(config, fmha_problem);
+        } else if (FLAGS_FC_ENABLE_JSON_MODE == 1) {
+            std::filesystem::path json_path = base_json_path / "user_config.json";
+            FmhaFwdSplitKVCombineConfig config = LoadConfigJson<FmhaFwdSplitKVCombineConfig>(json_path);
+            fmha_instances = CreateInstanceForConfig(config, fmha_problem);
+        } else if (FLAGS_FC_ENABLE_JSON_MODE == 2) {
+            std::filesystem::path default_json_path = base_json_path / "default_config.json";
+            FmhaFwdSplitKVCombineConfig default_config = LoadConfigJson<FmhaFwdSplitKVCombineConfig>(default_json_path);
+            auto gemm_default_instances = CreateInstanceForConfig(default_config, fmha_problem);
+
+            std::filesystem::path user_json_path = base_json_path / "user_config.json";
+            FmhaFwdSplitKVCombineConfig user_config = LoadConfigJson<FmhaFwdSplitKVCombineConfig>(user_json_path);
+            auto gemm_user_instances = CreateInstanceForConfig(user_config, fmha_problem);
+
+            fmha_instances.insert(fmha_instances.end(), gemm_default_instances.begin(), gemm_default_instances.end());
+            fmha_instances.insert(fmha_instances.end(), gemm_user_instances.begin(), gemm_user_instances.end());
+        }
+    else{
+            LOG(WARNING)<< "FC_ENABLE_JSON_MODE is set to an unsupported value: " << FLAGS_FC_ENABLE_JSON_MODE;
+        }
+    } else {
+        LOG(WARNING)<< "FC_ENABLE_CONFIG_JSON is not enabled";
+    }
+
+    for (const auto& config : g_backup_fmha_fwd_split_kv_combine_config) {
+        FmhaFwdSplitKVCombineCodeGen fmha;
+
+        fmha.problem_ = fmha_problem;
+
+        fmha.tile_desc_ = FmhaFwdSplitKVCombineTileDesc{
+            config.tile.block.n1.values[0],
+        };
+
+        fmha.is_pad_q_seq_len_ = config.padding.s.values[0];
+        fmha.is_pad_v_head_dim_ = config.padding.dv.values[0];
+
+        fmha.min_block_per_cu_ = config.launch.min_block_per_cu.values[0];
+
+        fmha_instances.push_back(fmha);
+    }
+
+    // check instances
+    std::vector<FmhaFwdSplitKVCombineCodeGen> valid_fmha_instances;
+    for (const auto& fmha_instance : fmha_instances) {
+        if (IsValidInstance(fmha_instance)) {
+            valid_fmha_instances.push_back(fmha_instance);
+        }
+    }
+
+    switch (FLAGS_FC_TUNING_MODE) {
+        case 0: {
+            // Heuristic mode
+        }
+        case 1: {
+            VLOG(1) << "Generating instances using autotuning mode for FMHA kind: "
+                    << GetFmhaKindName(fmha_problem.kind_);
+            break;
+        }
+        case 2: {
+            VLOG(1) << "Generating instances using hybrid mode for FMHA kind: " << GetFmhaKindName(fmha_problem.kind_);
+            break;
+        }
+        default:
+            FC_THROW(Unavailable("Invalid mode:{} ", FLAGS_FC_TUNING_MODE));
+    }
+
+
+    if (valid_fmha_instances.empty()) {
+        FC_THROW(Unavailable("No valid FMHA instances found for FMHA problem"));
+    }
+
+    // Generate instances
+    auto& kind_instance_map = instance_map_[fmha_problem.kind_];
+    int64_t                             generated_count   = 0;
+
+    for (const auto& instance : valid_fmha_instances) {
+        try {
+            std::string instance_name = instance.GetInstanceName();
+
+            // Avoid duplicates
+            if (kind_instance_map.find(instance_name) == kind_instance_map.end()) {
+                kind_instance_map[instance_name] = std::move(instance);
+                generated_count++;
+                VLOG(2) << "Generated FMHA instance: " << instance_name;
+            }
+            else {
+                VLOG(3) << "Skipped duplicate FMHA instance: " << instance_name;
+            }
+        }
+        catch (const std::exception& e) {
+            LOG(WARNING) << "Failed to create FMHA codegen for instance: " << instance.GetInstanceName()
+                         << ", error: " << e.what();
+        }
+    }
+
+    num_instances_ += generated_count;
+    VLOG(1) << "Generated " << generated_count << " FMHA instances for kind: " << GetFmhaKindName(fmha_problem.kind_)
+            << " (total: " << num_instances_ << ")";
+}
+
+void FmhaFwdSplitKVCombineEmitter::ClearInstances()
+{
+    instance_map_.clear();
+    num_instances_ = 0;
+}
+
+}  // namespace flashck

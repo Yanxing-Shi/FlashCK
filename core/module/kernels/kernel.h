@@ -11,12 +11,12 @@
 #include "core/module/kernels/fmha_kernels/fmha_fwd_split_kv/fmha_fwd_split_kv_call.h"
 #include "core/module/kernels/fmha_kernels/fmha_fwd_split_kv_combine/fmha_fwd_split_kv_combine_call.h"
 
-#include "core/profiling/tile/norm/norm_codegen.h"
-#include "core/profiling/tile/gemm/gemm_codegen.h"
-#include "core/profiling/tile/fmha/fmha_fwd/fmha_fwd_codegen.h"
-#include "core/profiling/tile/fmha/fmha_fwd_append_kv/fmha_fwd_append_kv_codegen.h"
-#include "core/profiling/tile/fmha/fmha_fwd_split_kv/fmha_fwd_split_kv_codegen.h"
-#include "core/profiling/tile/fmha/fmha_fwd_split_kv_combine/fmha_fwd_split_kv_combine_codegen.h"
+#include "core/profiling/norm/norm_codegen.h"
+#include "core/profiling/gemm/gemm_codegen.h"
+#include "core/profiling/fmha/fmha_fwd/fmha_fwd_codegen.h"
+#include "core/profiling/fmha/fmha_fwd_append_kv/fmha_fwd_append_kv_codegen.h"
+#include "core/profiling/fmha/fmha_fwd_split_kv/fmha_fwd_split_kv_codegen.h"
+#include "core/profiling/fmha/fmha_fwd_split_kv_combine/fmha_fwd_split_kv_combine_codegen.h"
 
 #include "core/module/kernels/kernel.h"
 

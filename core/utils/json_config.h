@@ -12,23 +12,10 @@ using json = nlohmann::json;
 // ========== Common Parameter Structs ==========
 
 struct IntEnumConfigParam {
-    std::vector<std::vector<int>> values;
+    std::vector<int> values;
 };
 
-// Custom serialization to support both vector<int> and vector<vector<int>>
-inline void from_json(const nlohmann::json& j, IntEnumConfigParam& p) {
-    if (j.at("values").is_array() && !j.at("values").empty() && j.at("values")[0].is_array()) {
-        j.at("values").get_to(p.values);
-    } else {
-        std::vector<int> tmp;
-        j.at("values").get_to(tmp);
-        p.values = {tmp};
-    }
-}
-
-inline void to_json(nlohmann::json& j, const IntEnumConfigParam& p) {
-    j = nlohmann::json{{"values", p.values}};
-}
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(IntEnumConfigParam, values)
 
 struct BoolEnumConfigParam {
     std::vector<bool> values;
@@ -40,89 +27,58 @@ struct StrEnumConfigParam {
 };
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(StrEnumConfigParam, values)
 
-// ========== Legacy GEMM Config Structs ==========
-struct LegacyTileConfig {
-    IntEnumConfigParam scale_block_size, block_size, m_per_block, n_per_block, k_per_block, a_k1, b_k1, m_per_xdl, n_per_xdl, m_xdl_per_wave, n_xdl_per_wave;
-};
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(LegacyTileConfig, scale_block_size, block_size, m_per_block, n_per_block, k_per_block, a_k1, b_k1, m_per_xdl, n_per_xdl, m_xdl_per_wave, n_xdl_per_wave)
-
-struct LegacyBlockTransferConfig {
-    IntEnumConfigParam thread_cluster_length;
-    IntEnumConfigParam arrange_order;
-    IntEnumConfigParam src_access_order;
-    IntEnumConfigParam src_vector_dim;
-    IntEnumConfigParam src_scalar_per_vector;
-    IntEnumConfigParam dst_scalar_per_vector_k1;
-    IntEnumConfigParam lds_add_extra_m;
-};
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(LegacyBlockTransferConfig, thread_cluster_length, arrange_order, src_access_order, src_vector_dim, src_scalar_per_vector, dst_scalar_per_vector_k1, lds_add_extra_m)
-
-struct LegacyCBlockTransferConfig {
-    IntEnumConfigParam m_xdl_per_wave, n_xdl_per_wave, thread_cluster_length, scalar_per_vector;
-};
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(LegacyCBlockTransferConfig, m_xdl_per_wave, n_xdl_per_wave, thread_cluster_length, scalar_per_vector);
-
-struct PipelineConfig{
-    StrEnumConfigParam version, scheduler;
-};
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(PipelineConfig, version, scheduler)
-
-struct LegacyGemmConfig {
-    LegacyTileConfig tile;
-    LegacyBlockTransferConfig a_block;
-    LegacyBlockTransferConfig b_block;
-    LegacyCBlockTransferConfig c_block;
-    PipelineConfig pipeline;
-};
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(LegacyGemmConfig, tile, a_block, b_block, c_block, pipeline)
 
 // ========== Tile-based GEMM Structs ==========
-struct BlockConfig {
+struct GemmBlockConfig {
     IntEnumConfigParam m, n, k;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(BlockConfig, m, n, k)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(GemmBlockConfig, m, n, k)
 
-struct WarpConfig {
+struct GemmWarpConfig {
     IntEnumConfigParam m, n, k;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(WarpConfig, m, n, k)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(GemmWarpConfig, m, n, k)
 
-struct WarpTileConfig {
+struct GemmWarpTileConfig {
     IntEnumConfigParam m, n, k;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(WarpTileConfig, m, n, k)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(GemmWarpTileConfig, m, n, k)
 
-struct TileConfig {
-    BlockConfig block;
-    WarpConfig warp;
-    WarpTileConfig warp_tile;
+struct GemmTileConfig {
+    GemmBlockConfig block;
+    GemmWarpConfig warp;
+    GemmWarpTileConfig warp_tile;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(TileConfig, block, warp, warp_tile)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(GemmTileConfig, block, warp, warp_tile)
 
-struct PaddingConfig {
+struct GemmPaddingConfig {
     BoolEnumConfigParam m, n, k;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(PaddingConfig, m, n, k)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(GemmPaddingConfig, m, n, k)
 
-struct LaunchConfig {
+struct GemmLaunchConfig {
     IntEnumConfigParam min_block_per_cu;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(LaunchConfig, min_block_per_cu)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(GemmLaunchConfig, min_block_per_cu)
 
-struct PartitionConfig {
+struct GemmPartitionConfig {
     IntEnumConfigParam num_wave_groups, tile_partitioner_group_num, tile_partitioner_m01;
 };
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(GemmPartitionConfig, num_wave_groups, tile_partitioner_group_num, tile_partitioner_m01)
 
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(PartitionConfig, num_wave_groups, tile_partitioner_group_num, tile_partitioner_m01)
-struct TileGemmConfig {
-    TileConfig tile;
-    PaddingConfig padding;
-    LaunchConfig launch;
-    PartitionConfig partition;
-    PipelineConfig pipeline;
-    StrEnumConfigParam epilogue;
+struct GemmPipelineConfig{
+    StrEnumConfigParam version, scheduler, epilogue;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(TileGemmConfig, tile, padding, launch, partition, pipeline, epilogue)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(GemmPipelineConfig, version, scheduler, epilogue)
+
+struct GemmConfig {
+    GemmTileConfig tile;
+    GemmPaddingConfig padding;
+    GemmLaunchConfig launch;
+    GemmPartitionConfig partition;
+    GemmPipelineConfig pipeline;
+};
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(GemmConfig, tile, padding, launch, partition, pipeline)
 
 // ========== FMHA Fwd Structs ==========
 struct FmhaFwdBlockConfig {
@@ -354,13 +310,11 @@ inline T LoadConfigJson(const std::string& path) {
     return j.get<T>();
 }
 
-using ProductElem = std::variant<int64_t, std::vector<int64_t>>;
-
 inline void CartesianProduct(
-    const std::vector<std::vector<ProductElem>>& value_lists,
-    std::function<void(const std::vector<ProductElem>&)> callback)
+    const std::vector<std::vector<int64_t>>& value_lists,
+    std::function<void(const std::vector<int64_t>&)> callback)
 {
-    std::vector<ProductElem> current;
+    std::vector<int64_t> current;
     std::function<void(size_t)> recurse = [&](size_t depth) {
         if (depth == value_lists.size()) {
             callback(current);
