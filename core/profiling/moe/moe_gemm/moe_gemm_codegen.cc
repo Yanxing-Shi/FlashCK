@@ -1,10 +1,15 @@
-#include "core/profiling/moe/topk_softmax_codegen.h"
+#include "core/profiling/moe/fused_moe_codegen.h"
 
 namespace flashck {
 
-std::string TopKSoftmaxCodeGen::GetInstanceName() const
+
+
+
+
+
+std::string MoeGemmCodeGen::GetInstanceName() const
 {
-    return Sprintf("topk_softmax_{input_dtype}_{weight_dtype}_{index_dtype}_"
+    return Sprintf("fused_moe_{input_dtype}_{weight_dtype}_{index_dtype}_"
                    "{num_experts}_{issue_per_col}_{bytes_per_issue}_{launch_type}_{block_size}_{min_block_per_cu}",
                    fmt::arg("input_dtype", DataTypeToString(problem_.input_dtype_)),
                    fmt::arg("weight_dtype", DataTypeToString(problem_.weight_dtype_)),
@@ -18,13 +23,12 @@ std::string TopKSoftmaxCodeGen::GetInstanceName() const
                 );
 }
 
-std::string TopKSoftmaxCodeGen::Emit() const
+std::string MoeGemmCodeGen::Emit() const
 {
     std::string tpl = R"(
 using ts_problem_{{idx}} = ck_tile::TopkSoftmaxWarpPerRowProblem<{{input_dtype}}, {{weight_dtype}}, {{index_dtype}}, {{num_experts}}>;
 using ts_pipeline_{{idx}} = ck_tile::TopkSoftmaxWarpPerRowPipeline<ts_problem_{{idx}}>;
-using ts_kernel_{{idx}} = ck_tile::TopkSoftmaxKernel<ts_pipeline_{{idx}}>;
-
+using kernel_{{idx}} = ck_tile::TopkSoftmaxKernel<ts_pipeline_{{idx}}>;
 )";
     static int  idx = 0;
 
@@ -41,7 +45,7 @@ using ts_kernel_{{idx}} = ck_tile::TopkSoftmaxKernel<ts_pipeline_{{idx}}>;
                                };
 
 
-    return TEMPLATE_CHECK(tpl, value_map, "TopKSoftmaxCodeGen::Emit");
+    return TEMPLATE_CHECK(tpl, value_map, "MoeGemmCodeGen::Emit");
 
 }
 

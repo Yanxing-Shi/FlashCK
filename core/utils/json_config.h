@@ -300,6 +300,78 @@ struct FmhaPagedKVPrefillConfig {
 };
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaPagedKVPrefillConfig, tile_shape, padding, launch, pipeline)
 
+// ========== Norm Structs ==========
+struct NormTileConfig {
+    IntEnumConfigParam m_repeat, n_repeat, m_thread_per_block, n_thread_per_block, n_vector;
+};
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(NormTileConfig, m_repeat, n_repeat, m_thread_per_block, n_thread_per_block, n_vector)
+
+struct NormPaddingConfig {
+    BoolEnumConfigParam n;
+};
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(NormPaddingConfig, n)
+
+struct NormLaunchConfig {
+    IntEnumConfigParam min_block_per_cu;
+};
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(NormLaunchConfig, min_block_per_cu)
+
+struct NormConfig {
+    NormTileConfig tile_shape;
+    NormPaddingConfig padding;
+    NormLaunchConfig launch;
+};
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(NormConfig, tile_shape, padding, launch)
+
+// ========== Moe Structs ==========
+struct MoeBlockConfig {
+    IntEnumConfigParam m, n, k;
+};
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MoeBlockConfig, m, n, k)
+
+struct MoeWarpConfig {
+    IntEnumConfigParam m, n, k;
+};
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MoeWarpConfig, m, n, k)
+
+struct MoeWarpTileConfig {
+    IntEnumConfigParam m, n, k;
+};
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MoeWarpTileConfig, m, n, k)
+
+struct MoeTileConfig {
+    MoeBlockConfig block_tile;
+    MoeWarpConfig block_warps;
+    MoeWarpTileConfig warp_tile;
+};
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MoeTileConfig, block_tile, block_warps, warp_tile)
+
+struct MoeLaunchConfig {
+    IntEnumConfigParam min_block_per_cu;
+};
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MoeLaunchConfig, min_block_per_cu)
+struct MoeConfig {
+    MoeTileConfig tile_shape;
+    MoeLaunchConfig launch;
+};
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MoeConfig, tile_shape, launch);
+
+struct MoeSortingConfig {
+    IntEnumConfigParam internal_load_unroll;
+    IntEnumConfigParam expert_tile;
+    MoeLaunchConfig launch;
+};
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MoeSortingConfig, internal_load_unroll, expert_tile, launch);
+
+struct TopkSoftmaxConfig {
+    IntEnumConfigParam issue_per_col;
+    IntEnumConfigParam launch_type;
+    IntEnumConfigParam bytes_per_issue;
+    IntEnumConfigParam block_size;
+    MoeLaunchConfig launch;
+};
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(TopkSoftmaxConfig, issue_per_col, launch_type, bytes_per_issue, block_size, launch);
+
 // ========== Config Loader ==========
 // Generic loader for any config type
 template <typename T>

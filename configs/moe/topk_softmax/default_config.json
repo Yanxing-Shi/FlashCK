@@ -5,6 +5,9 @@
   "launch_type": {
     "values": [0, 1]
   },
+  "bytes_per_issue": {
+    "values": [2]
+  },
   "block_size": {
         "values": [32,64,128,256]
   },

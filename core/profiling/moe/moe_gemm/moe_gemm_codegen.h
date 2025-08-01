@@ -7,7 +7,42 @@
 
 namespace flashck {
 
-class TopKSoftmaxCodeGen {
+/**
+ * @class GemmTileDesc
+ * @brief Describes the tiling configuration for GEMM operations
+ *
+ */
+class MoeGemmTileDesc {
+public:
+    /**
+     * @brief Generate a unique name for this tile configuration
+     * @return String identifier based on tile parameters
+     */
+    std::string GetInstanceName() const;
+
+    /**
+     * @brief Generate code template parameters for this tile
+     * @return String representation for code generation
+     */
+    std::string Emit() const;
+
+    // ====================== Tile Configuration Parameters ======================
+
+    int64_t m_block_;
+    int64_t n_block_;
+    int64_t k_block_;
+
+    int64_t m_warp_;
+    int64_t n_warp_;
+    int64_t k_warp_;
+
+    int64_t m_warp_tile_;
+    int64_t n_warp_tile_;
+    int64_t k_warp_tile_;
+
+};
+
+class MoeGemmCodeGen {
 public:
     /**
      * @brief Generate a unique instance name for this configuration
