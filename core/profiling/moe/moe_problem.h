@@ -41,6 +41,11 @@ public:
 
     int64_t input_stride_;
     int64_t output_stride_;
+
+    bool is_only_gate_;
+    bool use_smooth_quant_;
+    int atomic_; // 0-no atomic, 1-atomic-pk-f16/bf16, 2-atomic-f32
+    
 };
 
 }  // namespace flashck
