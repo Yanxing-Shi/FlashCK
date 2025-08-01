@@ -6,6 +6,37 @@ static const std::string g_gemm_header_tpl = R"(
     #include "ck_tile/ops/gemm.hpp"
 )";
 
+static const std::string g_gemm_create_args_tpl = R"(
+auto create_args(int argc, char* argv[])
+{
+    ck_tile::ArgParser arg_parser;
+    arg_parser.insert("m", "3840", "m dimension")
+        .insert("n", "4096", "n dimension")
+        .insert("k", "4096", "k dimension")
+        .insert("split_k", "1", "Split k value")
+        .insert("a_stride", "0", "Tensor A stride")
+        .insert("b_stride", "0", "Tensor B stride")
+        .insert("c_stride", "0", "Tensor C stride");
+
+    bool result = arg_parser.parse(argc, argv);
+    return std::make_tuple(result, arg_parser);
+}
+)";
+
+static const std::string g_gemm_arg_parser_tpl = R"(
+
+    ck_tile::index_t m = arg_parser.get_int("m");
+    ck_tile::index_t n = arg_parser.get_int("n");
+    ck_tile::index_t k = arg_parser.get_int("k");
+    ck_tile::index_t split_k         = arg_parser.get_int("split_k");
+
+
+    ck_tile::index_t a_stride = arg_parser.get_int("a_stride");
+    ck_tile::index_t b_stride = arg_parser.get_int("b_stride");
+    ck_tile::index_t c_stride = arg_parser.get_int("c_stride");
+
+)";
+
 static const std::string g_gemm_make_args_tpl = R"(
     ck_tile::FlatmmHostArgs<>  args  {a_ptr,
                                       b_ptr,
@@ -78,33 +109,3 @@ static const std::string g_gemm_tensor_decl_tpl = R"(
     c_m_n_dev_result.SetZero();
 )";
 
-static const std::string g_gemm_create_args_tpl = R"(
-auto create_args(int argc, char* argv[])
-{
-    ck_tile::ArgParser arg_parser;
-    arg_parser.insert("m", "3840", "m dimension")
-        .insert("n", "4096", "n dimension")
-        .insert("k", "4096", "k dimension")
-        .insert("split_k", "1", "Split k value")
-        .insert("a_stride", "0", "Tensor A stride")
-        .insert("b_stride", "0", "Tensor B stride")
-        .insert("c_stride", "0", "Tensor C stride");
-
-    bool result = arg_parser.parse(argc, argv);
-    return std::make_tuple(result, arg_parser);
-}
-)";
-
-static const std::string g_group_gemm_arg_parser_tpl = R"(
-
-    ck_tile::index_t m = arg_parser.get_int("m");
-    ck_tile::index_t n = arg_parser.get_int("n");
-    ck_tile::index_t k = arg_parser.get_int("k");
-    ck_tile::index_t split_k         = arg_parser.get_int("split_k");
-
-
-    ck_tile::index_t a_stride = arg_parser.get_int("a_stride");
-    ck_tile::index_t b_stride = arg_parser.get_int("b_stride");
-    ck_tile::index_t c_stride = arg_parser.get_int("c_stride");
-
-)";

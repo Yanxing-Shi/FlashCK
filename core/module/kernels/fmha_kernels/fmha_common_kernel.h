@@ -26,4 +26,4 @@ public:
                                         const FmhaRunningTpl&                         running_tpl,
                                         const std::string&                        folder_name = "kernel_profile");
 };
-}  // namespace lightinfer
+}  // namespace flashck

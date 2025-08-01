@@ -3,13 +3,13 @@
 #include "core/module/kernels/kernel_registry.h"
 #include "core/module/kernels/kernel.h"
 
-#include "core/module/kernels/fmha_kernels/fmha_common_kernel.h"
+#include "core/module/kernels/gemm_kernels/gemm_common_kernel.h"
 
 namespace flashck {
-class FmhaFwdKernel: public FmhaCommonKernel {
+class BatchGemmKernel: public GemmCommonKernel {
 public:
-    FmhaFwdKernel()  = default;
-    ~FmhaFwdKernel() = default;
+    BatchGemmKernel()  = default;
+    ~BatchGemmKernel() = default;
 
     std::vector<std::tuple<std::filesystem::path, std::filesystem::path>>
     CodeGenForTuning(const std::string&    model_name,
@@ -27,4 +27,4 @@ public:
 
 }  // namespace flashck
 
-FC_REGISTER_KERNEL(TILE, fmha_fwd, flashck::FmhaFwdKernel, ALL_LAYOUT, FP16, BF16);
+FC_REGISTER_KERNEL(TILE, batch_gemm, flashck::BatchGemmKernel, ALL_LAYOUT, FP16, BF16, FP32);

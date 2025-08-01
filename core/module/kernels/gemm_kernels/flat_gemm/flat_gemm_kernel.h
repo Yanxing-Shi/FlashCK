@@ -3,16 +3,14 @@
 #include "core/module/kernels/kernel_registry.h"
 #include "core/module/kernels/kernel.h"
 
-#include "core/module/kernels/fmha_kernels/fmha_common_kernel.h"
+#include "core/module/kernels/gemm_kernels/gemm_common_kernel.h"
 
 namespace flashck {
 
-namespace tile{
-
-class FlatMMKernel: public GemmCommonKernel {
+class FlatGemmKernel: public GemmCommonKernel {
 public:
-    FlatMMKernel()  = default;
-    ~FlatMMKernel() = default;
+    FlatGemmKernel()  = default;
+    ~FlatGemmKernel() = default;
 
     std::vector<std::tuple<std::filesystem::path, std::filesystem::path>>
     CodeGenForTuning(const std::string&    model_name,
@@ -28,8 +26,7 @@ public:
     void KernelLauncher(const std::string& kernel_func_name, const KernelArgs_t& args) override;
 };
 
-} // namespace tile
 
 }  // namespace flashck
 
-FC_REGISTER_KERNEL(TILE, flat_mm, flashck::tile::FlatMMKernel, ALL_LAYOUT, FP16, BF16, FP32);
+FC_REGISTER_KERNEL(TILE, flatmm, flashck::FlatGemmKernel, ALL_LAYOUT, FP16, BF16, FP32);

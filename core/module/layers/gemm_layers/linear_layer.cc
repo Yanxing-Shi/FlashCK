@@ -116,4 +116,4 @@ template class LinearLayer<float>;
 template class LinearLayer<_Float16>;
 template class LinearLayer<ushort>;
 
-}  // namespace lightinfer
+}  // namespace flashck

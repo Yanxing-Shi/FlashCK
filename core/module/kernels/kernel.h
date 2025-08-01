@@ -11,6 +11,13 @@
 #include "core/module/kernels/fmha_kernels/fmha_fwd_split_kv/fmha_fwd_split_kv_call.h"
 #include "core/module/kernels/fmha_kernels/fmha_fwd_split_kv_combine/fmha_fwd_split_kv_combine_call.h"
 
+#include "core/module/kernels/gemm_kernels/gemm/gemm_call.h"
+#include "core/module/kernels/gemm_kernels/gemm_multi_d/gemm_multi_d_call.h"
+#include "core/module/kernels/gemm_kernels/flatmm/flatmm_call.h"
+#include "core/module/kernels/gemm_kernels/batch_gemm/batch_gemm_call.h"
+#include "core/module/kernels/gemm_kernels/group_gemm/group_gemm_call.h"
+
+
 #include "core/profiling/norm/norm_codegen.h"
 #include "core/profiling/gemm/gemm_codegen.h"
 #include "core/profiling/fmha/fmha_fwd/fmha_fwd_codegen.h"
@@ -36,8 +43,7 @@ public:
 
     /// @brief Type alias for code generation map
     using norm_codegen_map_t = std::map<std::string, NormCodeGen>;
-    using legacy_gemm_codegen_map_t = std::map<std::string, legacy::GemmCodeGen>;
-    using tile_gemm_codegen_map_t = std::map<std::string, tile::GemmCodeGen>;
+    using gemm_codegen_map_t = std::map<std::string, GemmCodeGen>;
     using fmha_fwd_codegen_map_t = std::map<std::string, FmhaFwdCodeGen>;
     using fmha_fwd_append_kv_codegen_map_t = std::map<std::string, FmhaFwdAppendKVCodeGen>;
     using fmha_fwd_split_kv_codegen_map_t = std::map<std::string, FmhaFwdSplitKVCodeGen>;

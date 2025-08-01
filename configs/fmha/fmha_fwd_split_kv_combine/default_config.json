@@ -1,6 +1,6 @@
 {
-  "tile": {
-    "block": {
+  "tile_shape": {
+    "block_tile": {
       "n1": { "values": [32] }
     }
   },

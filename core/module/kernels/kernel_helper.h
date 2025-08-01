@@ -20,25 +20,14 @@ struct NormTuningTpl {
     std::string func_call_tpl_;       ///< Function call template
 };
 
-struct TileGemmTuningTpl {
+struct GemmTuningTpl {
     std::string header_tpl_;
-    std::string dtype_config_tpl_;    ///< Data type configuration template
-    std::string dtype_decl_tpl_;      ///< Data type declaration template
-    std::string func_signature_tpl_;  ///< Function signature template
+    std::string create_args_tpl_;
+    std::string arg_parser_tpl_;
     std::string make_args_tpl_;       ///< Argument construction template
-    std::string tensor_decl_tpl_;     ///< Tensor declaration template
-    std::string func_call_tpl_;       ///< Function call template
-};
-
-struct LegacyGemmTuningTpl {
-    std::string header_tpl_;
-    std::string dtype_config_tpl_;    ///< Data type configuration template
-    std::string dtype_decl_tpl_;      ///< Data type declaration template
     std::string func_signature_tpl_;  ///< Function signature template
-    std::string make_args_tpl_;       ///< Argument construction template
-    std::string tensor_decl_tpl_;     ///< Tensor declaration template
     std::string func_call_tpl_;       ///< Function call template
-
+    std::string tensor_decl_tpl_;     ///< Tensor declaration template
 };
 
 struct FmhaTuningTpl {
@@ -63,18 +52,10 @@ struct NormRunningTpl {
     std::string make_args_tpl_;       ///< Argument construction template
 };
 
-struct TileGemmRunningTpl {
-    std::string dtype_config_tpl_;    ///< Data type configuration template
-    std::string dtype_decl_tpl_;      ///< Data type declaration template
+struct GemmRunningTpl {
+    std::string header_tpl_;    ///< Data type configuration template
+    std::string make_args_tpl_;      ///< Data type declaration template
     std::string func_signature_tpl_;  ///< Function signature template
-    std::string make_args_tpl_;       ///< Argument construction template
-};
-
-struct LegacyGemmRunningTpl {
-    std::string dtype_config_tpl_;    ///< Data type configuration template
-    std::string dtype_decl_tpl_;      ///< Data type declaration template
-    std::string func_signature_tpl_;  ///< Function signature template
-    std::string make_args_tpl_;       ///< Argument construction template
 };
 
 struct FmhaRunningTpl {

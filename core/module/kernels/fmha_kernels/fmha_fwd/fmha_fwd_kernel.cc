@@ -62,6 +62,9 @@ std::string FmhaFwdKernel::CodeGenForRunning(const std::string&                 
                                                const instance_map_t&                     instance_map,
                                                const std::string&                        folder_name)
 {
+    
+
+
     return  CommonCodeGenForRunning(func_name, 
                                     model_name, 
                                     running_infos, 
@@ -103,4 +106,4 @@ void FmhaFwdKernel::KernelLauncher(const std::string& kernel_func_name, const Ke
                 fmha_fwd_kernel_args.stream_);
 }
 
-}  // namespace lightinfer
+}  // namespace flashck

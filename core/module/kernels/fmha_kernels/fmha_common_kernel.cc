@@ -180,4 +180,4 @@ FmhaCommonKernel::CommonCodeGenForRunning(const std::string&                    
     return TEMPLATE_CHECK(g_fmha_kernel_func, kernel_func_value_map);
 }
 
-}  // namespace lightinfer
+}  // namespace flashck

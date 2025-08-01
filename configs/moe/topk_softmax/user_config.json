@@ -1,0 +1,14 @@
+{
+  "issue_per_col": {
+    "values": [2]
+  },
+  "launch_type": {
+    "values": [0, 1]
+  },
+  "block_size": {
+        "values": [32,64,128,256]
+  },
+  "launch": {
+    "min_block_per_cu": { "values": [1] }
+  }
+}

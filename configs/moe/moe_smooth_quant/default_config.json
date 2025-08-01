@@ -1,0 +1,22 @@
+{
+  "tile_shape": {
+    "block_tile": {
+      "m": { "values": [128] },
+      "n": { "values": [32] }
+    },
+    "block_warps": {
+      "m": { "values": [4] },
+      "n": { "values": [1] }
+    },
+    "warp_tile": {
+      "m": { "values": [32] },
+      "n": { "values": [32] }
+    },
+    "vector" : {
+      "values": [1]
+    }
+  },
+  "launch": {
+    "min_block_per_cu": { "values": [1] }
+  }
+}

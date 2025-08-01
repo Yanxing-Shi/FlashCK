@@ -192,4 +192,4 @@ FmhaCommonKernel::CommonCodeGenForRunning(const std::string&                    
 
 } // namespace tile
 
-}  // namespace lightinfer
+}  // namespace flashck

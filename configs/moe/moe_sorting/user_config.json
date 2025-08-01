@@ -1,0 +1,7 @@
+{
+  "internal_load_unroll": { "values": [1] },
+  "expert_tile": { "values": [0] },
+  "launch": {
+    "min_block_per_cu": { "values": [1] }
+  }
+}

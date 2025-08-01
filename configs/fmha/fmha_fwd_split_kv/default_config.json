@@ -1,6 +1,6 @@
 {
-  "tile": {
-    "block": {
+  "tile_shape": {
+    "block_tile": {
       "m0": { "values": [128] },
       "n0": { "values": [64] },
       "k0": { "values": [16] },
@@ -8,7 +8,7 @@
       "k1": { "values": [32] },
       "k0_max": { "values": [32] }
     },
-    "warp": {
+    "block_warps": {
       "m0": { "values": [2] },
       "n0": { "values": [1] },
       "k0": { "values": [1] },
