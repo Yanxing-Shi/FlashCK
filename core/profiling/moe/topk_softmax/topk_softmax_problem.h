@@ -3,7 +3,7 @@
 #include <sstream>
 
 #include "core/profiling/problem_base.h"
-#include "core/profiling/gemm/gemm_library.h"
+#include "core/profiling/moe/gemm_library.h"
 #include "core/utils/dtype.h"
 
 namespace flashck {

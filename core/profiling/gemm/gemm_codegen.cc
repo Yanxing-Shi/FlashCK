@@ -5,7 +5,8 @@ namespace flashck {
 
 std::string GemmTileDesc::GetInstanceName() const
 {
-    return Sprintf("{m_block}_{n_block}_{k_block}_{m_warp}_{n_warp}_{k_warp}_{m_warp_tile}_{n_warp_tile}_{k_warp_tile}_{a_permute}_{b_permute}",
+    // Generate comprehensive tile descriptor name encoding all tiling parameters
+    return Sprintf("{m_block}x{n_block}x{k_block}_{m_warp}x{n_warp}x{k_warp}_{m_warp_tile}x{n_warp_tile}x{k_warp_tile}_{a_permute}{b_permute}",
                    fmt::arg("m_block", m_block_),
                    fmt::arg("n_block", n_block_),
                    fmt::arg("k_block", k_block_),
@@ -15,8 +16,8 @@ std::string GemmTileDesc::GetInstanceName() const
                    fmt::arg("m_warp_tile", m_warp_tile_),
                    fmt::arg("n_warp_tile", n_warp_tile_),
                    fmt::arg("k_warp_tile", k_warp_tile_),
-                   fmt::arg("a_permute", a_permute_),
-                   fmt::arg("b_permute", b_permute_)                
+                   fmt::arg("a_permute", a_permute_ ? "ap" : ""),
+                   fmt::arg("b_permute", b_permute_ ? "bp" : "")                
                 );
 }
 

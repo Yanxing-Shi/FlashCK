@@ -12,29 +12,29 @@ namespace flashck {
 bool NormEmitter::IsValidTile(const NormTileDesc& tile_desc, const NormProblem& norm_problem) const
 {
     // Validate tile descriptor parameters
-    if (tile_desc.repeat_m_ <= 0 || tile_desc.repeat_n_ <= 0 || tile_desc.thread_per_block_m_ <= 0
-        || tile_desc.thread_per_block_n_ <= 0 || tile_desc.vector_n_ <= 0) {
+    if (tile_desc.m_repeat <= 0 || tile_desc.n_repeat_ <= 0 || tile_desc.m_thread_per_block_ <= 0
+        || tile_desc.n_thread_per_block_ <= 0 || tile_desc.n_vector_ <= 0) {
         VLOG(3) << "Invalid tile descriptor: negative or zero values not allowed";
         return false;
     }
 
     // Validate thread block dimensions
-    const int total_threads = tile_desc.thread_per_block_m_ * tile_desc.thread_per_block_n_;
+    const int total_threads = tile_desc.m_thread_per_block_ * tile_desc.n_thread_per_block_;
     if (total_threads > 1024) {  // Common GPU thread block limit
         VLOG(3) << "Invalid tile descriptor: thread block size " << total_threads << " exceeds limit (1024)";
         return false;
     }
 
     // Validate vector size alignment
-    if (tile_desc.vector_n_ > tile_desc.thread_per_block_n_) {
-        VLOG(3) << "Invalid tile descriptor: vector_n (" << tile_desc.vector_n_
-                << ") cannot exceed thread_per_block_n (" << tile_desc.thread_per_block_n_ << ")";
+    if (tile_desc.n_vector_ > tile_desc.n_thread_per_block_) {
+        VLOG(3) << "Invalid tile descriptor: vector_n (" << tile_desc.n_vector_
+                << ") cannot exceed thread_per_block_n (" << tile_desc.n_thread_per_block_ << ")";
         return false;
     }
 
     // Validate against problem dimensions
-    const int effective_m = tile_desc.repeat_m_ * tile_desc.thread_per_block_m_;
-    const int effective_n = tile_desc.repeat_n_ * tile_desc.thread_per_block_n_;
+    const int effective_m = tile_desc.m_repeat * tile_desc.m_thread_per_block_;
+    const int effective_n = tile_desc.n_repeat_ * tile_desc.n_thread_per_block_;
 
     if (effective_m > norm_problem.m_ || effective_n > norm_problem.n_) {
         VLOG(3) << "Invalid tile descriptor: effective dimensions (" << effective_m << "x" << effective_n
@@ -56,20 +56,20 @@ std::vector<NormTileDesc> NormEmitter::HeuristicFilter(const std::vector<NormTil
 
         // For small problems, prefer smaller tile sizes
         if (norm_problem.m_ <= 64 && norm_problem.n_ <= 64) {
-            if (tile_desc.repeat_m_ == 1 && tile_desc.repeat_n_ == 1 && tile_desc.thread_per_block_m_ <= 8
-                && tile_desc.thread_per_block_n_ <= 8) {
+            if (tile_desc.m_repeat == 1 && tile_desc.n_repeat_ == 1 && tile_desc.m_thread_per_block_ <= 8
+                && tile_desc.n_thread_per_block_ <= 8) {
                 should_include = true;
             }
         }
         // For medium problems, prefer balanced tiles
         else if (norm_problem.m_ <= 256 && norm_problem.n_ <= 256) {
-            if (tile_desc.thread_per_block_m_ == 4 && tile_desc.thread_per_block_n_ == 16) {
+            if (tile_desc.m_thread_per_block_ == 4 && tile_desc.n_thread_per_block_ == 16) {
                 should_include = true;
             }
         }
         // For large problems, prefer larger tiles with higher vectorization
         else {
-            if (tile_desc.thread_per_block_m_ == 4 && tile_desc.thread_per_block_n_ == 64 && tile_desc.vector_n_ >= 2) {
+            if (tile_desc.m_thread_per_block_ == 4 && tile_desc.n_thread_per_block_ == 64 && tile_desc.n_vector_ >= 2) {
                 should_include = true;
             }
         }

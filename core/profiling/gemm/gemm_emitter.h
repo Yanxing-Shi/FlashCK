@@ -7,12 +7,11 @@
 
 #include "core/profiling/gemm/gemm_codegen.h"
 #include "core/profiling/gemm/gemm_problem.h"
-
-#include "core/profiling/gemm/gemm_backup_config.h"
+#include "core/utils/json_config.h"
 
 namespace flashck {
 
-
+// Allowed warp distribution combinations for optimal performance
 static const std::vector<std::tuple<int, int, int>> g_tile_gemm_allowed_warp_combinations = {
         {1, 4, 1}, {2, 2, 1}, {4, 1, 1}
 };
@@ -25,7 +24,7 @@ const std::set<std::tuple<PipelineVersionEnum, EpilogueEnum, PipelineSchedulerEn
     {GetPipelineVersionEnumFromString("compv4"), GetEpilogueEnumFromString("default"),  GetPipelineSchedulerEnumFromString("interwave")}
 };
 
-// Supported warp tile combinations by arch and dtype
+// Architecture and data type specific warp tile combinations for hardware optimization
 static const std::map<std::string, std::map<std::string, std::vector<std::array<int64_t, 3>>>> g_tile_gemm_warp_tile_supported_combinations = {
     {"gfx90a", {
         {"fp16_fp16_fp16", {{32,32,8},{16,16,16},{32,32,16},{16,16,32},{4,64,16},{64,4,16}}},
@@ -52,11 +51,26 @@ static const std::map<std::string, std::map<std::string, std::vector<std::array<
 
 /**
  * @class GemmEmitter
- * @brief Manages norm operation code generation and tile descriptor selection
+ * @brief Manages GEMM operation code generation and optimization
  *
- * This class provides functionality to generate norm operation instances based on
- * different strategies (heuristic, autotuning, or hybrid) and manages tile
- * descriptor validation and filtering.
+ * This class provides comprehensive functionality for GEMM operations:
+ * - Supports three configuration types: backup (pre-validated), default (parameter ranges), user (custom)
+ * - Implements three execution modes: heuristic (0), autotuning (1), hybrid (2)
+ * - Generates optimized kernel instances with hierarchical tiling
+ * - Provides intelligent filtering for performance optimization
+ * 
+ * Architecture Features:
+ * - Multi-level tiling: Block-level → Warp-level → Thread-level optimization
+ * - Hardware-specific optimizations for different GPU architectures
+ * - Pipeline and epilogue fusion for memory efficiency
+ * - Comprehensive validation and constraint checking
+ * 
+ * Usage Example:
+ * ```cpp
+ * auto* emitter = GemmEmitter::GetInstance();
+ * emitter->GenerateInstances(problem);  // Generate all valid instances
+ * auto instances = emitter->HeuristicFilter(all_instances, problem);  // Optional filtering
+ * ```
  */
 class GemmEmitter {
 public:
@@ -78,26 +92,56 @@ public:
     }
 
     /**
-     * @brief Validates if a tile descriptor is valid for the given problem
-     * @param tile_desc The tile descriptor to validate
-     * @param norm_problem The norm problem configuration
-     * @return true if tile descriptor is valid, false otherwise
+     * @brief Validates tile configuration against problem constraints and hardware limitations
+     * @param tile_desc Tile descriptor containing block/warp/thread-level parameters
+     * @param gemm_problem Problem specification including matrix dimensions and data types
+     * @return true if tile configuration is valid, false otherwise
+     * 
+     * Validation includes:
+     * - Parameter positivity and divisibility constraints
+     * - Hardware resource limitations (registers, shared memory)
+     * - Architecture-specific warp tile size restrictions
+     * - Memory access pattern optimality
      */
     bool IsValidTile(const GemmTileDesc& tile_desc, const GemmProblem& gemm_problem) const;
 
     /**
-     * @brief Applies heuristic filtering to tile descriptors
-     * @param gemm_tile_desc Vector of tile descriptors to filter
-     * @param gemm_problem The gemm problem configuration
-     * @return Vector of filtered tile descriptors
+     * @brief Apply intelligent filtering to reduce search space
+     * @param instances All generated instances to filter
+     * @param gemm_problem Problem specification for context-aware filtering
+     * @return Filtered subset of instances with better performance characteristics
+     * 
+     * Heuristic Strategy:
+     * - Prioritizes configurations with optimal memory access patterns
+     * - Considers matrix dimensions and data types
+     * - Balances register usage and memory bandwidth
+     * - Uses architecture-specific performance models
      */
-    // std::vector<GemmTileDesc> HeuristicFilter(const std::vector<GemmTileDesc>& gemm_tile_desc,
-    //                                           const GemmProblem&               gemm_problem) const;
+    std::vector<GemmCodeGen> HeuristicFilter(const std::vector<GemmCodeGen>& instances, 
+                                            const GemmProblem& gemm_problem);
 
+    /**
+     * @brief Validates pipeline, epilogue, and scheduler combination
+     * @param pipeline Pipeline version (mem, compv3, compv4, etc.)
+     * @param epilogue Epilogue type (default, cshuffle, etc.)
+     * @param scheduler Pipeline scheduler (interwave, intrawave, etc.)
+     * @return true if combination is supported by hardware and library
+     */
     bool IsValidCombination(const PipelineVersionEnum& pipeline, const EpilogueEnum& epilogue, const PipelineSchedulerEnum& scheduler);
 
+    /**
+     * @brief Validates generated code instance
+     * @param instance Generated kernel instance to validate
+     * @return true if instance is valid and can be compiled
+     */
     bool IsValidInstance(const GemmCodeGen& instance);
 
+    /**
+     * @brief Creates kernel instances from configuration
+     * @param config Configuration with parameter ranges or single values
+     * @param gemm_problem Problem specification
+     * @return Vector of generated kernel instances
+     */
     std::vector<GemmCodeGen> CreateInstanceForConfig(const flashck::GemmConfig& config, const GemmProblem& gemm_problem);
 
     /**

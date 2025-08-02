@@ -1,29 +1,16 @@
 {
   "tile_shape": {
-    "block_tile": {
-      "m0": { "values": [128] },
-      "n0": { "values": [32] },
-      "k0": { "values": [32] },
-      "m1": { "values": [128] },
-      "n1": { "values": [128] },
-      "k1": { "values": [32] }
-    },
-    "block_warps": {
-      "m0": { "values": [4] },
-      "n0": { "values": [1] },
-      "k0": { "values": [1] },
-      "m1": { "values": [4] },
-      "n1": { "values": [1] },
-      "k1": { "values": [1] }
-    },
-    "warp_tile": {
-      "m0": { "values": [32] },
-      "n0": { "values": [32] },
-      "k0": { "values": [16] },
-      "m1": { "values": [32] },
-      "n1": { "values": [16] },
-      "k1": { "values": [16] }
-    }
+    "m_repeat": { "values": [128] },
+    "n_repeat": { "values": [32] },
+    "m_thread_per_block": { "values": [4] },
+    "n_thread_per_block": { "values": [4] },
+    "n_vector": { "values": [4] }
+  },
+  "padding":{
+    "n": { "values": [true, false] }
+  },
+  "pipeline": {
+    "is_two_pass": { "values": [true, false] }
   },
   "launch": {
     "min_block_per_cu": { "values": [1] }

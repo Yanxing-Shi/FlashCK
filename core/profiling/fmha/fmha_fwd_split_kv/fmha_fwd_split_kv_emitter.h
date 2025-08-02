@@ -16,23 +16,63 @@ namespace flashck {
 
 /**
  * @class FmhaFwdSplitKVEmitter
- * @brief Manages FMHA operation code generation and tile descriptor selection
+ * @brief High-performance FMHA forward split KV operation instance generator with intelligent optimization
  *
- * This class provides functionality to generate FMHA operation instances based on
- * different strategies (heuristic, autotuning, or hybrid) and manages tile
- * descriptor validation and filtering. Interface is designed to be consistent with GemmEmitter.
+ * This class provides comprehensive FMHA split KV instance generation and management with support for:
+ * - Three configuration sources: backup_config.json (pre-validated), default_config.json (ranges), user_config.json (custom)
+ * - Three tuning modes: heuristic (fast), autotuning (comprehensive), hybrid (balanced)
+ * - Hardware-specific tile optimization and validation
+ * - Intelligent filtering for optimal performance
+ *
+ * Architecture Features:
+ * ========================
+ * Split KV Processing:
+ *   - Efficient key-value cache management for variable sequence lengths
+ *   - Optimized memory access patterns for split attention computations
+ *   - Support for dynamic sequence length handling in inference scenarios
+ *
+ * Hierarchical Tiling:
+ *   Block Level (GPU CU/SM): Controls memory bandwidth and occupancy
+ *   Warp Level (GPU warp): Manages SIMD execution and data locality  
+ *   Thread Level (GPU thread): Optimizes register usage and instruction throughput
+ *
+ * Padding Support:
+ *   - Query sequence padding (s): Handle variable Q sequence lengths
+ *   - Key-value sequence padding (sk): Handle variable KV sequence lengths
+ *   - QK head dimension padding (d): Optimize for non-power-of-2 head dimensions
+ *   - V head dimension padding (dv): Handle mismatched V head dimensions
+ *
+ * Usage Examples:
+ * ===============
+ * ```cpp
+ * // Get singleton instance
+ * auto* emitter = FmhaFwdSplitKVEmitter::GetInstance();
+ * 
+ * // Generate instances for problem
+ * FmhaProblem problem = {...};
+ * emitter->GenerateInstances(problem);
+ * 
+ * // Get generated instances
+ * auto& instances = emitter->GetInstanceMap(problem);
+ * ```
+ *
+ * Configuration Structure:
+ * ========================
+ * - backup_config.json: Array of pre-validated single configurations
+ * - default_config.json: Single configuration with parameter ranges
+ * - user_config.json: Single configuration with custom parameter ranges
  */
 class FmhaFwdSplitKVEmitter {
 public:
     FmhaFwdSplitKVEmitter()  = default;
     ~FmhaFwdSplitKVEmitter() = default;
 
-    // Delete copy constructor and assignment operator to maintain singleton pattern
+    // Enforce singleton pattern with deleted copy operations
     FmhaFwdSplitKVEmitter(const FmhaFwdSplitKVEmitter&)            = delete;
     FmhaFwdSplitKVEmitter& operator=(const FmhaFwdSplitKVEmitter&) = delete;
 
     /**
-     * @brief Get singleton instance of FmhaFwdSplitKVEmitter
+     * @brief Thread-safe singleton instance access
      * @return Pointer to the singleton instance
      */
     static FmhaFwdSplitKVEmitter* GetInstance()
@@ -41,21 +81,58 @@ public:
         return &instance;
     }
 
+    /**
+     * @brief Validate tile descriptor against problem constraints and hardware limitations
+     * @param tile_desc Tile descriptor to validate
+     * @param fmha_problem Problem specification for validation context
+     * @return true if tile descriptor is valid, false otherwise
+     */
     bool IsValidTile(const FmhaFwdSplitKVTileDesc& tile_desc, const FmhaProblem& fmha_problem);
 
+    /**
+     * @brief Validate complete instance configuration
+     * @param instance Instance to validate
+     * @return true if instance is valid, false otherwise
+     */
     bool IsValidInstance(const FmhaFwdSplitKVCodeGen& instance);
 
+    /**
+     * @brief Apply intelligent heuristic filtering to reduce search space
+     * @param instances Vector of instances to filter
+     * @param fmha_problem Problem context for filtering decisions
+     * @return Filtered vector of high-quality instances
+     */
+    std::vector<FmhaFwdSplitKVCodeGen> HeuristicFilter(const std::vector<FmhaFwdSplitKVCodeGen>& instances, 
+                                                       const FmhaProblem& fmha_problem);
+
+    /**
+     * @brief Create instances from configuration specification
+     * @param config Configuration with parameter ranges or fixed values
+     * @param fmha_problem Problem specification for context
+     * @return Vector of generated instances
+     */
     std::vector<FmhaFwdSplitKVCodeGen> CreateInstanceForConfig(const FmhaFwdSplitKVConfig& config, const FmhaProblem& fmha_problem);
 
     /**
-     * @brief Generates FMHA operation instances based on the problem specification
-     * @param fmha_problem The FMHA problem configuration
+     * @brief Generate optimized FMHA split KV instances using multi-source configuration and intelligent filtering
+     * 
+     * Configuration Loading Priority:
+     * 1. backup_config.json - Pre-validated single configurations (highest priority)
+     * 2. default_config.json - Parameter ranges for comprehensive search
+     * 3. user_config.json - Custom parameter ranges (user overrides)
+     * 
+     * Tuning Modes (controlled by FC_TUNING_MODE):
+     * 0 = Heuristic: Apply intelligent filtering + random selection (fastest)
+     * 1 = Autotuning: Use all valid instances for comprehensive search
+     * 2 = Hybrid: Apply heuristic filtering but keep broader candidate set
+     * 
+     * @param fmha_problem The FMHA problem configuration and constraints
      */
     void GenerateInstances(FmhaProblem& fmha_problem);
 
     /**
-     * @brief Gets the total number of generated instances
-     * @return Number of generated instances
+     * @brief Get total number of generated valid instances
+     * @return Number of generated instances across all FMHA kinds
      */
     int64_t GetNumInstances() const
     {

@@ -8,19 +8,32 @@
 
 #include "core/profiling/fmha/fmha_library.h"
 #include "core/profiling/fmha/fmha_problem.h"
-
 #include "core/profiling/fmha/fmha_fwd/fmha_fwd_codegen.h"
-#include "core/profiling/fmha/fmha_fwd/fmha_fwd_backup_config.h"
+#include "core/utils/json_config.h"
 
 namespace flashck {
 
 /**
  * @class FmhaFwdEmitter
- * @brief Manages FMHA operation code generation and tile descriptor selection
+ * @brief Manages FMHA forward pass code generation and optimization
  *
- * This class provides functionality to generate FMHA operation instances based on
- * different strategies (heuristic, autotuning, or hybrid) and manages tile
- * descriptor validation and filtering. Interface is designed to be consistent with GemmEmitter.
+ * This class provides comprehensive functionality for FMHA forward operations:
+ * - Supports three configuration types: backup (pre-validated), default (parameter ranges), user (custom)
+ * - Implements three execution modes: heuristic (0), autotuning (1), hybrid (2)
+ * - Generates optimized kernel instances with hierarchical tiling
+ * - Provides intelligent filtering for performance optimization
+ * 
+ * Architecture Overview:
+ * - Block-level tiling: Divides computation across CUDA thread blocks
+ * - Warp-level distribution: Assigns work within each thread block
+ * - Thread-level optimization: Fine-grained vectorization and memory access
+ * 
+ * Usage Patterns:
+ * ```cpp
+ * auto* emitter = FmhaFwdEmitter::GetInstance();
+ * emitter->GenerateInstances(problem);  // Generates all valid instances
+ * auto instances = emitter->HeuristicFilter(all_instances, problem);  // Optional filtering
+ * ```
  */
 class FmhaFwdEmitter {
 public:
@@ -41,20 +54,67 @@ public:
         return &instance;
     }
 
+    /**
+     * @brief Validates tile configuration against problem constraints
+     * @param tile_desc Tile descriptor containing block/warp/thread-level parameters
+     * @param fmha_problem Problem specification including dimensions and data types
+     * @return true if tile configuration is valid, false otherwise
+     * 
+     * Validation includes:
+     * - Parameter positivity and divisibility constraints
+     * - Hardware resource limitations (registers, shared memory)
+     * - Mathematical correctness for attention computation
+     */
     bool IsValidTile(const FmhaFwdTileDesc& tile_desc, const FmhaProblem& fmha_problem);
 
+    /**
+     * @brief Validates generated code instance
+     * @param instance Generated kernel instance to validate
+     * @return true if instance is valid and can be compiled
+     */
     bool IsValidInstance(const FmhaFwdCodeGen& instance);
 
+    /**
+     * @brief Creates kernel instances from configuration
+     * @param config Configuration with parameter ranges or single values
+     * @param fmha_problem Problem specification
+     * @return Vector of generated kernel instances
+     */
     std::vector<FmhaFwdCodeGen> CreateInstanceForConfig(const FmhaFwdConfig& config, const FmhaProblem& fmha_problem);
 
     /**
-     * @brief Generates FMHA operation instances based on the problem specification
-     * @param fmha_problem The FMHA problem configuration
+     * @brief Apply intelligent filtering to reduce search space
+     * @param instances All generated instances to filter
+     * @param fmha_problem Problem specification for context-aware filtering
+     * @return Filtered subset of instances with better performance characteristics
+     * 
+     * Heuristic Strategy:
+     * - Prioritizes configurations with optimal memory access patterns
+     * - Considers problem size and hardware characteristics
+     * - Balances register usage and memory bandwidth
+     * - Uses performance models to predict efficiency
+     */
+    std::vector<FmhaFwdCodeGen> HeuristicFilter(const std::vector<FmhaFwdCodeGen>& instances, 
+                                               const FmhaProblem& fmha_problem);
+
+    /**
+     * @brief Main instance generation entry point supporting multiple configuration sources
+     * @param fmha_problem The FMHA problem configuration to solve
+     * 
+     * Execution Strategy (controlled by FC_TUNING_MODE):
+     * - Mode 0 (Heuristic): Apply filtering → select optimal subset → random sampling for fast execution
+     * - Mode 1 (Autotuning): Generate all valid instances → comprehensive performance search
+     * - Mode 2 (Hybrid): Combine heuristic insights with broader search → balanced approach
+     * 
+     * Configuration Loading (controlled by FC_ENABLE_*_JSON flags):
+     * - Backup configs: Pre-validated single-value configurations for immediate deployment
+     * - Default configs: Parameter ranges for exploration and tuning
+     * - User configs: Custom parameter ranges for specific use cases
      */
     void GenerateInstances(FmhaProblem& fmha_problem);
 
     /**
-     * @brief Gets the total number of generated instances
+     * @brief Gets the total number of generated instances across all configurations
      * @return Number of generated instances
      */
     int64_t GetNumInstances() const
@@ -79,9 +139,11 @@ public:
     void ClearInstances();
 
 private:
-    
+    // Instance storage organized by FMHA operation type
     std::map<FmhaKind, std::map<std::string, FmhaFwdCodeGen>> instance_map_;
-    int64_t                                                num_instances_ = 0;
+    
+    // Performance tracking
+    int64_t num_instances_ = 0;
 };
 
 }  // namespace flashck

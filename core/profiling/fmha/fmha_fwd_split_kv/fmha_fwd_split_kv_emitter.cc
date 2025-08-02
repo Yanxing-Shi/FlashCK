@@ -1,53 +1,141 @@
 #include "core/profiling/fmha/fmha_fwd_split_kv/fmha_fwd_split_kv_emitter.h"
 
-FC_DECLARE_int32(FC_TUNING_MODE);  // Mode for FMHA operation: 0 - heuristic, 1 - autotuning, 2 - hybrid
-FC_DECLARE_bool(FC_ENABLE_CONFIG_JSON);
-FC_DECLARE_string(FC_CONFIG_JSON_PATH);
-FC_DECLARE_int32(FC_ENABLE_JSON_MODE);
+#include <algorithm>
+#include <filesystem>
+#include <random>
+
+FC_DECLARE_int32(FC_TUNING_MODE);     // 0: heuristic, 1: autotuning, 2: hybrid
+FC_DECLARE_bool(FC_ENABLE_BACKUP_JSON);    // Enable backup_config.json loading
+FC_DECLARE_bool(FC_ENABLE_DEFAULT_JSON);   // Enable default_config.json loading  
+FC_DECLARE_bool(FC_ENABLE_USER_JSON);      // Enable user_config.json loading
+FC_DECLARE_string(FC_CONFIG_JSON_PATH);    // Base path for config files
 
 namespace flashck {
 
 bool FmhaFwdSplitKVEmitter::IsValidTile(const FmhaFwdSplitKVTileDesc& tile_desc, const FmhaProblem& fmha_problem)
 {
-    // All tile parameters must be positive
-    if (tile_desc.m0_block_ <= 0 || tile_desc.n0_block_ <= 0 || tile_desc.k0_block_ <= 0 || tile_desc.k0_max_block_ <= 0 ||
-        tile_desc.n1_block_ <= 0 || tile_desc.k1_block_ <= 0 ||
+    // Validate all tile parameters are positive
+    if (tile_desc.m0_block_ <= 0 || tile_desc.n0_block_ <= 0 || tile_desc.k0_block_ <= 0 || 
+        tile_desc.k0_max_block_ <= 0 || tile_desc.n1_block_ <= 0 || tile_desc.k1_block_ <= 0 ||
         tile_desc.m0_warp_ <= 0 || tile_desc.n0_warp_ <= 0 || tile_desc.k0_warp_ < 0 ||
         tile_desc.m1_warp_ <= 0 || tile_desc.n1_warp_ <= 0 || tile_desc.k1_warp_ < 0 ||
         tile_desc.m0_warp_tile_ <= 0 || tile_desc.n0_warp_tile_ <= 0 || tile_desc.k0_warp_tile_ <= 0 ||
         tile_desc.m1_warp_tile_ <= 0 || tile_desc.n1_warp_tile_ <= 0 || tile_desc.k1_warp_tile_ <= 0) {
-        VLOG(3) << "Invalid FMHA tile descriptor: negative or zero values not allowed";
+        VLOG(3) << "Invalid FMHA split KV tile: negative or zero values not allowed";
         return false;
     }
 
-    // Cross-parameter constraints
-    // 1. k0_block_ should not exceed k0_max_block_
+    // Validate k0_block_ <= k0_max_block_
     if (tile_desc.k0_block_ > tile_desc.k0_max_block_) {
-        VLOG(3) << "Invalid FMHA tile descriptor: k0_block_ > k0_max_block_";
+        VLOG(3) << "Invalid FMHA split KV tile: k0_block_ > k0_max_block_";
         return false;
     }
-    // 2. Warp and warp tile sizes should not exceed block sizes
+
+    // Validate warp*warp_tile <= block sizes
     if (tile_desc.m0_warp_ * tile_desc.m0_warp_tile_ > tile_desc.m0_block_ ||
         tile_desc.n0_warp_ * tile_desc.n0_warp_tile_ > tile_desc.n0_block_ ||
         tile_desc.k0_warp_ * tile_desc.k0_warp_tile_ > tile_desc.k0_block_ ||
         tile_desc.m1_warp_ * tile_desc.m1_warp_tile_ > tile_desc.m0_block_ ||
         tile_desc.n1_warp_ * tile_desc.n1_warp_tile_ > tile_desc.n1_block_ ||
         tile_desc.k1_warp_ * tile_desc.k1_warp_tile_ > tile_desc.k1_block_) {
-        VLOG(3) << "Invalid FMHA tile descriptor: warp*warp_tile exceeds block size";
+        VLOG(3) << "Invalid FMHA split KV tile: warp*warp_tile exceeds block size";
         return false;
     }
-    // 3. All block sizes should be divisible by warp*warp_tile sizes
+
+    // Validate block sizes are divisible by warp*warp_tile
     if ((tile_desc.m0_block_ % (tile_desc.m0_warp_ * tile_desc.m0_warp_tile_) != 0) ||
         (tile_desc.n0_block_ % (tile_desc.n0_warp_ * tile_desc.n0_warp_tile_) != 0) ||
         (tile_desc.k0_block_ % (std::max<int64_t>(1, tile_desc.k0_warp_ * tile_desc.k0_warp_tile_)) != 0) ||
         (tile_desc.m0_block_ % (tile_desc.m1_warp_ * tile_desc.m1_warp_tile_) != 0) ||
         (tile_desc.n1_block_ % (tile_desc.n1_warp_ * tile_desc.n1_warp_tile_) != 0) ||
         (tile_desc.k1_block_ % (std::max<int64_t>(1, tile_desc.k1_warp_ * tile_desc.k1_warp_tile_)) != 0)) {
-        VLOG(3) << "Invalid FMHA tile descriptor: block size not divisible by warp*warp_tile";
+        VLOG(3) << "Invalid FMHA split KV tile: block size not divisible by warp*warp_tile";
         return false;
     }
 
     // Validate against problem dimensions for Batch mode
+    if (fmha_problem.mode_ == FmhaMode::Batch) {
+        if (tile_desc.m0_block_ > fmha_problem.q_seq_len_ || tile_desc.n0_block_ > fmha_problem.kv_seq_len_ ||
+            tile_desc.n1_block_ > fmha_problem.v_head_dim_ || tile_desc.k0_max_block_ > fmha_problem.qk_head_dim_) {
+            VLOG(3) << "Invalid FMHA split KV tile: tile dimensions exceed problem dimensions";
+            return false;
+        }
+    }
+
+    return true;
+}
+
+bool FmhaFwdSplitKVEmitter::IsValidInstance(const FmhaFwdSplitKVCodeGen& instance)
+{
+    return IsValidTile(instance.tile_desc_, instance.problem_);
+} 
+
+std::vector<FmhaFwdSplitKVCodeGen> FmhaFwdSplitKVEmitter::HeuristicFilter(const std::vector<FmhaFwdSplitKVCodeGen>& instances, 
+                                                                          const FmhaProblem& fmha_problem)
+{
+    if (instances.empty()) {
+        return {};
+    }
+
+    std::vector<FmhaFwdSplitKVCodeGen> filtered_instances;
+    
+    // Score and rank instances based on multiple performance heuristics
+    std::vector<std::pair<double, size_t>> scored_instances;
+    
+    for (size_t i = 0; i < instances.size(); ++i) {
+        const auto& tile_desc = instances[i].tile_desc_;
+        double score = 0.0;
+        
+        // 1. Memory access efficiency (prioritize coalesced access patterns)
+        int64_t total_block_size = tile_desc.m0_block_ * tile_desc.n0_block_ * tile_desc.k0_block_;
+        int64_t warp_utilization = (tile_desc.m0_warp_ * tile_desc.n0_warp_ * tile_desc.k0_warp_);
+        if (warp_utilization > 0) {
+            score += std::log2(warp_utilization) * 0.3;  // Favor higher warp utilization
+        }
+        
+        // 2. Register pressure estimation (avoid extreme values)
+        int64_t reg_estimate = tile_desc.m0_warp_tile_ * tile_desc.n0_warp_tile_ * tile_desc.k0_warp_tile_;
+        if (reg_estimate >= 32 && reg_estimate <= 512) {  // Sweet spot for register usage
+            score += 0.25;
+        }
+        
+        // 3. Problem size fitness
+        int64_t seq_len = fmha_problem.max_seqlen_q_;
+        int64_t head_dim = fmha_problem.hdim_q_;
+        
+        // Prefer tile sizes that divide evenly into problem dimensions
+        if (seq_len % tile_desc.m0_block_ == 0) score += 0.2;
+        if (head_dim % tile_desc.k0_block_ == 0) score += 0.2;
+        
+        // 4. Hardware efficiency (favor power-of-2 or multiple-of-32 sizes)
+        auto is_efficient_size = [](int64_t size) {
+            return (size % 32 == 0) || (size & (size - 1)) == 0;
+        };
+        
+        if (is_efficient_size(tile_desc.m0_block_)) score += 0.1;
+        if (is_efficient_size(tile_desc.n0_block_)) score += 0.1;
+        if (is_efficient_size(tile_desc.k0_block_)) score += 0.1;
+        
+        scored_instances.emplace_back(score, i);
+    }
+    
+    // Sort by score (highest first)
+    std::sort(scored_instances.begin(), scored_instances.end(), 
+              [](const auto& a, const auto& b) { return a.first > b.first; });
+    
+    // Select top candidates (limit to reasonable number for heuristic mode)
+    size_t max_candidates = std::min(static_cast<size_t>(16), instances.size());
+    filtered_instances.reserve(max_candidates);
+    
+    for (size_t i = 0; i < max_candidates; ++i) {
+        filtered_instances.push_back(instances[scored_instances[i].second]);
+    }
+    
+    VLOG(2) << "FMHA split KV heuristic filter: reduced " << instances.size() 
+            << " instances to " << filtered_instances.size() << " candidates";
+    
+    return filtered_instances;
+}
     if (fmha_problem.mode_ == FmhaMode::Batch) {
         if (tile_desc.m0_block_ > fmha_problem.q_seq_len_ || tile_desc.n0_block_ > fmha_problem.kv_seq_len_ ||
             tile_desc.n1_block_ > fmha_problem.v_head_dim_ || tile_desc.k0_max_block_ > fmha_problem.qk_head_dim_) {
@@ -88,26 +176,26 @@ std::vector<FmhaFwdSplitKVCodeGen> FmhaFwdSplitKVEmitter::CreateInstanceForConfi
 
     std::vector<std::vector<int64_t>> all_lists = {
         // BlockConfig
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile.block.m0.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile.block.n0.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile.block.k0.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile.block.k0_max.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile.block.n1.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile.block.k1.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.block_tile.m0.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.block_tile.n0.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.block_tile.k0.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.block_tile.k0_max.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.block_tile.n1.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.block_tile.k1.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
         // WarpConfig
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile.warp.m0.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile.warp.n0.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile.warp.k0.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile.warp.m1.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile.warp.n1.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile.warp.k1.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.block_warps.m0.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.block_warps.n0.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.block_warps.k0.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.block_warps.m1.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.block_warps.n1.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.block_warps.k1.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
         // WarpTileConfig
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile.warp_tile.m0.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile.warp_tile.n0.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile.warp_tile.k0.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile.warp_tile.m1.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile.warp_tile.n1.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile.warp_tile.k1.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.warp_tile.m0.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.warp_tile.n0.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.warp_tile.k0.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.warp_tile.m1.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.warp_tile.n1.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.warp_tile.k1.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
         // PaddingConfig (convert bool to int64_t)
         [&]{ std::vector<int64_t> v; for (auto x : config.padding.s.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
         [&]{ std::vector<int64_t> v; for (auto x : config.padding.sk.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
@@ -211,19 +299,19 @@ void FmhaFwdSplitKVEmitter::GenerateInstances(FmhaProblem& fmha_problem)
         auto base_json_path = std::filesystem::path(FLAGS_FC_CONFIG_JSON_PATH) / GetFmhaKindName(fmha_problem.kind_);
         if(FLAGS_FC_ENABLE_JSON_MODE == 0) {
             std::filesystem::path json_path = base_json_path / "default_config.json";
-            FmhaFwdSplitKVConfig config = LoadConfigJson<FmhaFwdSplitKVConfig>(json_path);
+            FmhaFwdSplitKVConfig config = LoadDefaultConfigJson<FmhaFwdSplitKVConfig>(json_path);
             fmha_instances = CreateInstanceForConfig(config, fmha_problem);
         } else if (FLAGS_FC_ENABLE_JSON_MODE == 1) {
             std::filesystem::path json_path = base_json_path / "user_config.json";
-            FmhaFwdSplitKVConfig config = LoadConfigJson<FmhaFwdSplitKVConfig>(json_path);
+            FmhaFwdSplitKVConfig config = LoadDefaultConfigJson<FmhaFwdSplitKVConfig>(json_path);
             fmha_instances = CreateInstanceForConfig(config, fmha_problem);
         } else if (FLAGS_FC_ENABLE_JSON_MODE == 2) {
             std::filesystem::path default_json_path = base_json_path / "default_config.json";
-            FmhaFwdSplitKVConfig default_config = LoadConfigJson<FmhaFwdSplitKVConfig>(default_json_path);
+            FmhaFwdSplitKVConfig default_config = LoadDefaultConfigJson<FmhaFwdSplitKVConfig>(default_json_path);
             auto gemm_default_instances = CreateInstanceForConfig(default_config, fmha_problem);
 
             std::filesystem::path user_json_path = base_json_path / "user_config.json";
-            FmhaFwdSplitKVConfig user_config = LoadConfigJson<FmhaFwdSplitKVConfig>(user_json_path);
+            FmhaFwdSplitKVConfig user_config = LoadDefaultConfigJson<FmhaFwdSplitKVConfig>(user_json_path);
             auto gemm_user_instances = CreateInstanceForConfig(user_config, fmha_problem);
 
             fmha_instances.insert(fmha_instances.end(), gemm_default_instances.begin(), gemm_default_instances.end());
@@ -242,24 +330,24 @@ void FmhaFwdSplitKVEmitter::GenerateInstances(FmhaProblem& fmha_problem)
         fmha.problem_ = fmha_problem;
 
         fmha.tile_desc_ = FmhaFwdSplitKVTileDesc{
-            config.tile.block.m0.values[0],
-            config.tile.block.n0.values[0],
-            config.tile.block.k0.values[0],
-            config.tile.block.k0_max.values[0],
-            config.tile.block.n1.values[0],
-            config.tile.block.k1.values[0],
-            config.tile.warp.m0.values[0],
-            config.tile.warp.n0.values[0],
-            config.tile.warp.k0.values[0],
-            config.tile.warp.m1.values[0],
-            config.tile.warp.n1.values[0],
-            config.tile.warp.k1.values[0],
-            config.tile.warp_tile.m0.values[0],
-            config.tile.warp_tile.n0.values[0],
-            config.tile.warp_tile.k0.values[0],
-            config.tile.warp_tile.m1.values[0],
-            config.tile.warp_tile.n1.values[0],
-            config.tile.warp_tile.k1.values[0]
+            config.tile_shape.block_tile.m0.values[0],
+            config.tile_shape.block_tile.n0.values[0],
+            config.tile_shape.block_tile.k0.values[0],
+            config.tile_shape.block_tile.k0_max.values[0],
+            config.tile_shape.block_tile.n1.values[0],
+            config.tile_shape.block_tile.k1.values[0],
+            config.tile_shape.block_warps.m0.values[0],
+            config.tile_shape.block_warps.n0.values[0],
+            config.tile_shape.block_warps.k0.values[0],
+            config.tile_shape.block_warps.m1.values[0],
+            config.tile_shape.block_warps.n1.values[0],
+            config.tile_shape.block_warps.k1.values[0],
+            config.tile_shape.warp_tile.m0.values[0],
+            config.tile_shape.warp_tile.n0.values[0],
+            config.tile_shape.warp_tile.k0.values[0],
+            config.tile_shape.warp_tile.m1.values[0],
+            config.tile_shape.warp_tile.n1.values[0],
+            config.tile_shape.warp_tile.k1.values[0]
         };
 
         fmha.is_pad_q_seq_len_ = config.padding.s.values[0];

@@ -5,7 +5,7 @@ namespace flashck {
 std::string FmhaFwdTileDesc::GetInstanceName() const
 {
     return Sprintf(
-        "{m0_block}x{n0_block}x{k0_block}_{n1_block}x{k1_block}x{k0_max_block}_r{m0_warp}x{n0_warp}x{k0_warp}_{m1_warp}x{n1_warp}x{k1_warp}_w{m0_warp}x{n0_warp_tile}x{k0_warp_tile}x{m1_warp_tile}x{n1_warp_tile}x{k1_warp_tile}",
+        "{m0_block}x{n0_block}x{k0_block}_{n1_block}x{k1_block}x{k0_max_block}_{m0_warp}x{n0_warp}x{k0_warp}_{m1_warp}x{n1_warp}x{k1_warp}_{m0_warp_tile}x{n0_warp_tile}x{k0_warp_tile}_{m1_warp_tile}x{n1_warp_tile}x{k1_warp_tile}",
         fmt::arg("m0_block", m0_block_),
         fmt::arg("n0_block", n0_block_),
         fmt::arg("k0_block", k0_block_),

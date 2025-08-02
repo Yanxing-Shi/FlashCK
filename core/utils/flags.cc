@@ -204,9 +204,11 @@ FC_DEFINE_EXPORTED_bool(FC_FORCE_PROFILING, true, "Force profiling even if cache
 
 FC_DEFINE_EXPORTED_bool(FC_FLUSH_PROFILING_DB, false, "Flush profile cache database on startup");
 
-FC_DEFINE_EXPORTED_bool(FC_ENABLE_CONFIG_JSON, true, "Enable configuration from JSON file");
+FC_DEFINE_EXPORTED_bool(FC_ENABLE_DEFAULT_JSON, false, "Enable default JSON configuration");
 
-FC_DEFINE_EXPORTED_int32(FC_ENABLE_JSON_MODE, 0, "JSON mode: 0=only default config, 1=only user coonfig, 2=default and user config");
+FC_DEFINE_EXPORTED_bool(FC_ENABLE_USER_JSON, true, "Enable user JSON configuration");
+
+FC_DEFINE_EXPORTED_bool(FC_ENABLE_BACKUP_JSON, false, "Enable backup JSON configuration");
 
 FC_DEFINE_EXPORTED_int32(FC_TUNING_MODE, 1, "Tuning mode: 0=heuristic, 1=autotuning, 2=hybrid");
 

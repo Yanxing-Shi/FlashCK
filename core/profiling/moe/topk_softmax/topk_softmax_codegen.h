@@ -1,7 +1,7 @@
 #pragma once
 
-#include "core/profiling/gemm/gemm_library.h"
-#include "core/profiling/gemm/gemm_problem.h"
+#include "core/profiling/moe/moe_library.h"
+#include "core/profiling/moe/moe_problem.h"
 
 #include "core/utils/common.h"
 

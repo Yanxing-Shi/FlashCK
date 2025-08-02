@@ -1,53 +1,63 @@
 #include "core/profiling/gemm/gemm_emitter.h"
 
+#include <algorithm>
+#include <filesystem>
+#include <random>
 #include "core/utils/common.h"
 
-FC_DECLARE_int32(FC_TUNING_MODE);  // Mode for gemm operation: 0 - heuristic, 1 - autotuning, 2 - hybrid
-FC_DECLARE_bool(FC_ENABLE_CONFIG_JSON);
-FC_DECLARE_string(FC_CONFIG_JSON_PATH);
-FC_DECLARE_int32(FC_ENABLE_JSON_MODE);
+FC_DECLARE_int32(FC_TUNING_MODE);      // 0: heuristic, 1: autotuning, 2: hybrid
+FC_DECLARE_bool(FC_ENABLE_BACKUP_JSON);    // Enable backup_config.json loading
+FC_DECLARE_bool(FC_ENABLE_DEFAULT_JSON);   // Enable default_config.json loading  
+FC_DECLARE_bool(FC_ENABLE_USER_JSON);      // Enable user_config.json loading
+FC_DECLARE_string(FC_CONFIG_JSON_PATH);    // Base path for config files
 
 namespace flashck {
 
 bool GemmEmitter::IsValidTile(const GemmTileDesc& tile_desc, const GemmProblem& gemm_problem) const
 {
-    // Validate tile descriptor parameters (all tile dims > 0)
-    if (tile_desc.m_block_ <= 0 || tile_desc.n_block_ <= 0 || tile_desc.k_block_ <= 0
-        || tile_desc.m_warp_ <= 0 || tile_desc.n_warp_ <= 0 || tile_desc.k_warp_ <= 0
-        || tile_desc.m_warp_tile_ <= 0 || tile_desc.n_warp_tile_ <= 0 || tile_desc.k_warp_tile_ <= 0) {
-        VLOG(3) << "Invalid tile descriptor: negative or zero values not allowed";
+    // Validate all tile parameters are positive
+    if (tile_desc.m_block_ <= 0 || tile_desc.n_block_ <= 0 || tile_desc.k_block_ <= 0 ||
+        tile_desc.m_warp_ <= 0 || tile_desc.n_warp_ <= 0 || tile_desc.k_warp_ <= 0 ||
+        tile_desc.m_warp_tile_ <= 0 || tile_desc.n_warp_tile_ <= 0 || tile_desc.k_warp_tile_ <= 0) {
+        VLOG(3) << "Invalid GEMM tile: negative or zero values not allowed";
         return false;
     }
 
-    // Validate thread block size (example: m_block_ * n_block_ should not exceed 1024)
+    // Validate thread block size doesn't exceed hardware limits
     const int total_threads = tile_desc.m_block_ * tile_desc.n_block_;
     if (total_threads > 1024) {
-        VLOG(3) << "Invalid tile descriptor: thread block size " << total_threads << " exceeds limit (1024)";
+        VLOG(3) << "Invalid GEMM tile: thread block size " << total_threads << " exceeds limit (1024)";
         return false;
     }
 
-    // Validate against problem dimensions
-    if (tile_desc.m_block_ > gemm_problem.m_ || tile_desc.n_block_ > gemm_problem.n_ || tile_desc.k_block_ > gemm_problem.k_) {
-        VLOG(3) << "Invalid tile descriptor: block dims (" << tile_desc.m_block_ << "," << tile_desc.n_block_ << "," << tile_desc.k_block_
-                << ") exceed problem dims (" << gemm_problem.m_ << "," << gemm_problem.n_ << "," << gemm_problem.k_ << ")";
+    // Validate tile sizes don't exceed problem dimensions
+    if (tile_desc.m_block_ > gemm_problem.m_ || tile_desc.n_block_ > gemm_problem.n_ || 
+        tile_desc.k_block_ > gemm_problem.k_) {
+        VLOG(3) << "Invalid GEMM tile: block dims (" << tile_desc.m_block_ << "," 
+                << tile_desc.n_block_ << "," << tile_desc.k_block_
+                << ") exceed problem dims (" << gemm_problem.m_ << "," << gemm_problem.n_ 
+                << "," << gemm_problem.k_ << ")";
         return false;
     }
 
+    // Validate warp combination is allowed
     std::tuple<int, int, int> warp_tuple = std::make_tuple(tile_desc.m_warp_, tile_desc.n_warp_, tile_desc.k_warp_);
-    if (std::find(g_tile_gemm_allowed_warp_combinations.begin(), g_tile_gemm_allowed_warp_combinations.end(), warp_tuple) == g_tile_gemm_allowed_warp_combinations.end()) {
-        VLOG(3) << "Invalid warp combination: warp_m(" << tile_desc.m_warp_ << ") * warp_n(" << tile_desc.n_warp_ << ") * warp_k(" << tile_desc.k_warp_ << ")";
+    if (std::find(g_tile_gemm_allowed_warp_combinations.begin(), g_tile_gemm_allowed_warp_combinations.end(), 
+                  warp_tuple) == g_tile_gemm_allowed_warp_combinations.end()) {
+        VLOG(3) << "Invalid GEMM warp combination: (" << tile_desc.m_warp_ << "," 
+                << tile_desc.n_warp_ << "," << tile_desc.k_warp_ << ")";
         return false;
     }
 
-    // Dimension alignment check: tile dims must be divisible by warp*warp_tile dims
+    // Validate dimension alignment: block dims must be divisible by warp*warp_tile dims
     if (tile_desc.m_block_ % (tile_desc.m_warp_ * tile_desc.m_warp_tile_) != 0) {
-        VLOG(3) << "Dimension alignment failed: tile_m(" << tile_desc.m_block_ << ") % [" << tile_desc.m_warp_ << "x" << tile_desc.m_warp_tile_ << "] = "
-                << (tile_desc.m_block_ % (tile_desc.m_warp_ * tile_desc.m_warp_tile_));
+        VLOG(3) << "GEMM dimension alignment failed: m_block(" << tile_desc.m_block_ 
+                << ") % [" << tile_desc.m_warp_ << "x" << tile_desc.m_warp_tile_ << "] != 0";
         return false;
     }
     if (tile_desc.n_block_ % (tile_desc.n_warp_ * tile_desc.n_warp_tile_) != 0) {
-        VLOG(3) << "Dimension alignment failed: tile_n(" << tile_desc.n_block_ << ") % [" << tile_desc.n_warp_ << "x" << tile_desc.n_warp_tile_ << "] = "
-                << (tile_desc.n_block_ % (tile_desc.n_warp_ * tile_desc.n_warp_tile_));
+        VLOG(3) << "GEMM dimension alignment failed: n_block(" << tile_desc.n_block_ 
+                << ") % [" << tile_desc.n_warp_ << "x" << tile_desc.n_warp_tile_ << "] != 0";
         return false;
     }
     if (tile_desc.k_block_ % (tile_desc.k_warp_ * tile_desc.k_warp_tile_) != 0) {
@@ -113,14 +123,79 @@ bool GemmEmitter::IsValidCombination(const PipelineVersionEnum& pipeline, const 
 
 bool GemmEmitter::IsValidInstance(const GemmCodeGen& instance)
 {
-    return IsValidTile(instance.tile_desc_, instance.problem_) && IsValidCombination(instance.pipeline_version_, instance.pipeline_epilogue_, instance.pipeline_scheduler_);
+    return IsValidTile(instance.tile_desc_, instance.problem_) && 
+           IsValidCombination(instance.pipeline_version_, instance.pipeline_epilogue_, instance.pipeline_scheduler_);
 }
 
-// std::vector<GemmTileDesc> GemmEmitter::HeuristicFilter(const std::vector<GemmTileDesc>& gemm_tile_desc,
-//                                                        const GemmProblem&               gemm_problem) const
-// {
+std::vector<GemmCodeGen> GemmEmitter::HeuristicFilter(const std::vector<GemmCodeGen>& instances, 
+                                                     const GemmProblem& gemm_problem)
+{
+    if (instances.empty()) {
+        return {};
+    }
+
+    std::vector<GemmCodeGen> filtered_instances;
     
-// }
+    // Score and rank instances based on multiple performance heuristics
+    std::vector<std::pair<double, size_t>> scored_instances;
+    
+    for (size_t i = 0; i < instances.size(); ++i) {
+        const auto& tile_desc = instances[i].tile_desc_;
+        double score = 0.0;
+        
+        // 1. Memory throughput efficiency (favor larger tile sizes up to sweet spot)
+        int64_t total_work = tile_desc.m_block_ * tile_desc.n_block_ * tile_desc.k_block_;
+        if (total_work >= 4096 && total_work <= 32768) {  // Sweet spot for most problems
+            score += 0.3;
+        }
+        
+        // 2. Register efficiency (balance between utilization and pressure)
+        int64_t reg_estimate = tile_desc.m_warp_tile_ * tile_desc.n_warp_tile_ * tile_desc.k_warp_tile_;
+        if (reg_estimate >= 16 && reg_estimate <= 256) {  // Good register usage range
+            score += 0.25;
+        }
+        
+        // 3. Problem fit analysis
+        // Prefer tile sizes that divide evenly into problem dimensions
+        if (gemm_problem.m_ % tile_desc.m_block_ == 0) score += 0.15;
+        if (gemm_problem.n_ % tile_desc.n_block_ == 0) score += 0.15;
+        if (gemm_problem.k_ % tile_desc.k_block_ == 0) score += 0.1;
+        
+        // 4. Memory access efficiency (favor configurations with good coalescing)
+        auto is_efficient_size = [](int64_t size) {
+            return (size % 32 == 0) || (size & (size - 1)) == 0;  // Multiple of 32 or power of 2
+        };
+        
+        if (is_efficient_size(tile_desc.m_block_)) score += 0.05;
+        if (is_efficient_size(tile_desc.n_block_)) score += 0.05;
+        if (is_efficient_size(tile_desc.k_block_)) score += 0.05;
+        
+        // 5. Pipeline efficiency bonus
+        if (instances[i].pipeline_version_ == GetPipelineVersionEnumFromString("compv3") ||
+            instances[i].pipeline_version_ == GetPipelineVersionEnumFromString("compv4")) {
+            score += 0.1;  // Favor newer pipeline versions
+        }
+        
+        scored_instances.emplace_back(score, i);
+    }
+    
+    // Sort by score (highest first)
+    std::sort(scored_instances.begin(), scored_instances.end(), 
+              [](const auto& a, const auto& b) { return a.first > b.first; });
+    
+    // Select top candidates (limit to reasonable number for heuristic mode)
+    size_t max_candidates = std::min(static_cast<size_t>(20), instances.size());
+    filtered_instances.reserve(max_candidates);
+    
+    for (size_t i = 0; i < max_candidates; ++i) {
+        filtered_instances.push_back(instances[scored_instances[i].second]);
+    }
+    
+    VLOG(2) << "GEMM heuristic filter: reduced " << instances.size() 
+            << " instances to " << filtered_instances.size() << " candidates";
+    
+    return filtered_instances;
+}
 
 
 // Generate all possible GemmCodeGen instances from a GemmConfig
@@ -129,17 +204,17 @@ std::vector<GemmCodeGen> GemmEmitter::CreateInstanceForConfig(const GemmConfig& 
 
     std::vector<std::vector<int64_t>> all_lists = {
         // BlockConfig
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile.block.m.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile.block.n.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile.block.k.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.block_tile.m.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.block_tile.n.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.block_tile.k.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
         // WarpConfig
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile.warp.m.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile.warp.n.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile.warp.k.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.block_warps.m.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.block_warps.n.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.block_warps.k.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
         // WarpTileConfig
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile.warp_tile.m.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile.warp_tile.n.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile.warp_tile.k.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.warp_tile.m.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.warp_tile.n.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.warp_tile.k.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
         // PaddingConfig (convert bool to int64_t)
         [&]{ std::vector<int64_t> v; for (auto x : config.padding.m.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
         [&]{ std::vector<int64_t> v; for (auto x : config.padding.n.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
@@ -207,133 +282,112 @@ std::vector<GemmCodeGen> GemmEmitter::CreateInstanceForConfig(const GemmConfig& 
 
 void GemmEmitter::GenerateInstances(GemmProblem& gemm_problem)
 {
-    FC_ENFORCE_EQ(FLAGS_FC_TUNING_MODE == 0 || FLAGS_FC_TUNING_MODE == 1 || FLAGS_FC_TUNING_MODE == 2,
-                  true,
-                  Unavailable("Unsupported mode: {}, valid modes are 0 (heuristic), 1 (autotuning), 2 (hybrid)", FLAGS_FC_TUNING_MODE));
+    // Validate tuning mode
+    FC_ENFORCE_EQ(FLAGS_FC_TUNING_MODE >= 0 && FLAGS_FC_TUNING_MODE <= 2, true,
+                  Unavailable("Invalid FC_TUNING_MODE: {}. Valid values: 0(heuristic), 1(autotuning), 2(hybrid)", 
+                             FLAGS_FC_TUNING_MODE));
 
     // Check if instances already exist for this GEMM kind
-    if (instance_map_.find(gemm_problem.kind_) != instance_map_.end() && !instance_map_[gemm_problem.kind_].empty()) {
-        VLOG(2) << "Instances already generated for GEMM kind: " << GetGemmKindName(gemm_problem.kind_);
+    if (instance_map_.find(gemm_problem.kind_) != instance_map_.end() && 
+        !instance_map_[gemm_problem.kind_].empty()) {
+        VLOG(2) << "GEMM instances already generated for kind: " << GetGemmKindName(gemm_problem.kind_);
         return;
     }
 
-    // Load tile GEMM configuration if available
-    std::vector<GemmCodeGen> gemm_instances;
-    if (FLAGS_FC_ENABLE_CONFIG_JSON) {
-        std::filesystem::path base_json_path = FLAGS_FC_CONFIG_JSON_PATH;
-        if(FLAGS_FC_ENABLE_JSON_MODE == 0) {
-            std::filesystem::path json_path = base_json_path / "default_config.json";
-            GemmConfig config = LoadConfigJson<GemmConfig>(json_path);
-            gemm_instances = CreateInstanceForConfig(config, gemm_problem);
-        } else if (FLAGS_FC_ENABLE_JSON_MODE == 1) {
-            std::filesystem::path json_path = base_json_path / "user_config.json";
-            GemmConfig config = LoadConfigJson<GemmConfig>(json_path);
-            gemm_instances = CreateInstanceForConfig(config, gemm_problem);
-        } else if (FLAGS_FC_ENABLE_JSON_MODE == 2) {
-            std::filesystem::path default_json_path = base_json_path / "default_config.json";
-            GemmConfig default_config = LoadConfigJson<GemmConfig>(default_json_path);
-            auto gemm_default_instances = CreateInstanceForConfig(default_config, gemm_problem);
+    std::vector<GemmCodeGen> all_instances;
 
-            std::filesystem::path user_json_path = base_json_path / "user_config.json";
-            GemmConfig user_config = LoadConfigJson<GemmConfig>(user_json_path);
-            auto gemm_user_instances = CreateInstanceForConfig(user_config, gemm_problem);
+    // Configuration loading based on enabled flags
+    auto base_json_path = std::filesystem::path(FLAGS_FC_CONFIG_JSON_PATH) / GetGemmKindName(gemm_problem.kind_);
 
-            gemm_instances.insert(gemm_instances.end(), gemm_default_instances.begin(), gemm_default_instances.end());
-            gemm_instances.insert(gemm_instances.end(), gemm_user_instances.begin(), gemm_user_instances.end());
-        } else{
-            LOG(WARNING)<< "FC_ENABLE_JSON_MODE is set to an unsupported value: " << FLAGS_FC_ENABLE_JSON_MODE;
-        }
-    } else{
-        LOG(WARNING)<< "FC_ENABLE_CONFIG_JSON is not enabled";
-    }
-
-    for (const auto& config : g_tile_gemm_backup_tile_config) {
-        GemmCodeGen gemm;
-
-        gemm.problem_ = gemm_problem;
-
-        gemm.tile_desc_ = GemmTileDesc{
-            config.tile.block.m.values[0],
-            config.tile.block.n.values[0],
-            config.tile.block.k.values[0],
-            config.tile.warp.m.values[0],
-            config.tile.warp.n.values[0],
-            config.tile.warp.k.values[0],
-            config.tile.warp_tile.m.values[0],
-            config.tile.warp_tile.n.values[0],
-            config.tile.warp_tile.k.values[0],
-        };
-
-        gemm.pipeline_version_ = GetPipelineVersionEnumFromString(config.pipeline.version.values[0]);
-        gemm.pipeline_scheduler_ = GetPipelineSchedulerEnumFromString(config.pipeline.scheduler.values[0]);
-        gemm.pipeline_epilogue_ = GetEpilogueEnumFromString(config.pipeline.epilogue.values[0]);
-
-        gemm.min_block_per_cu_ = config.launch.min_block_per_cu.values[0];
-        gemm.num_wave_groups_ = config.partition.num_wave_groups.values[0];
-        gemm.tile_partitioner_group_num_ = config.partition.tile_partitioner_group_num.values[0];
-        gemm.tile_partitioner_m01_ = config.partition.tile_partitioner_m01.values[0];
-
-        gemm_instances.push_back(gemm);
-    }
-
-    // check instances
-    std::vector<GemmCodeGen> valid_gemm_instances;
-    for (const auto& gemm_instance : gemm_instances) {
-        if (IsValidInstance(gemm_instance)) {
-            valid_gemm_instances.push_back(gemm_instance);
-        }
-    }
-
-    switch (FLAGS_FC_TUNING_MODE) {
-        case 0: {
-            // 
-        }
-        case 1: {
-            VLOG(1) << "Generating instances using autotuning mode for GEMM kind: "
-                    << GetGemmKindName(gemm_problem.kind_);
-            break;
-        }
-        case 2: {
-            VLOG(1) << "Generating instances using hybrid mode for GEMM kind: " << GetGemmKindName(gemm_problem.kind_);
-            break;
-        }
-        default:
-            FC_THROW(Unavailable("Invalid mode:{} ", FLAGS_FC_TUNING_MODE));
-    }
-
-
-    if (valid_gemm_instances.empty()) {
-        FC_THROW(Unavailable("No valid GEMM instances found for GEMM problem"));
-    }
-    
-
-    // Generate instances
-    std::map<std::string, GemmCodeGen>& kind_instance_map = instance_map_[gemm_problem.kind_];
-    int64_t                             generated_count   = 0;
-
-    for (const auto& instance : valid_gemm_instances) {
+    // Load backup configurations (pre-validated single configs)
+    if (FLAGS_FC_ENABLE_BACKUP_JSON) {
         try {
-            std::string instance_name = instance.GetInstanceName();
-
-            // Avoid duplicates
-            if (kind_instance_map.find(instance_name) == kind_instance_map.end()) {
-                kind_instance_map[instance_name] = std::move(instance);
-                generated_count++;
-                VLOG(2) << "Generated GEMM instance: " << instance_name;
+            std::filesystem::path backup_path = base_json_path / "backup_config.json";
+            if (std::filesystem::exists(backup_path)) {
+                auto backup_configs = LoadConfigJson<std::vector<GemmConfig>>(backup_path);
+                for (const auto& config : backup_configs) {
+                    auto backup_instances = CreateInstanceForConfig(config, gemm_problem);
+                    all_instances.insert(all_instances.end(), backup_instances.begin(), backup_instances.end());
+                }
+                VLOG(2) << "Loaded " << backup_configs.size() << " GEMM backup configurations";
             }
-            else {
-                VLOG(3) << "Skipped duplicate GEMM instance: " << instance_name;
-            }
-        }
-        catch (const std::exception& e) {
-            LOG(WARNING) << "Failed to create GEMM codegen for instance: " << instance.GetInstanceName()
-                         << ", error: " << e.what();
+        } catch (const std::exception& e) {
+            LOG(WARNING) << "Failed to load GEMM backup config: " << e.what();
         }
     }
 
-    num_instances_ += generated_count;
-    VLOG(1) << "Generated " << generated_count << " GEMM instances for kind: " << GetGemmKindName(gemm_problem.kind_)
-            << " (total: " << num_instances_ << ")";
+    // Load default configurations (parameter ranges)
+    if (FLAGS_FC_ENABLE_DEFAULT_JSON) {
+        try {
+            std::filesystem::path default_path = base_json_path / "default_config.json";
+            if (std::filesystem::exists(default_path)) {
+                auto default_config = LoadConfigJson<GemmConfig>(default_path);
+                auto default_instances = CreateInstanceForConfig(default_config, gemm_problem);
+                all_instances.insert(all_instances.end(), default_instances.begin(), default_instances.end());
+                VLOG(2) << "Loaded GEMM default configuration with " << default_instances.size() << " instances";
+            }
+        } catch (const std::exception& e) {
+            LOG(WARNING) << "Failed to load GEMM default config: " << e.what();
+        }
+    }
+
+    // Load user configurations (custom parameter ranges)
+    if (FLAGS_FC_ENABLE_USER_JSON) {
+        try {
+            std::filesystem::path user_path = base_json_path / "user_config.json";
+            if (std::filesystem::exists(user_path)) {
+                auto user_config = LoadConfigJson<GemmConfig>(user_path);
+                auto user_instances = CreateInstanceForConfig(user_config, gemm_problem);
+                all_instances.insert(all_instances.end(), user_instances.begin(), user_instances.end());
+                VLOG(2) << "Loaded GEMM user configuration with " << user_instances.size() << " instances";
+            }
+        } catch (const std::exception& e) {
+            LOG(WARNING) << "Failed to load GEMM user config: " << e.what();
+        }
+    }
+
+    // Apply mode-specific processing
+    std::vector<GemmCodeGen> final_instances;
+    
+    switch (FLAGS_FC_TUNING_MODE) {
+        case 0: {  // Heuristic mode: filter + random selection for fast execution
+            auto filtered_instances = HeuristicFilter(all_instances, gemm_problem);
+            if (!filtered_instances.empty()) {
+                // Randomly select one optimal configuration for fast execution
+                std::random_device rd;
+                std::mt19937 gen(rd());
+                std::uniform_int_distribution<> dis(0, filtered_instances.size() - 1);
+                final_instances.push_back(filtered_instances[dis(gen)]);
+                VLOG(1) << "GEMM heuristic mode: selected 1 instance from " 
+                        << filtered_instances.size() << " filtered candidates";
+            }
+            break;
+        }
+        case 1: {  // Autotuning mode: use all valid instances for comprehensive search
+            final_instances = all_instances;
+            VLOG(1) << "GEMM autotuning mode: using all " << all_instances.size() << " instances";
+            break;
+        }
+        case 2: {  // Hybrid mode: heuristic filtering + broader search
+            auto filtered_instances = HeuristicFilter(all_instances, gemm_problem);
+            final_instances = filtered_instances.empty() ? all_instances : filtered_instances;
+            VLOG(1) << "GEMM hybrid mode: using " << final_instances.size() 
+                    << " instances (filtered from " << all_instances.size() << ")";
+            break;
+        }
+    }
+
+    // Validate and store instances
+    num_instances_ = 0;
+    for (const auto& instance : final_instances) {
+        if (IsValidInstance(instance)) {
+            instance_map_[gemm_problem.kind_][instance.GetInstanceName()] = instance;
+            ++num_instances_;
+        }
+    }
+
+    VLOG(1) << "Generated " << num_instances_ << " valid GEMM instances for " 
+            << GetGemmKindName(gemm_problem.kind_) << " (mode " << FLAGS_FC_TUNING_MODE << ")";
 }
 
 int64_t GemmEmitter::GetNumInstances() const

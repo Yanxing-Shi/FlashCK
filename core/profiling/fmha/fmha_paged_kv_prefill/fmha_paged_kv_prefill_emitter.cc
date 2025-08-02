@@ -1,58 +1,66 @@
 #include "core/profiling/fmha/fmha_paged_kv_prefill/fmha_paged_kv_prefill_emitter.h"
 
+#include <algorithm>
+#include <filesystem>
+#include <random>
 
-FC_DECLARE_int32(FC_TUNING_MODE);  // Mode for FMHA operation: 0 - heuristic, 1 - autotuning, 2 - hybrid
-FC_DECLARE_bool(FC_ENABLE_CONFIG_JSON);
-FC_DECLARE_string(FC_CONFIG_JSON_PATH);
-FC_DECLARE_int32(FC_ENABLE_JSON_MODE);
+FC_DECLARE_int32(FC_TUNING_MODE);    // 0: heuristic, 1: autotuning, 2: hybrid
+FC_DECLARE_bool(FC_ENABLE_BACKUP_JSON);   // Enable backup_config.json loading
+FC_DECLARE_bool(FC_ENABLE_DEFAULT_JSON);  // Enable default_config.json loading  
+FC_DECLARE_bool(FC_ENABLE_USER_JSON);     // Enable user_config.json loading
+FC_DECLARE_string(FC_CONFIG_JSON_PATH);   // Base path for config files
+FC_DECLARE_int32(FC_ENABLE_JSON_MODE);    // JSON configuration mode
 
 namespace flashck {
 
 bool FmhaPagedKVPrefillEmitter::IsValidTile(const FmhaPagedKVPrefillTileDesc& tile_desc, const FmhaProblem& fmha_problem)
 {
-    // All tile parameters must be positive
-    if (tile_desc.m0_block_ <= 0 || tile_desc.n0_block_ <= 0 || tile_desc.k0_block_ <= 0 || tile_desc.k0_max_block_ <= 0 ||
-        tile_desc.n1_block_ <= 0 || tile_desc.k1_block_ <= 0 ||
+    // Validate all tile parameters are positive
+    if (tile_desc.m0_block_ <= 0 || tile_desc.n0_block_ <= 0 || tile_desc.k0_block_ <= 0 || 
+        tile_desc.k0_max_block_ <= 0 || tile_desc.n1_block_ <= 0 || tile_desc.k1_block_ <= 0 ||
         tile_desc.m0_warp_ <= 0 || tile_desc.n0_warp_ <= 0 || tile_desc.k0_warp_ < 0 ||
         tile_desc.m1_warp_ <= 0 || tile_desc.n1_warp_ <= 0 || tile_desc.k1_warp_ < 0 ||
         tile_desc.m0_warp_tile_ <= 0 || tile_desc.n0_warp_tile_ <= 0 || tile_desc.k0_warp_tile_ <= 0 ||
         tile_desc.m1_warp_tile_ <= 0 || tile_desc.n1_warp_tile_ <= 0 || tile_desc.k1_warp_tile_ <= 0) {
-        VLOG(3) << "Invalid FMHA tile descriptor: negative or zero values not allowed";
+        VLOG(3) << "Invalid FMHA tile: negative or zero values not allowed";
         return false;
     }
 
-    // Cross-parameter constraints
-    // 1. k0_block_ should not exceed k0_max_block_
+    // Validate k0_block_ <= k0_max_block_
     if (tile_desc.k0_block_ > tile_desc.k0_max_block_) {
-        VLOG(3) << "Invalid FMHA tile descriptor: k0_block_ > k0_max_block_";
+        VLOG(3) << "Invalid FMHA tile: k0_block_ > k0_max_block_";
         return false;
     }
-    // 2. Warp and warp tile sizes should not exceed block sizes
+
+    // Validate warp*warp_tile <= block sizes
     if (tile_desc.m0_warp_ * tile_desc.m0_warp_tile_ > tile_desc.m0_block_ ||
         tile_desc.n0_warp_ * tile_desc.n0_warp_tile_ > tile_desc.n0_block_ ||
         tile_desc.k0_warp_ * tile_desc.k0_warp_tile_ > tile_desc.k0_block_ ||
         tile_desc.m1_warp_ * tile_desc.m1_warp_tile_ > tile_desc.m0_block_ ||
         tile_desc.n1_warp_ * tile_desc.n1_warp_tile_ > tile_desc.n1_block_ ||
         tile_desc.k1_warp_ * tile_desc.k1_warp_tile_ > tile_desc.k1_block_) {
-        VLOG(3) << "Invalid FMHA tile descriptor: warp*warp_tile exceeds block size";
+        VLOG(3) << "Invalid FMHA tile: warp*warp_tile exceeds block size";
         return false;
     }
-    // 3. All block sizes should be divisible by warp*warp_tile sizes
+
+    // Validate block sizes are divisible by warp*warp_tile
     if ((tile_desc.m0_block_ % (tile_desc.m0_warp_ * tile_desc.m0_warp_tile_) != 0) ||
         (tile_desc.n0_block_ % (tile_desc.n0_warp_ * tile_desc.n0_warp_tile_) != 0) ||
         (tile_desc.k0_block_ % (std::max<int64_t>(1, tile_desc.k0_warp_ * tile_desc.k0_warp_tile_)) != 0) ||
         (tile_desc.m0_block_ % (tile_desc.m1_warp_ * tile_desc.m1_warp_tile_) != 0) ||
         (tile_desc.n1_block_ % (tile_desc.n1_warp_ * tile_desc.n1_warp_tile_) != 0) ||
         (tile_desc.k1_block_ % (std::max<int64_t>(1, tile_desc.k1_warp_ * tile_desc.k1_warp_tile_)) != 0)) {
-        VLOG(3) << "Invalid FMHA tile descriptor: block size not divisible by warp*warp_tile";
+        VLOG(3) << "Invalid FMHA tile: block size not divisible by warp*warp_tile";
         return false;
     }
 
     // Validate against problem dimensions for Batch mode
     if (fmha_problem.mode_ == FmhaMode::Batch) {
-        if (tile_desc.m0_block_ > fmha_problem.q_seq_len_ || tile_desc.n0_block_ > fmha_problem.kv_seq_len_ ||
-            tile_desc.n1_block_ > fmha_problem.v_head_dim_ || tile_desc.k0_max_block_ > fmha_problem.qk_head_dim_) {
-            VLOG(3) << "Invalid FMHA tile descriptor: tile dimensions exceed problem dimensions";
+        if (tile_desc.m0_block_ > fmha_problem.q_seq_len_ || 
+            tile_desc.n0_block_ > fmha_problem.kv_seq_len_ ||
+            tile_desc.n1_block_ > fmha_problem.v_head_dim_ || 
+            tile_desc.k0_max_block_ > fmha_problem.qk_head_dim_) {
+            VLOG(3) << "Invalid FMHA tile: dimensions exceed problem dimensions";
             return false;
         }
     }
@@ -63,131 +71,236 @@ bool FmhaPagedKVPrefillEmitter::IsValidTile(const FmhaPagedKVPrefillTileDesc& ti
 bool FmhaPagedKVPrefillEmitter::IsValidInstance(const FmhaPagedKVPrefillCodeGen& instance)
 {
     return IsValidTile(instance.tile_desc_, instance.problem_);
-} 
+}
 
+std::vector<FmhaPagedKVPrefillCodeGen> FmhaPagedKVPrefillEmitter::HeuristicFilter(
+    const std::vector<FmhaPagedKVPrefillCodeGen>& instances,
+    const FmhaProblem& fmha_problem) const
+{
+    if (instances.empty()) {
+        return {};
+    }
 
-// std::vector<FmhaPagedKVPrefillTileDesc> FmhaPagedKVPrefillEmitter::HeuristicFilter(const std::vector<FmhaPagedKVPrefillTileDesc>& fmha_tile_desc,
-//                                                        const FmhaProblem&               fmha_problem) const
-// {
-// }
+    std::vector<FmhaPagedKVPrefillCodeGen> filtered;
+    
+    // Heuristic 1: Prefer larger block sizes for better memory efficiency
+    constexpr int64_t preferred_min_block_size = 128;
+    
+    // Heuristic 2: Prefer balanced warp configurations
+    constexpr int64_t preferred_warp_count = 4;
+    
+    // Heuristic 3: Filter based on problem size ratios
+    const int64_t seq_len_ratio = fmha_problem.q_seq_len_ / fmha_problem.kv_seq_len_;
+    
+    for (const auto& instance : instances) {
+        const auto& tile = instance.tile_desc_;
+        
+        // Filter 1: Skip very small block sizes (poor efficiency)
+        if (tile.m0_block_ < 64 || tile.n0_block_ < 32) {
+            continue;
+        }
+        
+        // Filter 2: Prefer configurations with reasonable warp distribution
+        int64_t total_warps = tile.m0_warp_ * tile.n0_warp_ * tile.k0_warp_;
+        if (total_warps > 8 || total_warps < 1) {
+            continue;
+        }
+        
+        // Filter 3: Problem-specific filtering for sequence length ratios
+        if (seq_len_ratio > 2 && tile.m0_block_ < tile.n0_block_) {
+            // For long query sequences, prefer larger m0 blocks
+            continue;
+        }
+        
+        // Filter 4: Avoid excessive head dimension splitting
+        if (tile.k0_block_ < fmha_problem.qk_head_dim_ / 4) {
+            continue;
+        }
+        
+        filtered.push_back(instance);
+    }
+    
+    // If filtering is too aggressive, return a subset of original instances
+    if (filtered.empty()) {
+        VLOG(2) << "Heuristic filter too aggressive, returning subset of original instances";
+        const size_t subset_size = std::min<size_t>(instances.size(), 10);
+        filtered.assign(instances.begin(), instances.begin() + subset_size);
+    }
+    
+    VLOG(2) << "Heuristic filter: " << instances.size() << " -> " << filtered.size() << " instances";
+    return filtered;
+}
 
-// std::vector<FmhaPagedKVPrefillAppendKVTileDesc> FmhaPagedKVPrefillEmitter::HeuristicFilter(const std::vector<FmhaPagedKVPrefillAppendKVTileDesc>& fmha_tile_desc,
-//                                                                const FmhaProblem& fmha_problem) const
-// {   
-// }
-
-// std::vector<FmhaPagedKVPrefillSplitKVCombineTileDesc>
-// FmhaPagedKVPrefillEmitter::HeuristicFilter(const std::vector<FmhaPagedKVPrefillSplitKVCombineTileDesc>& fmha_tile_desc,
-//                              const FmhaProblem&                             fmha_problem) const
-// {
-// }
-
-
-// Generate all possible FmhaPagedKVPrefillCodeGen instances from a FmhaPagedKVPrefillConfig
-std::vector<FmhaPagedKVPrefillCodeGen> FmhaPagedKVPrefillEmitter::CreateInstanceForConfig(const FmhaPagedKVPrefillConfig& config, const FmhaProblem& fmha_problem) {
+std::vector<FmhaPagedKVPrefillCodeGen> FmhaPagedKVPrefillEmitter::CreateInstanceForConfig(
+    const FmhaPagedKVPrefillConfig& config, const FmhaProblem& fmha_problem) 
+{
     std::vector<FmhaPagedKVPrefillCodeGen> result;
 
-    std::vector<std::vector<int64_t>> all_lists = {
-        // BlockConfig
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile.block.m0.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile.block.n0.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile.block.k0.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile.block.k0_max.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile.block.n1.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile.block.k1.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        // WarpConfig
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile.warp.m0.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile.warp.n0.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile.warp.k0.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile.warp.m1.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile.warp.n1.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile.warp.k1.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        // WarpTileConfig
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile.warp_tile.m0.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile.warp_tile.n0.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile.warp_tile.k0.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile.warp_tile.m1.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile.warp_tile.n1.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile.warp_tile.k1.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        // PaddingConfig (convert bool to int64_t)
-        [&]{ std::vector<int64_t> v; for (auto x : config.padding.s.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.padding.sk.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.padding.d.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.padding.dv.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        // LaunchConfig
-        [&]{ std::vector<int64_t> v; for (auto x : config.launch.min_block_per_cu.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        // PipelineConfig (enum as int64_t)
-        [&]{ std::vector<int64_t> v; for (const auto& x : config.pipeline.values) v.emplace_back(static_cast<int64_t>(GetBlockFmhaPipelineEnumFromString(x))); return v; }(),
+    // Convert all config parameters to int64_t vectors for CartesianProduct
+    std::vector<std::vector<int64_t>> all_param_lists = {
+        // Block tile configuration (6 parameters)
+        [&]{ std::vector<int64_t> v; 
+             for (auto x : config.tile_shape.block_tile.m0.values) v.push_back(static_cast<int64_t>(x)); 
+             return v; }(),
+        [&]{ std::vector<int64_t> v; 
+             for (auto x : config.tile_shape.block_tile.n0.values) v.push_back(static_cast<int64_t>(x)); 
+             return v; }(),
+        [&]{ std::vector<int64_t> v; 
+             for (auto x : config.tile_shape.block_tile.k0.values) v.push_back(static_cast<int64_t>(x)); 
+             return v; }(),
+        [&]{ std::vector<int64_t> v; 
+             for (auto x : config.tile_shape.block_tile.k0_max.values) v.push_back(static_cast<int64_t>(x)); 
+             return v; }(),
+        [&]{ std::vector<int64_t> v; 
+             for (auto x : config.tile_shape.block_tile.n1.values) v.push_back(static_cast<int64_t>(x)); 
+             return v; }(),
+        [&]{ std::vector<int64_t> v; 
+             for (auto x : config.tile_shape.block_tile.k1.values) v.push_back(static_cast<int64_t>(x)); 
+             return v; }(),
+        
+        // Block warp configuration (6 parameters)
+        [&]{ std::vector<int64_t> v; 
+             for (auto x : config.tile_shape.block_warps.m0.values) v.push_back(static_cast<int64_t>(x)); 
+             return v; }(),
+        [&]{ std::vector<int64_t> v; 
+             for (auto x : config.tile_shape.block_warps.n0.values) v.push_back(static_cast<int64_t>(x)); 
+             return v; }(),
+        [&]{ std::vector<int64_t> v; 
+             for (auto x : config.tile_shape.block_warps.k0.values) v.push_back(static_cast<int64_t>(x)); 
+             return v; }(),
+        [&]{ std::vector<int64_t> v; 
+             for (auto x : config.tile_shape.block_warps.m1.values) v.push_back(static_cast<int64_t>(x)); 
+             return v; }(),
+        [&]{ std::vector<int64_t> v; 
+             for (auto x : config.tile_shape.block_warps.n1.values) v.push_back(static_cast<int64_t>(x)); 
+             return v; }(),
+        [&]{ std::vector<int64_t> v; 
+             for (auto x : config.tile_shape.block_warps.k1.values) v.push_back(static_cast<int64_t>(x)); 
+             return v; }(),
+        
+        // Warp tile configuration (6 parameters)
+        [&]{ std::vector<int64_t> v; 
+             for (auto x : config.tile_shape.warp_tile.m0.values) v.push_back(static_cast<int64_t>(x)); 
+             return v; }(),
+        [&]{ std::vector<int64_t> v; 
+             for (auto x : config.tile_shape.warp_tile.n0.values) v.push_back(static_cast<int64_t>(x)); 
+             return v; }(),
+        [&]{ std::vector<int64_t> v; 
+             for (auto x : config.tile_shape.warp_tile.k0.values) v.push_back(static_cast<int64_t>(x)); 
+             return v; }(),
+        [&]{ std::vector<int64_t> v; 
+             for (auto x : config.tile_shape.warp_tile.m1.values) v.push_back(static_cast<int64_t>(x)); 
+             return v; }(),
+        [&]{ std::vector<int64_t> v; 
+             for (auto x : config.tile_shape.warp_tile.n1.values) v.push_back(static_cast<int64_t>(x)); 
+             return v; }(),
+        [&]{ std::vector<int64_t> v; 
+             for (auto x : config.tile_shape.warp_tile.k1.values) v.push_back(static_cast<int64_t>(x)); 
+             return v; }(),
+        
+        // Padding configuration (4 parameters, bool->int64_t)
+        [&]{ std::vector<int64_t> v; 
+             for (auto x : config.padding.s.values) v.push_back(static_cast<int64_t>(x)); 
+             return v; }(),
+        [&]{ std::vector<int64_t> v; 
+             for (auto x : config.padding.sk.values) v.push_back(static_cast<int64_t>(x)); 
+             return v; }(),
+        [&]{ std::vector<int64_t> v; 
+             for (auto x : config.padding.d.values) v.push_back(static_cast<int64_t>(x)); 
+             return v; }(),
+        [&]{ std::vector<int64_t> v; 
+             for (auto x : config.padding.dv.values) v.push_back(static_cast<int64_t>(x)); 
+             return v; }(),
+        
+        // Launch configuration (1 parameter)
+        [&]{ std::vector<int64_t> v; 
+             for (auto x : config.launch.min_block_per_cu.values) v.push_back(static_cast<int64_t>(x)); 
+             return v; }(),
+        
+        // Pipeline configuration (1 parameter, string->enum->int64_t)
+        [&]{ std::vector<int64_t> v; 
+             for (const auto& x : config.pipeline.values) 
+                 v.push_back(static_cast<int64_t>(StrToBlockFmhaPipelineEnum(x))); 
+             return v; }(),
     };
 
-    CartesianProduct(all_lists, [&](const std::vector<int64_t>& vals) {
+    // Generate all parameter combinations using CartesianProduct
+    CartesianProduct(all_param_lists, [&](const std::vector<int64_t>& param_values) {
         size_t idx = 0;
-        // BlockConfig
-        int64_t m0_block = vals[idx++];
-        int64_t n0_block = vals[idx++];
-        int64_t k0_block = vals[idx++];
-        int64_t k0_max_block = vals[idx++];
-        int64_t n1_block = vals[idx++];
-        int64_t k1_block = vals[idx++];
+        
+        // Extract block tile parameters
+        int64_t m0_block = param_values[idx++];
+        int64_t n0_block = param_values[idx++];
+        int64_t k0_block = param_values[idx++];
+        int64_t k0_max_block = param_values[idx++];
+        int64_t n1_block = param_values[idx++];
+        int64_t k1_block = param_values[idx++];
+        
+        // Extract block warp parameters
+        int64_t m0_warp = param_values[idx++];
+        int64_t n0_warp = param_values[idx++];
+        int64_t k0_warp = param_values[idx++];
+        int64_t m1_warp = param_values[idx++];
+        int64_t n1_warp = param_values[idx++];
+        int64_t k1_warp = param_values[idx++];
+        
+        // Extract warp tile parameters
+        int64_t m0_warp_tile = param_values[idx++];
+        int64_t n0_warp_tile = param_values[idx++];
+        int64_t k0_warp_tile = param_values[idx++];
+        int64_t m1_warp_tile = param_values[idx++];
+        int64_t n1_warp_tile = param_values[idx++];
+        int64_t k1_warp_tile = param_values[idx++];
+        
+        // Extract padding parameters
+        bool is_pad_q_seq_len = static_cast<bool>(param_values[idx++]);
+        bool is_pad_kv_seq_len = static_cast<bool>(param_values[idx++]);
+        bool is_pad_qk_head_dim = static_cast<bool>(param_values[idx++]);
+        bool is_pad_v_head_dim = static_cast<bool>(param_values[idx++]);
+        
+        // Extract launch parameters
+        int64_t min_block_per_cu = param_values[idx++];
+        
+        // Extract pipeline parameters
+        BlockFmhaPipelineEnum pipeline = static_cast<BlockFmhaPipelineEnum>(param_values[idx++]);
 
-        int64_t m0_warp = vals[idx++];
-        int64_t n0_warp = vals[idx++];
-        int64_t k0_warp = vals[idx++];
-        int64_t m1_warp = vals[idx++];
-        int64_t n1_warp = vals[idx++];
-        int64_t k1_warp = vals[idx++];
-
-        int64_t m0_warp_tile = vals[idx++];
-        int64_t n0_warp_tile = vals[idx++];
-        int64_t k0_warp_tile = vals[idx++];
-        int64_t m1_warp_tile = vals[idx++];
-        int64_t n1_warp_tile = vals[idx++];
-        int64_t k1_warp_tile = vals[idx++];
-
-        // PaddingConfig
-        bool is_pad_q_seq_len = static_cast<bool>(vals[idx++]);
-        bool is_pad_kv_seq_len = static_cast<bool>(vals[idx++]);
-        bool is_pad_qk_head_dim = static_cast<bool>(vals[idx++]);
-        bool is_pad_v_head_dim = static_cast<bool>(vals[idx++]);
-
-        // launch config
-        int64_t min_block_per_cu = vals[idx++];
-
-        // PipelineConfig
-        BlockFmhaPipelineEnum pipeline = static_cast<BlockFmhaPipelineEnum>(vals[idx++]);
-
-        // Construct FmhaPagedKVPrefillCodeGen
-        FmhaPagedKVPrefillCodeGen fmha;
-        fmha.problem_ = fmha_problem;
-        // tile_desc
-        fmha.tile_desc_.m0_block_ = m0_block;
-        fmha.tile_desc_.n0_block_ = n0_block;
-        fmha.tile_desc_.k0_block_ = k0_block;
-        fmha.tile_desc_.k0_max_block_ = k0_max_block;
-        fmha.tile_desc_.n1_block_ = n1_block;
-        fmha.tile_desc_.k1_block_ = k1_block;
-        fmha.tile_desc_.m0_warp_ = m0_warp;
-        fmha.tile_desc_.n0_warp_ = n0_warp;
-        fmha.tile_desc_.k0_warp_ = k0_warp;
-        fmha.tile_desc_.m1_warp_ = m1_warp;
-        fmha.tile_desc_.n1_warp_ = n1_warp;
-        fmha.tile_desc_.k1_warp_ = k1_warp;
-        fmha.tile_desc_.m0_warp_tile_ = m0_warp_tile;
-        fmha.tile_desc_.n0_warp_tile_ = n0_warp_tile;
-        fmha.tile_desc_.k0_warp_tile_ = k0_warp_tile;
-        fmha.tile_desc_.m1_warp_tile_ = m1_warp_tile;
-        fmha.tile_desc_.n1_warp_tile_ = n1_warp_tile;
-        fmha.tile_desc_.k1_warp_tile_ = k1_warp_tile;
-        // Padding
-        fmha.is_pad_q_seq_len_ = is_pad_q_seq_len;
-        fmha.is_pad_kv_seq_len_ = is_pad_kv_seq_len;
-        fmha.is_pad_qk_head_dim_ = is_pad_qk_head_dim;
-        fmha.is_pad_v_head_dim_ = is_pad_v_head_dim;
-        // Launch
-        fmha.min_block_per_cu_ = min_block_per_cu;
-        // Pipeline
-        fmha.pipeline_ = pipeline;
-        result.push_back(fmha);
+        // Construct FmhaPagedKVPrefillCodeGen instance
+        FmhaPagedKVPrefillCodeGen instance;
+        instance.problem_ = fmha_problem;
+        
+        // Set tile descriptor
+        instance.tile_desc_.m0_block_ = m0_block;
+        instance.tile_desc_.n0_block_ = n0_block;
+        instance.tile_desc_.k0_block_ = k0_block;
+        instance.tile_desc_.k0_max_block_ = k0_max_block;
+        instance.tile_desc_.n1_block_ = n1_block;
+        instance.tile_desc_.k1_block_ = k1_block;
+        instance.tile_desc_.m0_warp_ = m0_warp;
+        instance.tile_desc_.n0_warp_ = n0_warp;
+        instance.tile_desc_.k0_warp_ = k0_warp;
+        instance.tile_desc_.m1_warp_ = m1_warp;
+        instance.tile_desc_.n1_warp_ = n1_warp;
+        instance.tile_desc_.k1_warp_ = k1_warp;
+        instance.tile_desc_.m0_warp_tile_ = m0_warp_tile;
+        instance.tile_desc_.n0_warp_tile_ = n0_warp_tile;
+        instance.tile_desc_.k0_warp_tile_ = k0_warp_tile;
+        instance.tile_desc_.m1_warp_tile_ = m1_warp_tile;
+        instance.tile_desc_.n1_warp_tile_ = n1_warp_tile;
+        instance.tile_desc_.k1_warp_tile_ = k1_warp_tile;
+        
+        // Set padding configuration
+        instance.is_pad_q_seq_len_ = is_pad_q_seq_len;
+        instance.is_pad_kv_seq_len_ = is_pad_kv_seq_len;
+        instance.is_pad_qk_head_dim_ = is_pad_qk_head_dim;
+        instance.is_pad_v_head_dim_ = is_pad_v_head_dim;
+        
+        // Set launch configuration
+        instance.min_block_per_cu_ = min_block_per_cu;
+        
+        // Set pipeline configuration
+        instance.pipeline_ = pipeline;
+        
+        result.push_back(instance);
     });
 
     return result;
@@ -195,149 +308,159 @@ std::vector<FmhaPagedKVPrefillCodeGen> FmhaPagedKVPrefillEmitter::CreateInstance
 
 void FmhaPagedKVPrefillEmitter::GenerateInstances(FmhaProblem& fmha_problem)
 {
-    FC_ENFORCE_EQ(FLAGS_FC_TUNING_MODE == 0 || FLAGS_FC_TUNING_MODE == 1 || FLAGS_FC_TUNING_MODE == 2,
-                  true,
-                  Unavailable("Unsupported mode: {}, valid modes are 0 (heuristic), 1 (autotuning), 2 (hybrid)", FLAGS_FC_TUNING_MODE));
-
+    // Validate tuning mode
+    FC_ENFORCE_EQ(FLAGS_FC_TUNING_MODE >= 0 && FLAGS_FC_TUNING_MODE <= 2, true,
+                  Unavailable("Invalid tuning mode: {}, valid modes are 0 (heuristic), 1 (autotuning), 2 (hybrid)", 
+                              FLAGS_FC_TUNING_MODE));
 
     // Check if instances already exist for this FMHA kind
-    if (instance_map_.find(fmha_problem.kind_) != instance_map_.end() && !instance_map_[fmha_problem.kind_].empty()) {
+    if (instance_map_.find(fmha_problem.kind_) != instance_map_.end() && 
+        !instance_map_[fmha_problem.kind_].empty()) {
         VLOG(2) << "Instances already generated for FMHA kind: " << GetFmhaKindName(fmha_problem.kind_);
         return;
     }
 
-    // Load legacy GEMM configuration if available
-    std::vector<FmhaPagedKVPrefillCodeGen> fmha_instances;
-    if (FLAGS_FC_ENABLE_CONFIG_JSON) {
-        auto base_json_path = std::filesystem::path(FLAGS_FC_CONFIG_JSON_PATH) / GetFmhaKindName(fmha_problem.kind_);
-        if(FLAGS_FC_ENABLE_JSON_MODE == 0) {
-            std::filesystem::path json_path = base_json_path / "default_config.json";
-            FmhaPagedKVPrefillConfig config = LoadConfigJson<FmhaPagedKVPrefillConfig>(json_path);
-            fmha_instances = CreateInstanceForConfig(config, fmha_problem);
-        } else if (FLAGS_FC_ENABLE_JSON_MODE == 1) {
-            std::filesystem::path json_path = base_json_path / "user_config.json";
-            FmhaPagedKVPrefillConfig config = LoadConfigJson<FmhaPagedKVPrefillConfig>(json_path);
-            fmha_instances = CreateInstanceForConfig(config, fmha_problem);
-        } else if (FLAGS_FC_ENABLE_JSON_MODE == 2) {
-            std::filesystem::path default_json_path = base_json_path / "default_config.json";
-            FmhaPagedKVPrefillConfig default_config = LoadConfigJson<FmhaPagedKVPrefillConfig>(default_json_path);
-            auto gemm_default_instances = CreateInstanceForConfig(default_config, fmha_problem);
+    VLOG(1) << "Generating FMHA batch prefill instances for mode: " << FLAGS_FC_TUNING_MODE;
 
-            std::filesystem::path user_json_path = base_json_path / "user_config.json";
-            FmhaPagedKVPrefillConfig user_config = LoadConfigJson<FmhaPagedKVPrefillConfig>(user_json_path);
-            auto gemm_user_instances = CreateInstanceForConfig(user_config, fmha_problem);
-
-            fmha_instances.insert(fmha_instances.end(), gemm_default_instances.begin(), gemm_default_instances.end());
-            fmha_instances.insert(fmha_instances.end(), gemm_user_instances.begin(), gemm_user_instances.end());
-        }
-    else{
-            LOG(WARNING)<< "FC_ENABLE_JSON_MODE is set to an unsupported value: " << FLAGS_FC_ENABLE_JSON_MODE;
-        }
-    } else {
-        LOG(WARNING)<< "FC_ENABLE_CONFIG_JSON is not enabled";
-    }
-
-    for (const auto& config : g_backup_fmha_paged_kv_prefill_config) {
-        FmhaPagedKVPrefillCodeGen fmha;
-
-        fmha.problem_ = fmha_problem;
-
-        fmha.tile_desc_ = FmhaPagedKVPrefillTileDesc{
-            config.tile.block.m0.values[0],
-            config.tile.block.n0.values[0],
-            config.tile.block.k0.values[0],
-            config.tile.block.k0_max.values[0],
-            config.tile.block.n1.values[0],
-            config.tile.block.k1.values[0],
-            config.tile.warp.m0.values[0],
-            config.tile.warp.n0.values[0],
-            config.tile.warp.k0.values[0],
-            config.tile.warp.m1.values[0],
-            config.tile.warp.n1.values[0],
-            config.tile.warp.k1.values[0],
-            config.tile.warp_tile.m0.values[0],
-            config.tile.warp_tile.n0.values[0],
-            config.tile.warp_tile.k0.values[0],
-            config.tile.warp_tile.m1.values[0],
-            config.tile.warp_tile.n1.values[0],
-            config.tile.warp_tile.k1.values[0]
-        };
-
-        fmha.is_pad_q_seq_len_ = config.padding.s.values[0];
-        fmha.is_pad_kv_seq_len_ = config.padding.sk.values[0];
-        fmha.is_pad_qk_head_dim_ = config.padding.d.values[0];
-        fmha.is_pad_v_head_dim_ = config.padding.dv.values[0];
-
-        fmha.min_block_per_cu_ = config.launch.min_block_per_cu.values[0];
-
-        fmha.pipeline_ = GetBlockFmhaPipelineEnumFromString(config.pipeline.values[0]);
-
-        fmha_instances.push_back(fmha);
-    }
-
-    // check instances
-    std::vector<FmhaPagedKVPrefillCodeGen> valid_fmha_instances;
-    for (const auto& fmha_instance : fmha_instances) {
-        if (IsValidInstance(fmha_instance)) {
-            valid_fmha_instances.push_back(fmha_instance);
+    // Load configurations from JSON files
+    auto base_json_path = std::filesystem::path(FLAGS_FC_CONFIG_JSON_PATH) / GetFmhaKindName(fmha_problem.kind_);
+    std::vector<FmhaPagedKVPrefillCodeGen> all_instances;
+    
+    // Load backup configurations (pre-validated, single-value configs)
+    if (FLAGS_FC_ENABLE_BACKUP_JSON) {
+        std::filesystem::path json_path = base_json_path / "backup_config.json";
+        try {
+            auto backup_configs = LoadConfigJson<std::vector<FmhaPagedKVPrefillConfig>>(json_path);
+            for (const auto& config : backup_configs) {
+                auto instances = CreateInstanceForConfig(config, fmha_problem);
+                all_instances.insert(all_instances.end(), instances.begin(), instances.end());
+            }
+            VLOG(2) << "Loaded " << backup_configs.size() << " backup configurations";
+        } catch (const std::exception& e) {
+            LOG(WARNING) << "Failed to load backup config: " << e.what();
         }
     }
 
+    // Load default configurations (parameter ranges for tuning)
+    if (FLAGS_FC_ENABLE_DEFAULT_JSON) {
+        std::filesystem::path json_path = base_json_path / "default_config.json";
+        try {
+            auto default_config = LoadConfigJson<FmhaPagedKVPrefillConfig>(json_path);
+            auto instances = CreateInstanceForConfig(default_config, fmha_problem);
+            all_instances.insert(all_instances.end(), instances.begin(), instances.end());
+            VLOG(2) << "Loaded default configuration with " << instances.size() << " instances";
+        } catch (const std::exception& e) {
+            LOG(WARNING) << "Failed to load default config: " << e.what();
+        }
+    }
+
+    // Load user configurations (custom user-defined configs)
+    if (FLAGS_FC_ENABLE_USER_JSON) {
+        std::filesystem::path json_path = base_json_path / "user_config.json";
+        try {
+            auto user_config = LoadConfigJson<FmhaPagedKVPrefillConfig>(json_path);
+            auto instances = CreateInstanceForConfig(user_config, fmha_problem);
+            all_instances.insert(all_instances.end(), instances.begin(), instances.end());
+            VLOG(2) << "Loaded user configuration with " << instances.size() << " instances";
+        } catch (const std::exception& e) {
+            LOG(WARNING) << "Failed to load user config: " << e.what();
+        }
+    }
+
+    // Filter out invalid instances
+    std::vector<FmhaPagedKVPrefillCodeGen> valid_instances;
+    for (const auto& instance : all_instances) {
+        if (IsValidInstance(instance)) {
+            valid_instances.push_back(instance);
+        }
+    }
+
+    VLOG(2) << "Validation: " << all_instances.size() << " -> " << valid_instances.size() << " valid instances";
+
+    if (valid_instances.empty()) {
+        FC_THROW(Unavailable("No valid FMHA batch prefill instances found"));
+    }
+
+    // Apply mode-specific strategy
+    std::vector<FmhaPagedKVPrefillCodeGen> final_instances;
     switch (FLAGS_FC_TUNING_MODE) {
         case 0: {
-            // Heuristic mode
+            // Heuristic mode: filter + random selection
+            final_instances = HeuristicFilter(valid_instances, fmha_problem);
+            if (!final_instances.empty()) {
+                // Randomly select one instance for fast execution
+                std::uniform_int_distribution<> dist(0, final_instances.size() - 1);
+                auto selected = final_instances[dist(rng_)];
+                final_instances = {selected};
+                VLOG(1) << "Heuristic mode: selected 1 instance from " << valid_instances.size();
+            }
+            break;
         }
         case 1: {
-            VLOG(1) << "Generating instances using autotuning mode for FMHA kind: "
-                    << GetFmhaKindName(fmha_problem.kind_);
+            // Autotuning mode: use all valid instances
+            final_instances = valid_instances;
+            VLOG(1) << "Autotuning mode: using all " << final_instances.size() << " valid instances";
             break;
         }
         case 2: {
-            VLOG(1) << "Generating instances using hybrid mode for FMHA kind: " << GetFmhaKindName(fmha_problem.kind_);
+            // Hybrid mode: combine heuristic filtering + all instances
+            auto heuristic_instances = HeuristicFilter(valid_instances, fmha_problem);
+            final_instances = heuristic_instances;
+            final_instances.insert(final_instances.end(), valid_instances.begin(), valid_instances.end());
+            
+            // Remove duplicates
+            std::sort(final_instances.begin(), final_instances.end(), 
+                     [](const auto& a, const auto& b) {
+                         return a.GetInstanceName() < b.GetInstanceName();
+                     });
+            final_instances.erase(std::unique(final_instances.begin(), final_instances.end(),
+                                            [](const auto& a, const auto& b) {
+                                                return a.GetInstanceName() == b.GetInstanceName();
+                                            }), final_instances.end());
+            
+            VLOG(1) << "Hybrid mode: using " << final_instances.size() << " unique instances";
             break;
         }
         default:
-            FC_THROW(Unavailable("Invalid mode:{} ", FLAGS_FC_TUNING_MODE));
+            FC_THROW(Unavailable("Invalid tuning mode: {}", FLAGS_FC_TUNING_MODE));
     }
 
-
-    if (valid_fmha_instances.empty()) {
-        FC_THROW(Unavailable("No valid FMHA instances found for FMHA problem"));
+    if (final_instances.empty()) {
+        FC_THROW(Unavailable("No final FMHA batch prefill instances after mode-specific filtering"));
     }
 
-    // Generate instances
+    // Store instances in the map
     auto& kind_instance_map = instance_map_[fmha_problem.kind_];
-    int64_t                             generated_count   = 0;
+    int64_t generated_count = 0;
 
-    for (const auto& instance : valid_fmha_instances) {
+    for (const auto& instance : final_instances) {
         try {
             std::string instance_name = instance.GetInstanceName();
-
+            
             // Avoid duplicates
             if (kind_instance_map.find(instance_name) == kind_instance_map.end()) {
-                kind_instance_map[instance_name] = std::move(instance);
+                kind_instance_map[instance_name] = instance;
                 generated_count++;
-                VLOG(2) << "Generated FMHA instance: " << instance_name;
-            }
-            else {
+                VLOG(3) << "Generated FMHA instance: " << instance_name;
+            } else {
                 VLOG(3) << "Skipped duplicate FMHA instance: " << instance_name;
             }
-        }
-        catch (const std::exception& e) {
+        } catch (const std::exception& e) {
             LOG(WARNING) << "Failed to create FMHA codegen for instance: " << instance.GetInstanceName()
                          << ", error: " << e.what();
         }
     }
 
     num_instances_ += generated_count;
-    VLOG(1) << "Generated " << generated_count << " FMHA instances for kind: " << GetFmhaKindName(fmha_problem.kind_)
-            << " (total: " << num_instances_ << ")";
+    VLOG(1) << "Generated " << generated_count << " FMHA batch prefill instances for kind: " 
+            << GetFmhaKindName(fmha_problem.kind_) << " (total: " << num_instances_ << ")";
 }
 
 void FmhaPagedKVPrefillEmitter::ClearInstances()
 {
     instance_map_.clear();
     num_instances_ = 0;
+    VLOG(2) << "Cleared all FMHA batch prefill instances";
 }
 
 }  // namespace flashck

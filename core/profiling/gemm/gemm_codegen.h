@@ -9,86 +9,95 @@ namespace flashck {
 
 /**
  * @class GemmTileDesc
- * @brief Describes the tiling configuration for GEMM operations
+ * @brief High-performance GEMM tiling configuration with hierarchical memory optimization
  *
+ * This class encapsulates the complete tiling strategy for GEMM operations, implementing a
+ * three-level hierarchical approach that maximizes GPU performance through optimized memory
+ * access patterns and computational efficiency.
  */
 class GemmTileDesc {
 public:
     /**
-     * @brief Generate a unique name for this tile configuration
-     * @return String identifier based on tile parameters
+     * @brief Generate comprehensive unique identifier for this tile configuration
+     * @return String identifier encoding all tile parameters for profiling and caching
      */
     std::string GetInstanceName() const;
 
     /**
-     * @brief Generate code template parameters for this tile
-     * @return String representation for code generation
+     * @brief Generate optimized code template parameters for GPU kernel instantiation
+     * @return Template string with tile configuration for code generation
      */
     std::string Emit() const;
 
-    // ====================== Tile Configuration Parameters ======================
+    // ====================== Hierarchical Tiling Parameters ======================
 
-    int64_t m_block_;
-    int64_t n_block_;
-    int64_t k_block_;
+    // Block-level tiling (shared memory allocation and CU work distribution)
+    int64_t m_block_;        ///< M-dimension block size (rows of result matrix C)
+    int64_t n_block_;        ///< N-dimension block size (columns of result matrix C)
+    int64_t k_block_;        ///< K-dimension block size (reduction dimension)
 
-    int64_t m_warp_;
-    int64_t n_warp_;
-    int64_t k_warp_;
+    // Warp-level tiling (SIMD execution configuration)
+    int64_t m_warp_;         ///< Number of warps in M-dimension per block
+    int64_t n_warp_;         ///< Number of warps in N-dimension per block
+    int64_t k_warp_;         ///< Number of warps in K-dimension per block
 
-    int64_t m_warp_tile_;
-    int64_t n_warp_tile_;
-    int64_t k_warp_tile_;
+    // Thread-level tiling (per-thread register allocation)
+    int64_t m_warp_tile_;    ///< Elements per thread in M-dimension within warp
+    int64_t n_warp_tile_;    ///< Elements per thread in N-dimension within warp
+    int64_t k_warp_tile_;    ///< Elements per thread in K-dimension within warp
 
-    bool a_permute_ = false;  ///< Whether to permute tensor A
-    bool b_permute_ = false;  ///< Whether to permute tensor B
-
+    // Memory layout optimization flags
+    bool a_permute_ = false; ///< Enable tensor A layout permutation for cache efficiency
+    bool b_permute_ = false; ///< Enable tensor B layout permutation for cache efficiency
 };
 
 /**
  * @class GemmCodeGen
- * @brief Code generator for GEMM operations
+ * @brief Comprehensive GEMM operation code generator with advanced optimization features
  *
- * This class encapsulates all the parameters and configuration needed to generate
- * optimized GPU kernels for GEMM operations. It combines problem
- * specifications with tiling strategies to produce efficient implementations.
+ * This class provides complete code generation capabilities for high-performance GEMM
+ * operations on GPU architectures. It combines problem specifications, tiling strategies,
+ * pipeline configurations, and hardware-specific optimizations to produce efficient kernels.
+ *
  */
 class GemmCodeGen {
 public:
     /**
-     * @brief Generate a unique instance name for this configuration
-     * @return String identifier combining operation type and parameters
+     * @brief Generate unique instance identifier combining all configuration parameters
+     * @return Comprehensive string identifier for profiling, caching, and debugging
      */
     std::string GetInstanceName() const;
 
     /**
-     * @brief Generate the complete kernel code for this configuration
-     * @return String containing the generated GPU kernel code
+     * @brief Generate complete optimized GPU kernel code for this GEMM configuration
+     * @return String containing full kernel implementation with all optimizations applied
      */
     std::string Emit() const;
 
-    // ====================== Operation Configuration ======================
+    // ====================== Core Operation Configuration ======================
     
-    GemmProblem problem_;
+    GemmProblem problem_;    ///< Complete problem specification (dimensions, types, layouts)
 
-    bool is_pad_m_;
-    bool is_pad_n_;
-    bool is_pad_k_;
+    // Padding configuration for non-aligned dimensions
+    bool is_pad_m_;          ///< Enable M-dimension padding for alignment
+    bool is_pad_n_;          ///< Enable N-dimension padding for alignment
+    bool is_pad_k_;          ///< Enable K-dimension padding for alignment
 
-    // Tiling strategy
-    GemmTileDesc tile_desc_;  ///< Tile configuration for this operation
+    // Hierarchical tiling strategy
+    GemmTileDesc tile_desc_; ///< Complete tile configuration for optimal performance
 
-    // Pipeline 
-    PipelineVersionEnum pipeline_version_;
-    PipelineSchedulerEnum pipeline_scheduler_;
-    EpilogueEnum pipeline_epilogue_;
+    // ====================== Pipeline Configuration ======================
+    
+    PipelineVersionEnum pipeline_version_;    ///< Pipeline version for computation strategy
+    PipelineSchedulerEnum pipeline_scheduler_; ///< Work scheduling strategy
+    EpilogueEnum pipeline_epilogue_;          ///< Post-computation operations (bias, activation)
 
-    // ====================== Partitioning Parameters ======================
-    int64_t min_block_per_cu_; 
-    int64_t num_wave_groups_;
-    int64_t tile_partitioner_group_num_;
-    int64_t tile_partitioner_m01_;
-
+    // ====================== Advanced Partitioning Parameters ======================
+    
+    int64_t min_block_per_cu_;           ///< Minimum blocks per compute unit for occupancy control
+    int64_t num_wave_groups_;            ///< Number of wave groups for advanced scheduling
+    int64_t tile_partitioner_group_num_; ///< Group number for tile partitioning strategies
+    int64_t tile_partitioner_m01_;       ///< M-dimension partitioning parameter for load balancing
 };
 
 }  // namespace flashck

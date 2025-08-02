@@ -43,7 +43,7 @@ std::vector<FmhaFwdSplitKVCombineCodeGen> FmhaFwdSplitKVCombineEmitter::CreateIn
 
     std::vector<std::vector<int64_t>> all_lists = {
         // BlockConfig
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile.block.n1.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.block_tile.n1.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
 
         // PaddingConfig (convert bool to int64_t)
         [&]{ std::vector<int64_t> v; for (auto x : config.padding.s.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
@@ -99,19 +99,19 @@ void FmhaFwdSplitKVCombineEmitter::GenerateInstances(FmhaProblem& fmha_problem)
         auto base_json_path = std::filesystem::path(FLAGS_FC_CONFIG_JSON_PATH) / GetFmhaKindName(fmha_problem.kind_);
         if(FLAGS_FC_ENABLE_JSON_MODE == 0) {
             std::filesystem::path json_path = base_json_path / "default_config.json";
-            FmhaFwdSplitKVCombineConfig config = LoadConfigJson<FmhaFwdSplitKVCombineConfig>(json_path);
+            FmhaFwdSplitKVCombineConfig config = LoadDefaultConfigJson<FmhaFwdSplitKVCombineConfig>(json_path);
             fmha_instances = CreateInstanceForConfig(config, fmha_problem);
         } else if (FLAGS_FC_ENABLE_JSON_MODE == 1) {
             std::filesystem::path json_path = base_json_path / "user_config.json";
-            FmhaFwdSplitKVCombineConfig config = LoadConfigJson<FmhaFwdSplitKVCombineConfig>(json_path);
+            FmhaFwdSplitKVCombineConfig config = LoadDefaultConfigJson<FmhaFwdSplitKVCombineConfig>(json_path);
             fmha_instances = CreateInstanceForConfig(config, fmha_problem);
         } else if (FLAGS_FC_ENABLE_JSON_MODE == 2) {
             std::filesystem::path default_json_path = base_json_path / "default_config.json";
-            FmhaFwdSplitKVCombineConfig default_config = LoadConfigJson<FmhaFwdSplitKVCombineConfig>(default_json_path);
+            FmhaFwdSplitKVCombineConfig default_config = LoadDefaultConfigJson<FmhaFwdSplitKVCombineConfig>(default_json_path);
             auto gemm_default_instances = CreateInstanceForConfig(default_config, fmha_problem);
 
             std::filesystem::path user_json_path = base_json_path / "user_config.json";
-            FmhaFwdSplitKVCombineConfig user_config = LoadConfigJson<FmhaFwdSplitKVCombineConfig>(user_json_path);
+            FmhaFwdSplitKVCombineConfig user_config = LoadDefaultConfigJson<FmhaFwdSplitKVCombineConfig>(user_json_path);
             auto gemm_user_instances = CreateInstanceForConfig(user_config, fmha_problem);
 
             fmha_instances.insert(fmha_instances.end(), gemm_default_instances.begin(), gemm_default_instances.end());
@@ -130,7 +130,7 @@ void FmhaFwdSplitKVCombineEmitter::GenerateInstances(FmhaProblem& fmha_problem)
         fmha.problem_ = fmha_problem;
 
         fmha.tile_desc_ = FmhaFwdSplitKVCombineTileDesc{
-            config.tile.block.n1.values[0],
+            config.tile_shape.block_tile.n1.values[0],
         };
 
         fmha.is_pad_q_seq_len_ = config.padding.s.values[0];

@@ -5,6 +5,8 @@
 #include "core/profiling/problem_base.h"
 #include "core/profiling/norm/norm_library.h"
 
+#include "core/utils/common.h"
+
 namespace flashck {
 
 /**
@@ -34,7 +36,6 @@ public:
     {
         std::ostringstream oss;
         oss << "{"
-            << "\"kind\": \"" << GetNormKindName(kind_) << "\", "
             << "\"x_dtype\": \"" << DataTypeToString(x_dtype_) << "\", "
             << "\"y_dtype\": \"" << DataTypeToString(y_dtype_) << "\", "
             << "\"smooth_scale_dtype\": \"" << DataTypeToString(smooth_scale_dtype_) << "\", "
@@ -49,8 +50,6 @@ public:
     }
 
     // ====================== Problem Configuration ======================
-
-    NormKind kind_;  ///< Type of normalization operation (LayerNorm, etc.)
 
     // Data type specifications
     DataType x_dtype_;             ///< Input tensor data type

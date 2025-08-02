@@ -2,165 +2,147 @@
 
 namespace flashck {
 
-std::string NormTileDesc::GetInstanceName() const
+std::string LayerNormTileDesc::GetInstanceName() 
 {
-    return Sprintf("{repeat_m}_{repeat_n}_{thread_per_block_m}_{thread_per_block_n}_{vector_n}",
-                   fmt::arg("repeat_m", repeat_m_),
-                   fmt::arg("repeat_n", repeat_n_),
-                   fmt::arg("thread_per_block_m", thread_per_block_m_),
-                   fmt::arg("thread_per_block_n", thread_per_block_n_),
-                   fmt::arg("vector_n", vector_n_));
+    return Sprintf("{m_repeat}_{n_repeat}_{m_thread_per_block}_{n_thread_per_block}_{n_vector}",
+                   fmt::arg("m_repeat", m_repeat_),
+                   fmt::arg("n_repeat", n_repeat_),
+                   fmt::arg("m_thread_per_block", m_thread_per_block_),
+                   fmt::arg("n_thread_per_block", n_thread_per_block_),
+                   fmt::arg("n_vector", n_vector_));
 }
 
-std::string NormTileDesc::Emit() const
+std::string LayerNormTileDesc::Emit() 
 {
-    bool is_warp_per_row = thread_per_block_n_ <= warpSize;
-    FC_ENFORCE_EQ((thread_per_block_m_ * thread_per_block_n_) % warpSize,
+    bool is_warp_per_row = n_thread_per_block_ <= warpSize;
+    FC_ENFORCE_EQ((m_thread_per_block_ * n_thread_per_block_) % warpSize,
                   0,
-                  Unavailable("thread_per_block_m_ * thread_per_block_n_ must be multiple of warpSize"));
+                  Unavailable("m_thread_per_block_ * n_thread_per_block_ must be multiple of warpSize"));
 
-    int64_t total_warps = (thread_per_block_m_ * thread_per_block_n_) / warpSize;
+    int64_t total_warps = (m_thread_per_block_ * n_thread_per_block_) / warpSize;
     // num of warps along m
-    int64_t block_warps_m = [&]() -> int64_t {
+    int64_t m_block_warps = [&]() -> int64_t {
         if (is_warp_per_row) {
             FC_ENFORCE_EQ(
-                warpSize % thread_per_block_n_, 0, Unavailable("thread_per_block_n_ must be multiple of warpSize"));
-            return total_warps * (warpSize / thread_per_block_n_);
+                warpSize % n_thread_per_block_, 0, Unavailable("n_thread_per_block_ must be multiple of warpSize"));
+            return total_warps * (warpSize / n_thread_per_block_);
         }
         else {
-            // static_assert(warpSize % thread_per_block_m_ == 0);
-            return total_warps / (thread_per_block_n_ / warpSize);
+            // static_assert(warpSize % m_thread_per_block_ == 0);
+            return total_warps / (n_thread_per_block_ / warpSize);
         }
     }();
 
     // num of warps along n
-    int64_t block_warps_n = [&]() -> int64_t {
+    int64_t n_block_warps = [&]() -> int64_t {
         if (is_warp_per_row) {
             FC_ENFORCE_EQ(
-                warpSize % thread_per_block_n_, 0, Unavailable("thread_per_block_n_ must be multiple of warpSize"));
+                warpSize % n_thread_per_block_, 0, Unavailable("n_thread_per_block_ must be multiple of warpSize"));
             return 1;
         }
         else {
             FC_ENFORCE_EQ(
-                thread_per_block_n_ % warpSize, 0, Unavailable("thread_per_block_n_ must be multiple of warpSize"));
+                n_thread_per_block_ % warpSize, 0, Unavailable("n_thread_per_block_ must be multiple of warpSize"));
 
-            return thread_per_block_n_ / warpSize;
+            return n_thread_per_block_ / warpSize;
         }
     }();
 
-    int64_t block_m = repeat_m_ * thread_per_block_m_;
-    int64_t block_n = repeat_n_ * thread_per_block_n_ * vector_n_;
+    int64_t m_block = m_repeat_ * m_thread_per_block_;
+    int64_t n_block = n_repeat_ * n_thread_per_block_ * n_vector_;
 
-    int64_t warp_m = thread_per_block_m_ / block_warps_m;
-    int64_t warp_n = thread_per_block_n_ / block_warps_n * vector_n_;
+    int64_t m_warp = m_thread_per_block_ / m_block_warps;
+    int64_t n_warp = n_thread_per_block_ / n_block_warps * n_vector_;
 
     std::string tile_desc = R"(
-    ck_tile::Generic2dBlockShape<ck_tile::sequence<{{block_m}}, {{block_n}}>,
-                                ck_tile::sequence<{{block_warps_m}}, {{block_warps_n}}>,
-                                ck_tile::sequence<{{warp_m}}, {{warp_n}}>, 
-                                ck_tile::sequence<1, {{vector_n}}>>,
+    ck_tile::Generic2dBlockShape<ck_tile::sequence<{{m_block}}, {{n_block}}>,
+                                ck_tile::sequence<{{m_block_warps}}, {{n_block_warps}}>,
+                                ck_tile::sequence<{{m_warp}}, {{n_warp}}>, 
+                                ck_tile::sequence<1, {{n_vector}}>>,
 )";
 
     jinja2::ValuesMap tile_desc_value_map = {
-        {"block_m", block_m},
-        {"block_n", block_n},
-        {"block_warps_m", block_warps_m},
-        {"block_warps_n", block_warps_n},
-        {"warp_m", warp_m},
-        {"warp_n", warp_n},
-        {"vector_n", vector_n_},
+        {"m_block", m_block},
+        {"n_block", n_block},
+        {"m_block_warps", m_block_warps},
+        {"n_block_warps", n_block_warps},
+        {"m_warp", m_warp},
+        {"n_warp", n_warp},
+        {"n_vector", n_vector_},
     };
 
-    return TEMPLATE_CHECK(tile_desc, tile_desc_value_map, "NormTileDesc::Emit");
+    return TEMPLATE_CHECK(tile_desc, tile_desc_value_map, "LayerNormTileDesc::Emit");
 }
-
-std::string NormCodeGen::GetInstanceName() const
+std::string RmsNormCodeGen::GetInstanceName() 
 {
-    return Sprintf("{kind_name}_{x_dtype}_{y_dtype}_{smooth_scale_dtype}_{y_scale_dtype}_"
+    return Sprintf("rms_norm_{x_dtype}_{y_dtype}_{smooth_scale_dtype}_{y_scale_dtype}_"
                    "{tile_desc}_{is_add_bias}_{fused_add}_{fused_quant}",
-                   fmt::arg("kind_name", GetNormKindShortName(kind_)),
-                   fmt::arg("x_dtype", DataTypeToString(x_dtype_)),
-                   fmt::arg("y_dtype", DataTypeToString(y_dtype_)),
-                   fmt::arg("smooth_scale_dtype", DataTypeToString(smooth_scale_dtype_)),
-                   fmt::arg("y_scale_dtype", DataTypeToString(y_scale_dtype_)),
+                   fmt::arg("x_dtype", DataTypeToString(problem_.x_dtype_)),
+                   fmt::arg("y_dtype", DataTypeToString(problem_.y_dtype_)),
+                   fmt::arg("smooth_scale_dtype", DataTypeToString(problem_.smooth_scale_dtype_)),
+                   fmt::arg("y_scale_dtype", DataTypeToString(problem_.y_scale_dtype_)),
                    fmt::arg("tile_desc", tile_desc_.GetInstanceName()),
-                   fmt::arg("is_add_bias", GetNormBiasShortName(is_add_bias_)),
-                   fmt::arg("fused_add", GetFusedAddShortName(fused_add_)),
-                   fmt::arg("fused_quant", GetFusedQuantShortName(fused_quant_)));
+                   fmt::arg("is_add_bias", GetNormBiasShortName(problem_.is_add_bias_)),
+                   fmt::arg("fused_add", GetFusedAddShortName(problem_.fused_add_)),
+                   fmt::arg("fused_quant", GetFusedQuantShortName(problem_.fused_quant_)));
 }
 
-std::string NormCodeGen::Emit() const
+std::string RmsNormCodeGen::Emit() 
 {
     std::string tpl = R"(
-using PipelineProblem_{{idx}} = ck_tile::{{norm_problem}}<
+using PipelineProblem_{{idx}} = ck_tile::Rmsnorm2dFwdPipelineProblem<
     XDataType,
-{% if norm_kind == "layer_norm" %}
-    XBiasDataType,
-{% endif %}
     GammaDataType,
-{% if norm_kind == "layer_norm" %}
-    BetaDataType,
-{% endif %}
     ComputeDataType,
     YDataType,
-{% if norm_kind == "layer_norm" %}
-    MeanDataType,
-{% endif %}
-{% if norm_kind == "layer_norm" %}
-    InvStdDataType,
-{% else %}
     InvRmsDataType,
-{% endif %}
-{% if norm_kind == "rms_norm" %}
     UnquantYDataType,
-{% endif %}
     SmoothScaleDataType,
     YScaleDataType,
     {{shape}}
     ck_tile::{{norm_traits}}<{{is_pad_n}} /*kPadN*/,
                                     false /*kSaveMeanInvStd*/,
-                                {% if norm_kind == "layer_norm" %}
-                                    {{is_fast_div}} /*kFastFDiv*/,
-                                    {{is_welford}} /*kWelford*/,
-                                {% else %}
                                     false /*kSaveUnquantY*/,
-                                {% endif %}
                                     {{is_two_pass}} /*kTwoPass*/,
-                                {% if norm_kind == "layer_norm" %}
-                                    static_cast<ck_tile::Layernorm2dXBiasEnum>({{is_add_bias}}) /*kisaddbias*/,
-                                    static_cast<ck_tile::Layernorm2dFusedAddEnum>({{fused_add}}) /*kFusedAdd*/,
-                                    static_cast<ck_tile::Layernorm2dFusedQuantEnum>({{fused_quant}}) /*kFusedQuant*/>>;
-                                {% else %}
                                     static_cast<ck_tile::Rmsnorm2dFusedAddEnum>({{fused_add}}) /*kFusedAdd*/,
                                     static_cast<ck_tile::Rmsnorm2dFusedQuantEnum>({{fused_quant}}) /*kFusedQuant*/,
                                     static_cast<ck_tile::Rmsnorm2dSensitiveEnum>(0) /*USEModelSensitive*/>>;
-                                {% endif %}
 
-{% if is_smooth_quant %}
-using DynamicQuantEpilogueProblem_{{idx}}         = ck_tile::DynamicQuantEpilogueProblem<
-    ComputeDataType,
-    SmoothScaleDataType,
-    YScaleDataType,
-    YDataType,
-    {{shape}}
-    ck_tile::DynamicQuantEpilogueTraits<false, true, {{is_smooth_quant}}, false, true /*max3*/>>;
-{% else %}
-using Default2DEpilogueProblem_{{idx}} =
-    ck_tile::Default2DEpilogueProblem<ComputeDataType, YDataType, false, {{is_pad_n}} /*kPadN*/, false>;
-{% endif %}
+    {% if is_smooth_quant %}
+        {% if is_save_unquant %}
+    using Default2DAndDynamicQuantEpilogueProblem = ck_tile::Default2DAndDynamicQuantEpilogueProblem<
+        ComputeDataType, SmoothScaleDataType, YScaleDataType, YDataType, UnquantYDataType, {{Shape}},
+        ck_tile::Default2DAndDynamicQuantEpilogueTraits<false, {{is_pad_n}}, {{is_smooth_quant}}, false,  true/*max3*/>>;
+        {% else %}
+    using DynamicQuantEpilogueProblem_{{idx}}         = ck_tile::DynamicQuantEpilogueProblem<
+        ComputeDataType,
+        SmoothScaleDataType,
+        YScaleDataType,
+        YDataType,
+        {{shape}}
+        ck_tile::DynamicQuantEpilogueTraits<false, true, {{is_smooth_quant}}, false, true /*max3*/>>;
+        {% endif %}
+    {% else %}
+    using Default2DEpilogueProblem_{{idx}} =
+        ck_tile::Default2DEpilogueProblem<ComputeDataType, YDataType, false, {{is_pad_n}} /*kPadN*/, false>;
+    {% endif %}
 
-using {{name}} = ck_tile::{{norm_fwd}}<
-{% if is_two_pass %}
-    ck_tile::{{norm_pass}}<PipelineProblem_{{idx}}>,
-{% else %}
-    ck_tile::{{norm_pass}}<PipelineProblem_{{idx}}>,
-{% endif %}
+    using {{name}} = ck_tile::Rmsnorm2dFwd<
+    {% if is_two_pass %}
+        ck_tile::Rmsnorm2dFwdPipelineOnePass<PipelineProblem_{{idx}}>,
+    {% else %}
+        ck_tile::Rmsnorm2dFwdPipelineTwoPass<PipelineProblem_{{idx}}>,
+    {% endif %}
 
-{% if is_smooth_quant %}
-    ck_tile::DynamicQuantEpilogue<DynamicQuantEpilogueProblem_{{idx}}>
-{% else %}
-    ck_tile::Default2DEpilogue<Default2DEpilogueProblem_{{idx}}>
-{% endif %}
+    {% if is_smooth_quant %}
+        {% if is_save_unquant %}
+        ck_tile::Default2DAndDynamicQuantEpilogue<Default2DAndDynamicQuantEpilogueProblem_{{idx}}>;
+        {% else %}
+        ck_tile::DynamicQuantEpilogue<DynamicQuantEpilogueProblem_{{idx}}>
+        {% endif %}
+    {% else %}
+        ck_tile::Default2DEpilogue<Default2DEpilogueProblem_{{idx}}>
+    {% endif %}
     >;
 
 )";
@@ -168,22 +150,18 @@ using {{name}} = ck_tile::{{norm_fwd}}<
 
     jinja2::ValuesMap value_map{{"name", GetInstanceName()},
                                 {"idx", idx++},
-                                {"norm_kind", GetNormKindName(kind_)},
-                                {"norm_problem", GetNormKindProblemTag(kind_)},
-                                {"norm_traits", GetNormKindTraitTag(kind_)},
-                                {"norm_fwd", GetNormKindFwdTag(kind_)},
-                                {"norm_pass", GetNormKindPassTag(kind_)},
-                                {"is_pad_n", "true"},
-                                {"is_fast_div", "true"},
-                                {"is_two_pass", "true"},
-                                {"is_welford", "true"},
-                                {"is_add_bias", static_cast<int>(is_add_bias_)},
-                                {"fused_add", static_cast<int>(fused_add_)},
-                                {"fused_quant", static_cast<int>(fused_quant_)},
-                                {"is_smooth_quant", static_cast<int>(fused_quant_) == 1 ? true : false},
+                                {"is_pad_n", is_pad_n_},
+                                {"is_save_unquant", false}
+                                {"is_fast_div", true},
+                                {"is_two_pass", is_two_pass_},
+                                {"is_welford", true},
+                                {"is_add_bias", static_cast<int>(problem_.is_add_bias_)},
+                                {"fused_add", static_cast<int>(problem_.fused_add_)},
+                                {"fused_quant", static_cast<int>(problem_.fused_quant_)},
+                                {"is_smooth_quant", static_cast<int>(problem_.fused_quant_) == 1 ? true : false},
                                 {"shape", tile_desc_.Emit()}};
 
-    return TEMPLATE_CHECK(tpl, value_map, "NormCodeGen::Emit");
+    return TEMPLATE_CHECK(tpl, value_map, "RmsNormCodeGen::Emit");
 }
 
 }  // namespace flashck

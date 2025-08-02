@@ -1,0 +1,82 @@
+[
+  {
+    "tile_shape": {
+      "block_tile": {
+        "m0": { "values": [128] },
+        "n0": { "values": [64] },
+        "k0": { "values": [16] },
+        "n1": { "values": [32] },
+        "k1": { "values": [32] },
+        "k0_max": { "values": [32] }
+      },
+      "block_warps": {
+        "m0": { "values": [2] },
+        "n0": { "values": [1] },
+        "k0": { "values": [1] },
+        "m1": { "values": [2] },
+        "n1": { "values": [1] },
+        "k1": { "values": [1] }
+      },
+      "warp_tile": {
+        "m0": { "values": [32] },
+        "n0": { "values": [32] },
+        "k0": { "values": [16] },
+        "m1": { "values": [32] },
+        "n1": { "values": [16] },
+        "k1": { "values": [16] }
+      }
+    },
+    "padding": {
+      "s": { "values": [true] },
+      "sk": { "values": [true] },
+      "d": { "values": [true] },
+      "dv": { "values": [true] }
+    },
+    "launch": {
+      "min_block_per_cu": { "values": [1] }
+    },
+    "pipeline": {
+      "values": ["QRKSVS"]
+    }
+  },
+  {
+    "tile_shape": {
+      "block_tile": {
+        "m0": { "values": [256] },
+        "n0": { "values": [128] },
+        "k0": { "values": [32] },
+        "n1": { "values": [64] },
+        "k1": { "values": [64] },
+        "k0_max": { "values": [64] }
+      },
+      "block_warps": {
+        "m0": { "values": [4] },
+        "n0": { "values": [2] },
+        "k0": { "values": [2] },
+        "m1": { "values": [4] },
+        "n1": { "values": [2] },
+        "k1": { "values": [2] }
+      },
+      "warp_tile": {
+        "m0": { "values": [32] },
+        "n0": { "values": [32] },
+        "k0": { "values": [16] },
+        "m1": { "values": [32] },
+        "n1": { "values": [16] },
+        "k1": { "values": [16] }
+      }
+    },
+    "padding": {
+      "s": { "values": [false] },
+      "sk": { "values": [false] },
+      "d": { "values": [false] },
+      "dv": { "values": [false] }
+    },
+    "launch": {
+      "min_block_per_cu": { "values": [1] }
+    },
+    "pipeline": {
+      "values": ["QRKSVS"]
+    }
+  }
+]

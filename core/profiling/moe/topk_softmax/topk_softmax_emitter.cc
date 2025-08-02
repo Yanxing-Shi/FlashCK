@@ -129,17 +129,17 @@ std::vector<TopKSoftmaxCodeGen> TopKSoftmaxEmitter::CreateInstanceForConfig(cons
 
     std::vector<std::vector<int64_t>> all_lists = {
         // BlockConfig
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile.block.m.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile.block.n.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile.block.k.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.block_tile.m.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.block_tile.n.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.block_tile.k.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
         // WarpConfig
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile.warp.m.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile.warp.n.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile.warp.k.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.block_warps.m.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.block_warps.n.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.block_warps.k.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
         // WarpTileConfig
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile.warp_tile.m.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile.warp_tile.n.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile.warp_tile.k.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.warp_tile.m.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.warp_tile.n.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.warp_tile.k.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
         // PaddingConfig (convert bool to int64_t)
         [&]{ std::vector<int64_t> v; for (auto x : config.padding.m.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
         [&]{ std::vector<int64_t> v; for (auto x : config.padding.n.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
@@ -223,19 +223,19 @@ void TopKSoftmaxEmitter::GenerateInstances(TopKSoftmaxProblem& gemm_problem)
         std::filesystem::path base_json_path = FLAGS_FC_CONFIG_JSON_PATH;
         if(FLAGS_FC_ENABLE_JSON_MODE == 0) {
             std::filesystem::path json_path = base_json_path / "default_config.json";
-            TopKSoftmaxConfig config = LoadConfigJson<TopKSoftmaxConfig>(json_path);
+            TopKSoftmaxConfig config = LoadDefaultConfigJson<TopKSoftmaxConfig>(json_path);
             gemm_instances = CreateInstanceForConfig(config, gemm_problem);
         } else if (FLAGS_FC_ENABLE_JSON_MODE == 1) {
             std::filesystem::path json_path = base_json_path / "user_config.json";
-            TopKSoftmaxConfig config = LoadConfigJson<TopKSoftmaxConfig>(json_path);
+            TopKSoftmaxConfig config = LoadDefaultConfigJson<TopKSoftmaxConfig>(json_path);
             gemm_instances = CreateInstanceForConfig(config, gemm_problem);
         } else if (FLAGS_FC_ENABLE_JSON_MODE == 2) {
             std::filesystem::path default_json_path = base_json_path / "default_config.json";
-            TopKSoftmaxConfig default_config = LoadConfigJson<TopKSoftmaxConfig>(default_json_path);
+            TopKSoftmaxConfig default_config = LoadDefaultConfigJson<TopKSoftmaxConfig>(default_json_path);
             auto gemm_default_instances = CreateInstanceForConfig(default_config, gemm_problem);
 
             std::filesystem::path user_json_path = base_json_path / "user_config.json";
-            TopKSoftmaxConfig user_config = LoadConfigJson<TopKSoftmaxConfig>(user_json_path);
+            TopKSoftmaxConfig user_config = LoadDefaultConfigJson<TopKSoftmaxConfig>(user_json_path);
             auto gemm_user_instances = CreateInstanceForConfig(user_config, gemm_problem);
 
             gemm_instances.insert(gemm_instances.end(), gemm_default_instances.begin(), gemm_default_instances.end());
@@ -253,15 +253,15 @@ void TopKSoftmaxEmitter::GenerateInstances(TopKSoftmaxProblem& gemm_problem)
         gemm.problem_ = gemm_problem;
 
         gemm.tile_desc_ = TopKSoftmaxTileDesc{
-            config.tile.block.m.values[0],
-            config.tile.block.n.values[0],
-            config.tile.block.k.values[0],
-            config.tile.warp.m.values[0],
-            config.tile.warp.n.values[0],
-            config.tile.warp.k.values[0],
-            config.tile.warp_tile.m.values[0],
-            config.tile.warp_tile.n.values[0],
-            config.tile.warp_tile.k.values[0],
+            config.tile_shape.block_tile.m.values[0],
+            config.tile_shape.block_tile.n.values[0],
+            config.tile_shape.block_tile.k.values[0],
+            config.tile_shape.block_warps.m.values[0],
+            config.tile_shape.block_warps.n.values[0],
+            config.tile_shape.block_warps.k.values[0],
+            config.tile_shape.warp_tile.m.values[0],
+            config.tile_shape.warp_tile.n.values[0],
+            config.tile_shape.warp_tile.k.values[0],
         };
 
         gemm.pipeline_version_ = GetPipelineVersionEnumFromString(config.pipeline.version.values[0]);

@@ -8,46 +8,6 @@
 namespace flashck {
 
 /**
- * @enum NormKind
- * @brief Defines the types of normalization operations supported
- */
-enum class NormKind : int {
-    LayerNorm = 0,  ///< Layer normalization
-    RMSNorm   = 1,  ///< Root Mean Square normalization
-    // Add new norm types here
-    COUNT  // Used for iteration and validation
-};
-
-/**
- * @struct NormTag
- * @brief Configuration tags for norm operation code generation
- *
- * Contains template and class name mappings used during code generation
- * for different normalization kernels.
- */
-struct NormTag {
-    std::string name;         ///< Human-readable name of the normalization
-    std::string problem_tag;  ///< Template tag for problem definition
-    std::string trait_tag;    ///< Template tag for kernel traits
-    std::string fwd_tag;      ///< Template tag for forward implementation
-    std::string pass_tag;     ///< Template tag for pipeline pass strategy
-};
-
-/**
- * @brief Mapping from norm types to their configuration tags
- */
-static const std::unordered_map<NormKind, NormTag> g_norm_map = {
-    {NormKind::LayerNorm,
-     {"layer_norm",
-      "Layernorm2dFwdPipelineProblem",
-      "Layernorm2dFwdTraits",
-      "Layernorm2dFwd",
-      "Layernorm2dFwdPipelineTwoPass"}},
-    {NormKind::RMSNorm,
-     {"rms_norm", "Rmsnorm2dFwdPipelineProblem", "Rmsnorm2dFwdTraits", "Rmsnorm2dFwd", "Rmsnorm2dFwdPipelineOnePass"}},
-};
-
-/**
  * @enum NormBiasEnum
  * @brief Defines bias handling modes for normalization operations
  */
@@ -194,46 +154,6 @@ inline std::string GetNormBiasShortName(NormBiasEnum bias)
 {
     auto it = g_norm_bias_map.find(bias);
     return it != g_norm_bias_map.end() ? it->second.short_name : "unknown";
-}
-
-inline std::string GetNormKindShortName(NormKind kind)
-{
-    auto it = g_norm_map.find(kind);
-    return it != g_norm_map.end() ? it->second.name : "unknown";
-}
-
-inline std::string GetNormKindProblemTag(NormKind kind)
-{
-    auto it = g_norm_map.find(kind);
-    return it != g_norm_map.end() ? it->second.problem_tag : "unknown";
-}
-
-inline std::string GetNormKindTraitTag(NormKind kind)
-{
-    auto it = g_norm_map.find(kind);
-    return it != g_norm_map.end() ? it->second.trait_tag : "unknown";
-}
-
-inline std::string GetNormKindFwdTag(NormKind kind)
-{
-    auto it = g_norm_map.find(kind);
-    return it != g_norm_map.end() ? it->second.fwd_tag : "unknown";
-}
-
-inline std::string GetNormKindPassTag(NormKind kind)
-{
-    auto it = g_norm_map.find(kind);
-    return it != g_norm_map.end() ? it->second.pass_tag : "unknown";
-}
-
-/**
- * @brief Validates if a norm kind is valid
- * @param kind The norm kind to validate
- * @return true if valid, false otherwise
- */
-inline bool IsValidNormKind(NormKind kind)
-{
-    return static_cast<int>(kind) >= 0 && static_cast<int>(kind) < static_cast<int>(NormKind::COUNT);
 }
 
 /**

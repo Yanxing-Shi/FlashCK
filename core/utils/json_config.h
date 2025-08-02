@@ -373,7 +373,7 @@ struct TopkSoftmaxConfig {
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(TopkSoftmaxConfig, issue_per_col, launch_type, bytes_per_issue, block_size, launch);
 
 // ========== Config Loader ==========
-// Generic loader for any config type
+// Generic loader for config (single or array)
 template <typename T>
 inline T LoadConfigJson(const std::string& path) {
     std::ifstream f(path);
