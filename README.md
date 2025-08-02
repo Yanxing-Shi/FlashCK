@@ -12,23 +12,6 @@ FlashCK provides optimized implementations for:
 
 ## Key Features
 
-### Unified Configuration System
-- **Three Config Types**: backup (pre-validated), default (parameter ranges), user (custom)
-- **Three Execution Modes**: heuristic (0), autotuning (1), hybrid (2)
-- **Type-Safe**: Strong typing with nlohmann::json serialization
-- **Template-Based**: Single `LoadConfigJson<T>()` interface for all config types
-
-### Advanced Code Generation
-- **Hierarchical Tiling**: Multi-level optimization from block to warp to thread level
-- **Jinja2 Templates**: Flexible code generation with template inheritance
-- **Intelligent Filtering**: Heuristic-based instance filtering for optimal performance
-- **CartesianProduct**: Comprehensive parameter space exploration
-
-### Performance Optimization
-- **Problem-Specific Heuristics**: Tailored filtering for different kernel types
-- **Memory Efficiency**: Optimized memory access patterns and allocation
-- **Hardware Adaptation**: GPU-specific optimizations for different architectures
-
 ## Architecture
 
 ```
@@ -51,42 +34,16 @@ FlashCK/
 
 ### Building FlashCK
 ```bash
-# Configure build
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-
-# Build
-cmake --build build -j$(nproc)
-
-# Install
-cmake --install build
 ```
 
 ### Using FlashCK
 ```cpp
-#include "flashck/fmha_batch_prefill.h"
-#include "core/utils/json_config.h"
-
-// Load configuration
-auto config = LoadConfigJson<FmhaBatchPrefillConfig>("configs/fmha/default_config.json");
-
-// Create and run FMHA instance
-auto emitter = FmhaBatchPrefillEmitter::GetInstance();
-auto instances = emitter->GenerateInstances(problem_size);
 ```
 
 ### Python Interface
 ```python
 import flash_ck
 
-# Configure attention parameters
-config = flash_ck.FMHAConfig(
-    head_dim=64,
-    batch_size=32,
-    seq_len=2048
-)
-
-# Run flash attention
-output = flash_ck.fmha_batch_prefill(query, key, value, config)
 ```
 
 ## Configuration System
@@ -119,14 +76,7 @@ output = flash_ck.fmha_batch_prefill(query, key, value, config)
 
 ### Testing
 ```bash
-# Run all tests
-cd build && ctest
 
-# Run specific test
-./tests/test_fmha_batch_prefill
-
-# Test configuration system
-./tests/test_json_config
 ```
 
 ## Performance
@@ -136,14 +86,6 @@ FlashCK achieves significant performance improvements through:
 - **Tiling Strategies**: Hierarchical blocking for cache efficiency
 - **Register Optimization**: Efficient register usage and data reuse
 - **Kernel Fusion**: Fused operations to reduce memory bandwidth
-
-## Contributing
-
-1. Fork the repository
-2. Create a feature branch
-3. Follow the coding style guidelines
-4. Add comprehensive tests
-5. Submit a pull request
 
 ## License
 
