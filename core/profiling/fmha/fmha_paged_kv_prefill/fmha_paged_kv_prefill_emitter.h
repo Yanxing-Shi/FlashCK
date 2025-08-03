@@ -8,9 +8,7 @@
 
 #include "core/profiling/fmha/fmha_library.h"
 #include "core/profiling/fmha/fmha_problem.h"
-
 #include "core/profiling/fmha/fmha_paged_kv_prefill/fmha_paged_kv_prefill_codegen.h"
-#include "core/profiling/fmha/fmha_paged_kv_prefill/fmha_paged_kv_prefill_backup_config.h"
 
 namespace flashck {
 
@@ -117,7 +115,7 @@ public:
     std::map<std::string, FmhaPagedKVPrefillCodeGen>& GetInstanceMap(FmhaProblem fmha_problem)
     {
         GenerateInstances(fmha_problem);
-        return instance_map_[fmha_problem.kind_];
+        return instance_map_;
     }
 
     /**
@@ -127,7 +125,7 @@ public:
 
 private:
 
-    std::map<FmhaKind, std::map<std::string, FmhaPagedKVPrefillCodeGen>> instance_map_;
+    std::map<std::string, FmhaPagedKVPrefillCodeGen> instance_map_;
     int64_t                                                num_instances_ = 0;
 };
 

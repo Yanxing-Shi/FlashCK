@@ -42,7 +42,7 @@ public:
 
     std::vector<TopKSoftmaxCodeGen> CreateInstanceForConfig(const flashck::TopKSoftmaxConfig& config, const MoeProblem& moe_problem);
 
-    void GenerateInstances(TopKSoftmaxProblem& gemm_problem);
+    void GenerateInstances(MoeProblem& moe_problem);
 
     /**
      * @brief Gets the total number of generated instances
@@ -51,10 +51,10 @@ public:
     int64_t GetNumInstances() const;
 
     // get profiling instance map for the given norm kind
-    std::map<std::string, TopKSoftmaxCodeGen>& GetInstanceMap(TopKSoftmaxProblem gemm_problem)
+    std::map<std::string, TopKSoftmaxCodeGen>& GetInstanceMap(MoeProblem moe_problem)
     {
-        GenerateInstances(gemm_problem);
-        return instance_map_[gemm_problem.kind_];
+        GenerateInstances(moe_problem);
+        return instance_map_;
     }
 
     /**
@@ -64,7 +64,7 @@ public:
 
 private:
 
-    std::map<TopKSoftmaxKind, std::map<std::string, TopKSoftmaxCodeGen>> instance_map_;
+    std::map<std::string, TopKSoftmaxCodeGen> instance_map_;
     int64_t                                                num_instances_ = 0;
 };
 

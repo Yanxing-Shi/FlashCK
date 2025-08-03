@@ -377,33 +377,28 @@ struct MoeGemmConfig {
 };
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MoeGemmConfig, tile_shape, padding, pipeline, launch);
 
-struct MoeQuantTileConfig {
+struct MoeSmoothQuantTileConfig {
     IntEnumConfigParam m_repeat, n_repeat, m_thread_per_block, n_thread_per_block, n_vector;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MoeQuantTileConfig, m_repeat, n_repeat, m_thread_per_block, n_thread_per_block, n_vector)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MoeSmoothQuantTileConfig, m_repeat, n_repeat, m_thread_per_block, n_thread_per_block, n_vector)
 
-struct MoeQuantPaddingConfig {
+struct MoeSmoothQuantPaddingConfig {
     BoolEnumConfigParam n;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MoeQuantPaddingConfig, n)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MoeSmoothQuantPaddingConfig, n)
 
-struct MoePipelineConfig {
+struct MoeSmoothQuantPipelineConfig {
     BoolEnumConfigParam is_two_pass;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MoePipelineConfig, is_two_pass)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MoeSmoothQuantPipelineConfig, is_two_pass)
 
-struct MoeQuantLaunchConfig {
-    IntEnumConfigParam min_block_per_cu;
+struct MoeSmoothQuantConfig {
+    MoeSmoothQuantTileConfig tile_shape;
+    MoeSmoothQuantPaddingConfig padding;
+    MoeSmoothQuantPipelineConfig pipeline;
+    MoeLaunchConfig launch;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MoeQuantLaunchConfig, min_block_per_cu)
-
-struct MoeQuantConfig {
-    MoeQuantTileConfig tile_shape;
-    MoeQuantPaddingConfig padding;
-    MoePipelineConfig pipeline;
-    MoeQuantLaunchConfig launch;
-};
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MoeQuantConfig, tile_shape, padding, launch)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MoeSmoothQuantConfig, tile_shape, padding, pipeline, launch)
 
 struct MoeSortingConfig {
     IntEnumConfigParam internal_load_unroll;
@@ -412,14 +407,14 @@ struct MoeSortingConfig {
 };
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MoeSortingConfig, internal_load_unroll, expert_tile, launch);
 
-struct TopkSoftmaxConfig {
-    IntEnumConfigParam issue_per_col;
+struct TopKSoftmaxConfig {
+    IntEnumConfigParam issues_per_col;
     IntEnumConfigParam launch_type;
     IntEnumConfigParam bytes_per_issue;
     IntEnumConfigParam block_size;
     MoeLaunchConfig launch;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(TopkSoftmaxConfig, issue_per_col, launch_type, bytes_per_issue, block_size, launch);
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(TopKSoftmaxConfig, issues_per_col, launch_type, bytes_per_issue, block_size, launch);
 
 // ========== Config Loader ==========
 // Generic loader for config (single or array)

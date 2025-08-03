@@ -2,7 +2,7 @@
 
 namespace flashck {
 
-std::string LayerNormTileDesc::GetInstanceName() 
+std::string RmsNormTileDesc::GetInstanceName() 
 {
     return Sprintf("{m_repeat}_{n_repeat}_{m_thread_per_block}_{n_thread_per_block}_{n_vector}",
                    fmt::arg("m_repeat", m_repeat_),
@@ -12,7 +12,7 @@ std::string LayerNormTileDesc::GetInstanceName()
                    fmt::arg("n_vector", n_vector_));
 }
 
-std::string LayerNormTileDesc::Emit() 
+std::string RmsNormTileDesc::Emit() 
 {
     bool is_warp_per_row = n_thread_per_block_ <= warpSize;
     FC_ENFORCE_EQ((m_thread_per_block_ * n_thread_per_block_) % warpSize,
@@ -71,7 +71,7 @@ std::string LayerNormTileDesc::Emit()
         {"n_vector", n_vector_},
     };
 
-    return TEMPLATE_CHECK(tile_desc, tile_desc_value_map, "LayerNormTileDesc::Emit");
+    return TEMPLATE_CHECK(tile_desc, tile_desc_value_map, "RmsNormTileDesc::Emit");
 }
 std::string RmsNormCodeGen::GetInstanceName() 
 {
@@ -151,7 +151,7 @@ using PipelineProblem_{{idx}} = ck_tile::Rmsnorm2dFwdPipelineProblem<
     jinja2::ValuesMap value_map{{"name", GetInstanceName()},
                                 {"idx", idx++},
                                 {"is_pad_n", is_pad_n_},
-                                {"is_save_unquant", false}
+                                {"is_save_unquant", false},
                                 {"is_fast_div", true},
                                 {"is_two_pass", is_two_pass_},
                                 {"is_welford", true},

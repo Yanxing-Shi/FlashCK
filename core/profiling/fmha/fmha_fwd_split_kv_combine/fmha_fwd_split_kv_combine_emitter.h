@@ -214,7 +214,7 @@ public:
     std::map<std::string, FmhaFwdSplitKVCombineCodeGen>& GetInstanceMap(FmhaProblem fmha_problem)
     {
         GenerateInstances(fmha_problem);
-        return instance_map_[fmha_problem.kind_];
+        return instance_map_;
     }
 
     /**
@@ -228,8 +228,8 @@ public:
 private:
     // Maps FmhaKind to instance name -> instance mapping
     // Allows different FMHA kinds to have their own instance sets
-    std::map<FmhaKind, std::map<std::string, FmhaFwdSplitKVCombineCodeGen>> instance_map_;
-    
+    std::map<std::string, FmhaFwdSplitKVCombineCodeGen> instance_map_;
+
     // Total number of instances generated across all kinds
     int64_t num_instances_ = 0;
 };

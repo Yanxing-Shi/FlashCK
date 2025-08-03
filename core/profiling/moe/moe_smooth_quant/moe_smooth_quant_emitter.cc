@@ -49,9 +49,9 @@ bool MoeSmoothQuantEmitter::IsValidTile(const MoeSmoothQuantTileDesc& tile_desc,
     const int64_t total_m_coverage = tile_desc.m_thread_per_block_ * tile_desc.m_repeat_;
     const int64_t total_n_coverage = tile_desc.n_thread_per_block_ * tile_desc.n_repeat_ * tile_desc.n_vector_;
     
-    if (total_m_coverage > moe_problem.num_tokens_ || total_n_coverage > moe_problem.hidden_dim_) {
+    if (total_m_coverage > moe_problem.input_tokens_ || total_n_coverage > moe_problem.hidden_size_) {
         VLOG(3) << "Invalid MoE smooth quantization tile: coverage (" << total_m_coverage << "," << total_n_coverage 
-                << ") exceeds problem dims (" << moe_problem.num_tokens_ << "," << moe_problem.hidden_dim_ << ")";
+                << ") exceeds problem dims (" << moe_problem.input_tokens_ << "," << moe_problem.hidden_size_ << ")";
         return false;
     }
 
@@ -104,8 +104,8 @@ std::vector<MoeSmoothQuantCodeGen> MoeSmoothQuantEmitter::HeuristicFilter(
         const int64_t total_m_coverage = tile_desc.m_thread_per_block_ * tile_desc.m_repeat_;
         const int64_t total_n_coverage = tile_desc.n_thread_per_block_ * tile_desc.n_repeat_ * tile_desc.n_vector_;
         
-        if (moe_problem.num_tokens_ % total_m_coverage == 0) score += 0.05;
-        if (moe_problem.hidden_dim_ % total_n_coverage == 0) score += 0.05;
+        if (moe_problem.input_tokens_ % total_m_coverage == 0) score += 0.05;
+        if (moe_problem.hidden_size_ % total_n_coverage == 0) score += 0.05;
         
         scored_instances.emplace_back(score, i);
     }
@@ -153,7 +153,7 @@ std::vector<MoeSmoothQuantCodeGen> MoeSmoothQuantEmitter::CreateInstanceForConfi
              return v; }(),
         // Processing configuration
         [&]{ std::vector<int64_t> v; 
-             for (auto x : config.padding.is_pad_n.values) v.push_back(static_cast<int64_t>(x)); 
+             for (auto x : config.padding.n.values) v.push_back(static_cast<int64_t>(x)); 
              return v; }(),
         [&]{ std::vector<int64_t> v; 
              for (auto x : config.pipeline.is_two_pass.values) v.push_back(static_cast<int64_t>(x)); 
@@ -199,13 +199,6 @@ void MoeSmoothQuantEmitter::GenerateInstances(MoeProblem& moe_problem)
     FC_ENFORCE_EQ(FLAGS_FC_TUNING_MODE >= 0 && FLAGS_FC_TUNING_MODE <= 2, true,
                   Unavailable("Invalid FC_TUNING_MODE: {}. Valid values: 0(heuristic), 1(autotuning), 2(hybrid)", 
                              FLAGS_FC_TUNING_MODE));
-
-    // Check if instances already exist for this MoE kind
-    if (instance_map_.find(moe_problem.kind_) != instance_map_.end() && 
-        !instance_map_[moe_problem.kind_].empty()) {
-        VLOG(2) << "MoE smooth quantization instances already generated for kind: " << GetMoeKindName(moe_problem.kind_);
-        return;
-    }
 
     std::vector<MoeSmoothQuantCodeGen> all_instances;
 
@@ -294,13 +287,13 @@ void MoeSmoothQuantEmitter::GenerateInstances(MoeProblem& moe_problem)
     num_instances_ = 0;
     for (const auto& instance : final_instances) {
         if (IsValidInstance(instance)) {
-            instance_map_[moe_problem.kind_][instance.GetInstanceName()] = instance;
+            instance_map_[instance.GetInstanceName()] = instance;
             ++num_instances_;
         }
     }
 
-    VLOG(1) << "Generated " << num_instances_ << " valid MoE smooth quantization instances for " 
-            << GetMoeKindName(moe_problem.kind_) << " (mode " << FLAGS_FC_TUNING_MODE << ")";
+    VLOG(1) << "Generated " << num_instances_ << " valid MoE smooth quantization instances " 
+            << " (mode " << FLAGS_FC_TUNING_MODE << ")";
 }
 
 int64_t MoeSmoothQuantEmitter::GetNumInstances() const

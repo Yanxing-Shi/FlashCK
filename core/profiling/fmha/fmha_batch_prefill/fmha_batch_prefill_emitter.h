@@ -107,7 +107,7 @@ public:
     std::map<std::string, FmhaBatchPrefillCodeGen>& GetInstanceMap(FmhaProblem fmha_problem)
     {
         GenerateInstances(fmha_problem);
-        return instance_map_[fmha_problem.kind_];
+        return instance_map_;
     }
 
     /**
@@ -116,9 +116,9 @@ public:
     void ClearInstances();
 
 private:
-    /// Instance storage: FmhaKind -> {instance_name -> CodeGen}
-    std::map<FmhaKind, std::map<std::string, FmhaBatchPrefillCodeGen>> instance_map_;
-    
+    /// Instance storage: {instance_name -> CodeGen}
+    std::map<std::string, FmhaBatchPrefillCodeGen> instance_map_;
+
     /// Total number of generated instances across all kinds
     int64_t num_instances_ = 0;
     

@@ -4,7 +4,7 @@
 
 namespace flashck {
 
-std::string FmhaBatchPrefillTileDesc::GetInstanceName() const
+std::string FmhaBatchPrefillTileDesc::GetInstanceName()
 {
     // Generate comprehensive tile descriptor name encoding all tiling parameters
     return Sprintf(
@@ -31,7 +31,7 @@ std::string FmhaBatchPrefillTileDesc::GetInstanceName() const
         fmt::arg("k1_warp_tile", k1_warp_tile_));
 }
 
-std::string FmhaBatchPrefillTileDesc::Emit() const
+std::string FmhaBatchPrefillTileDesc::Emit() 
 {
     // Generate TileFmhaShape template instantiation
     std::string tpl = R"(
@@ -69,7 +69,7 @@ std::string FmhaBatchPrefillTileDesc::Emit() const
     return TEMPLATE_CHECK(tpl, value_map, "FmhaBatchPrefillTileDesc::Emit");
 }
 
-std::string FmhaBatchPrefillCodeGen::GetPadName() const
+std::string FmhaBatchPrefillCodeGen::GetPadName() 
 {
     // Generate compact padding configuration identifier
     return Sprintf("{q_pad}{kv_pad}{qk_head_pad}{v_head_pad}",
@@ -79,7 +79,7 @@ std::string FmhaBatchPrefillCodeGen::GetPadName() const
                    fmt::arg("v_head_pad", is_pad_v_head_dim_ ? "dv" : ""));
 }
 
-std::string FmhaBatchPrefillCodeGen::GetPipelineConfigName() const
+std::string FmhaBatchPrefillCodeGen::GetPipelineConfigName() 
 {
     // Generate complete pipeline configuration identifier
     return Sprintf("{pad_name}_{bias_name}_{quant_mode}{occupancy_override}",
@@ -90,7 +90,7 @@ std::string FmhaBatchPrefillCodeGen::GetPipelineConfigName() const
                            min_block_per_cu_ == -1 ? "" : "_bpc" + std::to_string(min_block_per_cu_)));
 }
 
-std::string FmhaBatchPrefillCodeGen::GetInstanceName() const
+std::string FmhaBatchPrefillCodeGen::GetInstanceName() 
 {
     // Generate unique instance identifier combining all configuration aspects
     return Sprintf("fmha_batch_prefill_{dtype}_{mode}_{tile_desc}_{pipeline_config}",
@@ -100,7 +100,7 @@ std::string FmhaBatchPrefillCodeGen::GetInstanceName() const
                    fmt::arg("pipeline_config", GetPipelineConfigName()));
 }
 
-std::string FmhaBatchPrefillCodeGen::Emit() const
+std::string FmhaBatchPrefillCodeGen::Emit() 
 {
     // Generate complete kernel instantiation template
     std::string tpl = R"(

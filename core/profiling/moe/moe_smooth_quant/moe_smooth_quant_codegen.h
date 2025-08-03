@@ -12,13 +12,13 @@ public:
      * @brief Generate a unique name for this tile configuration
      * @return String identifier based on tile parameters
      */
-    std::string GetInstanceName() const;
+    std::string GetInstanceName();
 
     /**
      * @brief Generate code template parameters for this tile
      * @return String representation for code generation
      */
-    std::string Emit() const;
+    std::string Emit();
 
     // ====================== Tile Configuration Parameters ======================
 
@@ -35,13 +35,13 @@ public:
      * @brief Generate a unique instance name for this configuration
      * @return String identifier combining operation type and parameters
      */
-    std::string GetInstanceName() const;
+    std::string GetInstanceName();
 
     /**
      * @brief Generate the complete kernel code for this configuration
      * @return String containing the generated GPU kernel code
      */
-    std::string Emit() const;
+    std::string Emit();
 
     // ====================== Operation Configuration ======================
     MoeProblem problem_;

@@ -8,7 +8,7 @@
 #include <array>
 
 #include "core/profiling/moe/moe_gemm/moe_gemm_codegen.h"
-#include "core/profiling/moe/moe_gemm/moe_gemm_problem.h"
+#include "core/profiling/moe/moe_problem.h"
 #include "core/utils/json_config.h"
 
 namespace flashck {
@@ -181,7 +181,7 @@ public:
     std::map<std::string, MoeGemmCodeGen>& GetInstanceMap(MoeProblem moe_problem)
     {
         GenerateInstances(moe_problem);
-        return instance_map_[moe_problem.kind_];
+        return instance_map_;
     }
 
     /**
@@ -214,8 +214,8 @@ private:
      */
     bool IsValidInterStageBandwidth(const MoeGemmTileDesc& tile_desc, const MoeProblem& moe_problem) const;
 
-    std::map<MoeGemmKind, std::map<std::string, MoeGemmCodeGen>> instance_map_;
-    int64_t                                                      num_instances_ = 0;
+    std::map<std::string, MoeGemmCodeGen> instance_map_;
+    int64_t num_instances_ = 0;
 };
 
 }  // namespace flashck

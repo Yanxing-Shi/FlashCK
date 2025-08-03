@@ -2,19 +2,19 @@
 
 namespace flashck {
 
-std::string FmhaFwdSplitKVCombineTileDesc::GetInstanceName() const
+std::string FmhaFwdSplitKVCombineTileDesc::GetInstanceName() 
 {
     return "b" + std::to_string(n1_block_);
 }
 
-std::string FmhaFwdSplitKVCombineCodeGen::GetPipelineConfigName() const
+std::string FmhaFwdSplitKVCombineCodeGen::GetPipelineConfigName() 
 {
     return Sprintf("{is_static_quant}_{block_per_cu}",
                    fmt::arg("is_static_quant", problem_.is_static_quant_ ? "squant" : "nosquant"),
                    fmt::arg("block_per_cu", min_block_per_cu_ == -1 ? "" : "_" + std::to_string(min_block_per_cu_)));
 }
 
-std::string FmhaFwdSplitKVCombineCodeGen::GetInstanceName() const
+std::string FmhaFwdSplitKVCombineCodeGen::GetInstanceName()
 {
     return Sprintf("fmha_fwd_splitkv_combine_{dtype}_{mode}_{tile_desc}_{pipeline}",
                    fmt::arg("dtype", DataTypeToString(problem_.dtype_)),
@@ -23,7 +23,7 @@ std::string FmhaFwdSplitKVCombineCodeGen::GetInstanceName() const
                    fmt::arg("pipeline", GetPipelineConfigName()));
 }
 
-std::string FmhaFwdSplitKVCombineCodeGen::Emit() const
+std::string FmhaFwdSplitKVCombineCodeGen::Emit() 
 {
     std::string tpl = R"(
 using fmha_fwd_splitkv_combine_pipeline_problem_{{idx}} = ck_tile::BlockFmhaSplitKVCombinePipelineProblem<

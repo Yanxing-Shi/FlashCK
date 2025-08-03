@@ -2,7 +2,7 @@
 
 namespace flashck {
 
-std::string FmhaFwdSplitKVTileDesc::GetInstanceName() const
+std::string FmhaFwdSplitKVTileDesc::GetInstanceName() 
 {
     return Sprintf(
         "{m0_block}x{n0_block}x{k0_block}_{n1_block}x{k1_block}x{k0_max_block}_r{m0_warp}x{n0_warp}x{k0_warp}_{m1_warp}x{n1_warp}x{k1_warp}_w{m0_warp}x{n0_warp_tile}x{k0_warp_tile}x{m1_warp_tile}x{n1_warp_tile}x{k1_warp_tile}",
@@ -26,7 +26,7 @@ std::string FmhaFwdSplitKVTileDesc::GetInstanceName() const
         fmt::arg("k1_warp_tile", k1_warp_tile_));
 }
 
-std::string FmhaFwdSplitKVTileDesc::Emit() const
+std::string FmhaFwdSplitKVTileDesc::Emit() 
 {
     std::string       tpl = R"(
     ck_tile::TileFmhaShape<ck_tile::sequence<{{m0_block}}, {{n0_block}}, {{k0_block}}, {{n1_block}}, {{k1_block}}, {{k0_max_block}}>,
@@ -58,7 +58,7 @@ std::string FmhaFwdSplitKVTileDesc::Emit() const
 }
 
 
-std::string FmhaFwdSplitKVCodeGen::GetPadName() const
+std::string FmhaFwdSplitKVCodeGen::GetPadName() 
 {
     return Sprintf("{is_pad_q_seq_len}{is_pad_kv_seq_len}{is_pad_qk_head_dim}{is_pad_v_head_dim}",
                    fmt::arg("is_pad_q_seq_len", is_pad_q_seq_len_ ? "s" : ""),
@@ -67,7 +67,7 @@ std::string FmhaFwdSplitKVCodeGen::GetPadName() const
                    fmt::arg("is_pad_v_head_dim", is_pad_v_head_dim_ ? "dv" : ""));
 }
 
-std::string FmhaFwdSplitKVCodeGen::GetPipelineConfigName() const
+std::string FmhaFwdSplitKVCodeGen::GetPipelineConfigName() 
 {
     return Sprintf("{pad_name}_{bias_short_name}_{is_static_quant}{block_per_cu}",
                    fmt::arg("pad_name", GetPadName()),
@@ -76,7 +76,7 @@ std::string FmhaFwdSplitKVCodeGen::GetPipelineConfigName() const
                    fmt::arg("block_per_cu", min_block_per_cu_ == -1 ? "" : "_" + std::to_string(min_block_per_cu_)));
 }
 
-std::string FmhaFwdSplitKVCodeGen::GetInstanceName() const
+std::string FmhaFwdSplitKVCodeGen::GetInstanceName() 
 {
     return Sprintf("fmha_fwd_splitkv_{dtype}_{mode}_{tile_desc}_{pipeline}",
                    fmt::arg("dtype", DataTypeToString(problem_.dtype_)),
@@ -85,7 +85,7 @@ std::string FmhaFwdSplitKVCodeGen::GetInstanceName() const
                    fmt::arg("pipeline", GetPipelineConfigName()));
 }
 
-std::string FmhaFwdSplitKVCodeGen::Emit() const
+std::string FmhaFwdSplitKVCodeGen::Emit() 
 {
     std::string source = R"(
 using fmha_fwd_splitkv_pipeline_problem_{{idx}} = ck_tile::BlockFmhaFwdSplitKVPipelineProblem<

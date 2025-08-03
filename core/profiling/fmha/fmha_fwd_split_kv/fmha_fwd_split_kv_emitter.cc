@@ -325,13 +325,6 @@ void FmhaFwdSplitKVEmitter::GenerateInstances(FmhaProblem& fmha_problem)
                   Unavailable("Invalid tuning mode: {}, valid modes are 0 (heuristic), 1 (autotuning), 2 (hybrid)", 
                               FLAGS_FC_TUNING_MODE));
 
-    // Check if instances already exist for this FMHA kind
-    if (instance_map_.find(fmha_problem.kind_) != instance_map_.end() && 
-        !instance_map_[fmha_problem.kind_].empty()) {
-        VLOG(2) << "Split-KV instances already generated for FMHA kind: " << GetFmhaKindName(fmha_problem.kind_);
-        return;
-    }
-
     VLOG(1) << "Generating FMHA split-KV instances for mode: " << FLAGS_FC_TUNING_MODE;
 
     // Load configurations from JSON files
@@ -445,7 +438,6 @@ void FmhaFwdSplitKVEmitter::GenerateInstances(FmhaProblem& fmha_problem)
     }
 
     // Store instances in the map
-    auto& kind_instance_map = instance_map_[fmha_problem.kind_];
     int64_t generated_count = 0;
 
     for (const auto& instance : final_instances) {
@@ -453,8 +445,8 @@ void FmhaFwdSplitKVEmitter::GenerateInstances(FmhaProblem& fmha_problem)
             std::string instance_name = instance.GetInstanceName();
             
             // Avoid duplicates
-            if (kind_instance_map.find(instance_name) == kind_instance_map.end()) {
-                kind_instance_map[instance_name] = instance;
+            if (instance_map_.find(instance_name) == instance_map_.end()) {
+                instance_map_[instance_name] = instance;
                 generated_count++;
                 VLOG(3) << "Generated FMHA split-KV instance: " << instance_name;
             } else {
@@ -467,8 +459,8 @@ void FmhaFwdSplitKVEmitter::GenerateInstances(FmhaProblem& fmha_problem)
     }
 
     num_instances_ += generated_count;
-    VLOG(1) << "Generated " << generated_count << " FMHA split-KV instances for kind: " 
-            << GetFmhaKindName(fmha_problem.kind_) << " (total: " << num_instances_ << ")";
+    VLOG(1) << "Generated " << generated_count << " FMHA split-KV instances " 
+            << " (total: " << num_instances_ << ")";
 }
 
 void FmhaFwdSplitKVEmitter::ClearInstances()

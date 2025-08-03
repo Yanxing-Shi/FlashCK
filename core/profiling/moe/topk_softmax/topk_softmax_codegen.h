@@ -13,25 +13,25 @@ public:
      * @brief Generate a unique instance name for this configuration
      * @return String identifier combining operation type and parameters
      */
-    std::string GetInstanceName() const;
+    std::string GetInstanceName();
 
     /**
      * @brief Generate the complete kernel code for this configuration
      * @return String containing the generated GPU kernel code
      */
-    std::string Emit() const;
+    std::string Emit();
 
     // ====================== Operation Configuration ======================
-    TopKSoftmaxProblem problem_;
+    MoeProblem problem_;
 
-    int issues_pre_col_;
+    int issues_per_col_;
     int bytes_per_issue_;
 
     int launch_type_;
 
     int64_t block_size_;
 
-    int min_block_pre_cu_;
+    int min_block_per_cu_;
 
 };
 

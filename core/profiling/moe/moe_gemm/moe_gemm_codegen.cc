@@ -4,7 +4,7 @@
 
 namespace flashck {
 
-std::string MoeGemmTileDesc::GetInstanceName() const
+std::string MoeGemmTileDesc::GetInstanceName()
 {
     // Generate comprehensive dual-stage MoE GEMM tile descriptor name
     return Sprintf(
@@ -29,7 +29,7 @@ std::string MoeGemmTileDesc::GetInstanceName() const
         fmt::arg("k1_warp_tile", k1_warp_tile_));
 }
 
-std::string MoeGemmTileDesc::Emit() const
+std::string MoeGemmTileDesc::Emit()
 {
     // Generate FusedMoeGemmShape template instantiation with dual-stage hierarchical tiling
     std::string tpl = R"(
@@ -66,7 +66,7 @@ std::string MoeGemmTileDesc::Emit() const
     return TEMPLATE_CHECK(tpl, value_map, "MoeGemmTileDesc::Emit");
 }
 
-std::string MoeGemmCodeGen::GetInstanceName() const
+std::string MoeGemmCodeGen::GetInstanceName()
 {
     // Generate unique instance identifier combining all MoE GEMM configuration aspects
     return Sprintf("moe_gemm_{input_dtype}_{weight_dtype}_{index_dtype}_{tile}_{is_pad_hidden_size}_{is_pad_intermediate_size}_{is_interleave_}_{activation}_{min_block_per_cu}",
@@ -80,7 +80,7 @@ std::string MoeGemmCodeGen::GetInstanceName() const
                    fmt::arg("min_block_per_cu", min_block_per_cu_));
 }
 
-std::string MoeGemmCodeGen::Emit() const
+std::string MoeGemmCodeGen::Emit()
 {
     // Generate complete MoE GEMM kernel instantiation template
     std::string tpl = R"(
@@ -89,6 +89,10 @@ std::string MoeGemmCodeGen::Emit() const
         {{is_only_gate}},        // Gate-only computation flag
         {{use_smooth_quant}},    // Smooth quantization support
         1                        // Atomic operations mode
+        FusedMoeGemmWeightPermuteEnum::b_nr_kr_waveflatten, // Weight permutation strategy
+        {{is_pad_hidden_size}}, // Hidden size padding flag
+        {{is_pad_intermediate_size}}, // Intermediate size padding flag
+        {{is_interleave}} // Interleave flag
     >;
 
     // MoE GEMM Pipeline Problem Definition
@@ -127,115 +131,19 @@ std::string MoeGemmCodeGen::Emit() const
     static int idx = 0; // Unique index for each generated kernel
 
     jinja2::ValuesMap value_map{
-        {"name", GetInstanceName()}
+        {"name", GetInstanceName()},
         {"idx", idx++},
-        {"input_dtype", DataTypeToString(problem_.input_dtype_)},
-        {"weight_dtype", DataTypeToString(problem_.weight_dtype_)},
-        {"index_dtype", DataTypeToString(problem_.index_dtype_)},
-        {"num_experts", problem_.num_experts_},
-        {"issue_per_col", issues_pre_col_},
-        {"bytes_per_issue", bytes_per_issue_},
-        {"launch_type", launch_type_},
+        {"is_pad_hidden_size", is_pad_hidden_size_},
+        {"is_pad_intermediate_size", is_pad_intermediate_size_},
+        {"is_interleave", is_interleave_},
         {"min_block_per_cu", min_block_per_cu_},
         {"shape", tile_desc_.Emit()},
-        {"activation", GetActivationTag(act_)},
+        {"activation", GetActivationTag(problem_.activation_)},
         {"is_only_gate", false},  // Configurable based on MoE architecture
         {"use_smooth_quant", problem_.use_smooth_quant_}
     };
 
     return TEMPLATE_CHECK(tpl, value_map, "MoeGemmCodeGen::Emit");
-}
-
-std::string MoeGemmTileDesc::Emit() 
-{
-    std::string       tpl = R"(
-    ck_tile::FusedMoeGemmShape<ck_tile::sequence<{{m0_block}}, {{n0_block}}, {{k0_block}}},
-                            ck_tile::sequence<{{m0_warp}}, {{n0_warp}}, {{k0_warp}}>,
-                            ck_tile::sequence<{{m0_warp_tile}}, {{n0_warp_tile}}, {{k0_warp_tile}}>,
-                            ck_tile::sequence<{{m1_block}}, {{n1_block}}, {{k1_block}}},
-                            ck_tile::sequence<{{m1_warp}}, {{n1_warp}}, {{k1_warp}}},
-                            ck_tile::sequence<{{m1_warp_tile}}, {{n1_warp_tile}}, {{k1_warp_tile}}>
-                             >
-)";
-    jinja2::ValuesMap value_map{
-        {"m0_block", m0_block_},
-        {"n0_block", n0_block_},
-        {"k0_block", k0_block_},
-        {"m1_block", m1_block_},
-        {"n1_block", n1_block_},
-        {"k1_block", k1_block_},
-        {"m0_warp", m0_warp_},
-        {"n0_warp", n0_warp_},
-        {"k0_warp", k0_warp_},
-        {"m1_warp", m1_warp_},
-        {"n1_warp", n1_warp_},
-        {"k1_warp", k1_warp_},
-        {"m0_warp_tile", m0_warp_tile_},
-        {"n0_warp_tile", n0_warp_tile_},
-        {"k0_warp_tile", k0_warp_tile_},
-        {"m1_warp_tile", m1_warp_tile_},
-        {"n1_warp_tile", n1_warp_tile_},
-        {"k1_warp_tile", k1_warp_tile_}};
-    return TEMPLATE_CHECK(tpl, value_map, "MoeGemmTileDesc::Emit");
-}
-
-
-std::string MoeGemmCodeGen::GetInstanceName() 
-{
-    return Sprintf("moe_gemm_{input_dtype}_{weight_dtype}_{index_dtype}_"
-                   "{tile}_{num_experts}_{issue_per_col}_{bytes_per_issue}_{launch_type}_{min_block_per_cu}",
-                   fmt::arg("input_dtype", DataTypeToString(problem_.input_dtype_)),
-                   fmt::arg("weight_dtype", DataTypeToString(problem_.weight_dtype_)),
-                   fmt::arg("index_dtype", DataTypeToString(problem_.index_dtype_)),
-                   fmt::arg("tile", tile_desc_.GetInstanceName()),
-                   fmt::arg("num_experts", problem_.num_experts_),
-                   fmt::arg("issue_per_col", issues_pre_col_),
-                   fmt::arg("bytes_per_issue", bytes_per_issue_),
-                   fmt::arg("launch_type", launch_type_),
-                   fmt::arg("min_block_per_cu", min_block_per_cu_)
-                );
-}
-
-std::string MoeGemmCodeGen::Emit() 
-{
-    std::string tpl = R"(
-    using traits_{{idx}} = ck_tile::FusedMoeGemmTraits<{{is_only_gate}}, {{use_smooth_quant}}, 1 /*atomic*/, FusedMoeGemmWeightPermuteEnum::b_nr_kr_waveflatten, 
-                                                        {{is_pad_hidden_size}}, {{is_pad_intermediate_size}}, {{is_interleave}}>;
-    using problem_{{idx}} = ck_tile::FusedMoeGemmPipelineProblem<ADataType,
-                                                                 GDataType,
-                                                                 DDataType,
-                                                                 AccDataType,
-                                                                 ODataType,
-                                                                 AScaleDataType,
-                                                                 GScaleDataType,
-                                                                 DScaleDataType,
-                                                                 YSmoothScaleDataType,
-                                                                 TopkWeightDataType,
-                                                                 IndexDataType,
-                                                                 {{activation}}, // TODO: hardcoded
-                                                                 {{shape}},
-                                                                traits_{{idx}}>;
-
-    using pipeline_{{idx}}    = ck_tile::FusedMoeGemmPipeline_FlatmmUk<problem_{{idx}}>;
-    using partitioner_{{idx}} = ck_tile::FusedMoeGemmTilePartitioner_Linear<shape_{{idx}}>;
-    using kernel_{{idx}}  = ck_tile::FusedMoeGemmKernel<partitioner_{{idx}}, pipeline_{{idx}}, void>; 
-)";
-    static int  idx = 0;
-
-    jinja2::ValuesMap value_map{{"idx", idx++},
-                                {"is_only_gate", problem_.is_only_gate_},
-                                {"use_smooth_quant", problem_.use_smooth_quant_},
-                                {"is_pad_hidden_size", is_pad_hidden_size_},
-                                {"is_pad_intermediate_size", is_pad_intermediate_size_},
-                                {"is_interleave", is_interleave_},
-                                {"min_block_per_cu", min_block_per_cu_},
-                                {"shape", tile_desc_.Emit()},
-                                {"activation", GetActivationTag(act_)}
-                               };
-
-
-    return TEMPLATE_CHECK(tpl, value_map, "MoeGemmCodeGen::Emit");
-
 }
 
 }  // namespace flashck

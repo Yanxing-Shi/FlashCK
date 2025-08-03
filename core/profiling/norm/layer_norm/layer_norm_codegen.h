@@ -21,44 +21,44 @@ public:
      * @brief Generate a unique name for this tile configuration
      * @return String identifier based on tile parameters
      */
-    std::string GetInstanceName() const;
+    std::string GetInstanceName();
 
     /**
      * @brief Generate code template parameters for this tile
      * @return String representation for code generation
      */
-    std::string Emit() const;
+    std::string Emit();
 
     // ====================== Tile Configuration Parameters ======================
 
-    int64_t m_repeat;            ///< Number of M-dimension repeats per thread
-    int64_t n_repeat;            ///< Number of N-dimension repeats per thread
-    int64_t m_thread_per_block;  ///< Number of threads along M dimension in a block
-    int64_t n_thread_per_block;  ///< Number of threads along N dimension in a block
-    int64_t n_vector;            ///< Vector size along N dimension for memory coalescing
+    int64_t m_repeat_;            ///< Number of M-dimension repeats per thread
+    int64_t n_repeat_;            ///< Number of N-dimension repeats per thread
+    int64_t m_thread_per_block_;  ///< Number of threads along M dimension in a block
+    int64_t n_thread_per_block_;  ///< Number of threads along N dimension in a block
+    int64_t n_vector_;            ///< Vector size along N dimension for memory coalescing
 };
 
 /**
- * @class NormCodeGen
+ * @class LayerNormCodeGen
  * @brief Code generator for normalization operations
  *
  * This class encapsulates all the parameters and configuration needed to generate
  * optimized GPU kernels for normalization operations. It combines problem
  * specifications with tiling strategies to produce efficient implementations.
  */
-class NormCodeGen {
+class LayerNormCodeGen {
 public:
     /**
      * @brief Generate a unique instance name for this configuration
      * @return String identifier combining operation type and parameters
      */
-    std::string GetInstanceName() const;
+    std::string GetInstanceName();
 
     /**
      * @brief Generate the complete kernel code for this configuration
      * @return String containing the generated GPU kernel code
      */
-    std::string Emit() const;
+    std::string Emit();
 
     // ====================== Operation Configuration ======================
 

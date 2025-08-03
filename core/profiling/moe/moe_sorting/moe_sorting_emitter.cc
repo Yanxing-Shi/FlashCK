@@ -18,7 +18,7 @@ bool MoeSortingEmitter::IsValidInstance(const MoeSortingCodeGen& instance)
     
     // Validate parameters are positive
     if (instance.internal_load_unroll_ <= 0 || instance.expert_tile_ <= 0 || 
-        instance.min_block_pre_cu_ <= 0) {
+        instance.min_block_per_cu_ <= 0) {
         VLOG(3) << "Invalid MoE sorting instance: negative or zero parameters not allowed";
         return false;
     }
@@ -38,7 +38,7 @@ bool MoeSortingEmitter::IsValidInstance(const MoeSortingCodeGen& instance)
     }
 
     // Validate total memory footprint is reasonable
-    const size_t estimated_memory = problem.num_tokens_ * sizeof(int32_t) * 2; // indices + values
+    const size_t estimated_memory = problem.input_tokens_ * sizeof(int32_t) * 2; // indices + values
     const size_t max_memory = 1ULL << 30; // 1GB limit
     if (estimated_memory > max_memory) {
         VLOG(3) << "Invalid MoE sorting instance: estimated memory " << estimated_memory 
@@ -78,19 +78,19 @@ std::vector<MoeSortingCodeGen> MoeSortingEmitter::HeuristicFilter(
         }
         
         // 3. Load balancing considerations
-        const int64_t tokens_per_expert = moe_problem.num_tokens_ * moe_problem.topk_ / moe_problem.num_experts_;
+        const int64_t tokens_per_expert = moe_problem.input_tokens_ * moe_problem.top_k_ / moe_problem.num_experts_;
         const int64_t work_per_tile = tokens_per_expert * instance.expert_tile_;
         if (work_per_tile >= 256 && work_per_tile <= 4096) {
             score += 0.2;  // Good workload granularity
         }
         
         // 4. Block occupancy optimization
-        if (instance.min_block_pre_cu_ >= 1 && instance.min_block_pre_cu_ <= 4) {
+        if (instance.min_block_per_cu_ >= 1 && instance.min_block_per_cu_ <= 4) {
             score += 0.15;  // Good occupancy for sorting
         }
         
         // 5. Problem size adaptation
-        if (moe_problem.num_tokens_ >= 1024) {
+        if (moe_problem.input_tokens_ >= 1024) {
             // For large problems, prefer higher unroll
             if (instance.internal_load_unroll_ >= 4) score += 0.1;
         } else {
@@ -154,7 +154,7 @@ std::vector<MoeSortingCodeGen> MoeSortingEmitter::CreateInstanceForConfig(
         instance.problem_ = moe_problem;
         instance.internal_load_unroll_ = internal_load_unroll;
         instance.expert_tile_ = expert_tile;
-        instance.min_block_pre_cu_ = min_block_per_cu;
+        instance.min_block_per_cu_ = min_block_per_cu;
         
         result.push_back(instance);
     });
@@ -168,13 +168,6 @@ void MoeSortingEmitter::GenerateInstances(MoeProblem& moe_problem)
     FC_ENFORCE_EQ(FLAGS_FC_TUNING_MODE >= 0 && FLAGS_FC_TUNING_MODE <= 2, true,
                   Unavailable("Invalid FC_TUNING_MODE: {}. Valid values: 0(heuristic), 1(autotuning), 2(hybrid)", 
                              FLAGS_FC_TUNING_MODE));
-
-    // Check if instances already exist for this MoE kind
-    if (instance_map_.find(moe_problem.kind_) != instance_map_.end() && 
-        !instance_map_[moe_problem.kind_].empty()) {
-        VLOG(2) << "MoE sorting instances already generated for kind: " << GetMoeSortingKindName(moe_problem.kind_);
-        return;
-    }
 
     std::vector<MoeSortingCodeGen> all_instances;
 
@@ -263,18 +256,13 @@ void MoeSortingEmitter::GenerateInstances(MoeProblem& moe_problem)
     num_instances_ = 0;
     for (const auto& instance : final_instances) {
         if (IsValidInstance(instance)) {
-            instance_map_[moe_problem.kind_][instance.GetInstanceName()] = instance;
+            instance_map_[instance.GetInstanceName()] = instance;
             ++num_instances_;
         }
     }
 
-    VLOG(1) << "Generated " << num_instances_ << " valid MoE sorting instances for " 
-            << GetMoeSortingKindName(moe_problem.kind_) << " (mode " << FLAGS_FC_TUNING_MODE << ")";
-}
-
-int64_t MoeSortingEmitter::GetNumInstances() const
-{
-    return num_instances_;
+    VLOG(1) << "Generated " << num_instances_ << " valid MoE sorting instances ";
+            << " (mode " << FLAGS_FC_TUNING_MODE << ")";
 }
 
 void MoeSortingEmitter::ClearInstances()

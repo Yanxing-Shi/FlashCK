@@ -26,7 +26,7 @@ public:
     /// @brief Validate complete RMS normalization instance
     /// @param instance The code generation instance to validate
     /// @return true if instance is valid for execution, false otherwise
-    static bool IsValidInstance(const NormCodeGen& instance);
+    static bool IsValidInstance(const RmsNormCodeGen& instance);
 
     /// @brief Apply heuristic filtering to RMS normalization instances
     /// 
@@ -39,16 +39,16 @@ public:
     /// @param instances Input instances to filter
     /// @param norm_problem The RMS normalization problem for context
     /// @return Filtered and ranked instances optimized for RMS normalization
-    static std::vector<NormCodeGen> HeuristicFilter(
-        const std::vector<NormCodeGen>& instances,
+    static std::vector<RmsNormCodeGen> HeuristicFilter(
+        const std::vector<RmsNormCodeGen>& instances,
         const NormProblem& norm_problem);
 
     /// @brief Generate code instances from RMS normalization configuration
     /// @param config Configuration specifying parameter ranges
     /// @param norm_problem The target RMS normalization problem
     /// @return Vector of all possible code generation instances
-    std::vector<NormCodeGen> CreateInstanceForConfig(
-        const RmsNormConfig& config, const NormProblem& norm_problem);
+    std::vector<RmsNormCodeGen> CreateInstanceForConfig(
+        const NormConfig& config, const NormProblem& norm_problem);
 
     /// @brief Generate and store RMS normalization instances based on configuration and tuning mode
     /// 
@@ -72,13 +72,10 @@ public:
     /// @brief Clear all generated instances and reset state
     void ClearInstances();
 
-    /// @brief Get instances for specific normalization kind
-    /// @param kind The normalization operation kind
     /// @return Map of instance name to code generation object
-    const std::unordered_map<std::string, NormCodeGen>& GetInstances(NormKindEnum kind) const {
-        static const std::unordered_map<std::string, NormCodeGen> empty_map;
-        auto it = instance_map_.find(kind);
-        return (it != instance_map_.end()) ? it->second : empty_map;
+    const std::map<std::string, RmsNormCodeGen>& GetInstances(NormProblem norm_problem) {
+        GenerateInstances(norm_problem);
+        return instance_map_;
     }
 
     // Disable copy/move operations for singleton
@@ -92,7 +89,7 @@ private:
     RmsNormEmitter() = default;
 
     /// @brief Storage for generated instances organized by normalization kind
-    std::unordered_map<NormKindEnum, std::unordered_map<std::string, NormCodeGen>> instance_map_;
+    std::map<std::string, RmsNormCodeGen> instance_map_;
     
     /// @brief Total count of valid generated instances
     int64_t num_instances_ = 0;

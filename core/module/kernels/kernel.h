@@ -42,7 +42,7 @@ public:
     using KernelArgs_t = std::variant<LayerNormKernelArgs, RmsNormKernelArgs, legacy::GemmKernelArgs, FmhaKernelArgs>;
 
     /// @brief Type alias for code generation map
-    using norm_codegen_map_t = std::map<std::string, NormCodeGen>;
+    using norm_codegen_map_t = std::map<std::string, LayerNormCodeGen>;
     using gemm_codegen_map_t = std::map<std::string, GemmCodeGen>;
     using fmha_fwd_codegen_map_t = std::map<std::string, FmhaFwdCodeGen>;
     using fmha_fwd_append_kv_codegen_map_t = std::map<std::string, FmhaFwdAppendKVCodeGen>;

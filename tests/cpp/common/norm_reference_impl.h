@@ -22,7 +22,7 @@ public:
      * @param config LayerNorm configuration
      * @param output Output buffer (pre-allocated)
      */
-    static void forward(const LayerNormConfig<T>& config, T* output)
+    static void forward(const NormConfig<T>& config, T* output)
     {
         const int   m       = config.m();
         const int   n       = config.n();
@@ -63,7 +63,7 @@ public:
     /**
      * @brief Legacy forward pass for backward compatibility
      */
-    static void forward(const LayerNormConfig<T>& config, const T* input, T* output)
+    static void forward(const NormConfig<T>& config, const T* input, T* output)
     {
         const int   m       = config.m();
         const int   n       = config.n();

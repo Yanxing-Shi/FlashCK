@@ -9,14 +9,6 @@
 
 namespace flashck {
 
-/// @file norm_problem.h
-/// @brief Problem definition for normalization operations
-/// 
-/// This file defines the NormProblem class that encapsulates all parameters
-/// and configurations needed for normalization operations. It provides
-/// serialization and comparison capabilities for problem instances, supporting
-/// both Layer Normalization and RMS Normalization operations.
-
 /**
  * @class NormProblem
  * @brief Represents a normalization operation problem configuration

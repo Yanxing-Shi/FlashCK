@@ -63,13 +63,13 @@ public:
      * @brief Generate comprehensive unique identifier for this MoE tile configuration
      * @return String identifier encoding all dual-stage tile parameters for profiling and caching
      */
-    std::string GetInstanceName() const;
+    std::string GetInstanceName();
 
     /**
      * @brief Generate optimized code template parameters for MoE GPU kernel instantiation
      * @return Template string with dual-stage tile configuration for code generation
      */
-    std::string Emit() const;
+    std::string Emit();
 
     // ====================== Stage 0: Token-to-Intermediate GEMM Tiling ======================
     
@@ -154,7 +154,7 @@ public:
  * codegen.problem_ = moe_problem;
  * codegen.tile_desc_ = optimized_tile;
  * codegen.num_experts_ = 8;
- * codegen.act_ = ActivationEnum::SwiGLU;
+ * codegen.activation = ActivationEnum::SwiGLU;
  * 
  * // Generate optimized kernel code
  * std::string kernel_code = codegen.Emit();
@@ -167,17 +167,17 @@ public:
      * @brief Generate unique instance identifier combining all MoE configuration parameters
      * @return Comprehensive string identifier for profiling, caching, and debugging
      */
-    std::string GetInstanceName() const;
+    std::string GetInstanceName();
 
     /**
      * @brief Generate complete optimized GPU kernel code for this MoE GEMM configuration
      * @return String containing full kernel implementation with expert routing and dual-stage optimization
      */
-    std::string Emit() const;
+    std::string Emit();
 
     // ====================== Core Operation Configuration ======================
     
-    TopKSoftmaxProblem problem_;  ///< Complete MoE problem specification (routing, dimensions, types)
+    MoeProblem problem_;  ///< Complete MoE problem specification (routing, dimensions, types)
 
     // Dual-stage hierarchical tiling strategy
     MoeGemmTileDesc tile_desc_;   ///< Complete tile configuration for optimal MoE performance

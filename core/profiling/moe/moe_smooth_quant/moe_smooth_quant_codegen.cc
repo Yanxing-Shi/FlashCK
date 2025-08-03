@@ -2,17 +2,17 @@
 
 namespace flashck {
 
-std::string MoeSmoothQuantTileDesc::GetInstanceName() const
+std::string MoeSmoothQuantTileDesc::GetInstanceName()
 {
     return Sprintf("{repeat_m}_{repeat_n}_{thread_per_block_m}_{thread_per_block_n}_{vector_n}",
-                   fmt::arg("repeat_m", m_repeat),
+                   fmt::arg("repeat_m", m_repeat_),
                    fmt::arg("repeat_n", n_repeat_),
                    fmt::arg("thread_per_block_m", m_thread_per_block_),
                    fmt::arg("thread_per_block_n", n_thread_per_block_),
                    fmt::arg("vector_n", n_vector_));
 }
 
-std::string MoeSmoothQuantTileDesc::Emit() const
+std::string MoeSmoothQuantTileDesc::Emit() 
 {
     bool is_warp_per_row = n_thread_per_block_ <= warpSize;
     FC_ENFORCE_EQ((m_thread_per_block_ * n_thread_per_block_) % warpSize,
@@ -48,7 +48,7 @@ std::string MoeSmoothQuantTileDesc::Emit() const
         }
     }();
 
-    int64_t block_m = m_repeat * m_thread_per_block_;
+    int64_t block_m = m_repeat_ * m_thread_per_block_;
     int64_t block_n = n_repeat_ * n_thread_per_block_ * n_vector_;
 
     int64_t warp_m = m_thread_per_block_ / block_warps_m;
@@ -75,7 +75,7 @@ std::string MoeSmoothQuantTileDesc::Emit() const
 }
 
 
-std::string MoeSmoothQuantCodeGen::GetInstanceName() const
+std::string MoeSmoothQuantCodeGen::GetInstanceName()
 {
     return Sprintf("moe_smooth_quant_{x_dtype}_{smooth_scale_dtype}_{compute_dtype}_"
                    "{y_scale_dtype}_{q_y_dtype}_{tile}_{pad_n}_{two_pass}_{min_block_per_cu}",
@@ -85,13 +85,13 @@ std::string MoeSmoothQuantCodeGen::GetInstanceName() const
                    fmt::arg("y_scale_dtype", DataTypeToString(problem_.y_scale_dtype_)),
                    fmt::arg("q_y_dtype", DataTypeToString(problem_.q_y_dtype_)),
                    fmt::arg("tile", tile_desc_.GetInstanceName()),
-                   fmt::arg("pad_n", is_padding_n_),
+                   fmt::arg("pad_n", is_pad_n_),
                    fmt::arg("two_pass", is_two_pass_),
                    fmt::arg("min_block_per_cu", min_block_per_cu_)
                 );
 }
 
-std::string MoeSmoothQuantCodeGen::Emit() const
+std::string MoeSmoothQuantCodeGen::Emit()
 {
     std::string tpl = R"(
     using pipeline_problem_{{idx}} = ck_tile::SmoothquantPipelineProblem<
@@ -107,11 +107,12 @@ std::string MoeSmoothQuantCodeGen::Emit() const
     using one_pass_pipeline_{{idx}} = ck_tile::SmoothquantPipelineOnePass<pipeline_problem_{{idx}}>;
     using two_pass_pipeline_{{idx}} = ck_tile::SmoothquantPipelineTwoPass<pipeline_problem_{{idx}}>;
     using pipeline_{{idx}}        = std::conditional_t<{{is_two_pass}}, two_pass_pipeline_{{idx}}, one_pass_pipeline_{{idx}}>;
-    using kernel = ck_tile::MoeSmoothquant<pipeline_{{idx}}>;
+    using {{name}} = ck_tile::MoeSmoothquant<pipeline_{{idx}}>;
 )";
     static int  idx = 0;
 
-    jinja2::ValuesMap value_map{{"idx", idx++},
+    jinja2::ValuesMap value_map{{"name", GetInstanceName()},
+                                {"idx", idx++},
                                 {"shape", tile_desc_.Emit()},
                                 {"is_pad_n", is_pad_n_},
                                 {"is_two_pass", is_two_pass_}

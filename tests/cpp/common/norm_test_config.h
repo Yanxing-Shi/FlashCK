@@ -15,9 +15,9 @@ namespace test {
  * @brief Configuration for LayerNorm tests implementing the unified interface
  */
 template<typename T>
-class LayerNormConfig: public OpConfigBase<T> {
+class NormConfig: public OpConfigBase<T> {
 public:
-    LayerNormConfig(int m, int n, float epsilon = 1e-5f, const std::string& name = ""): m_(m), n_(n), epsilon_(epsilon)
+    NormConfig(int m, int n, float epsilon = 1e-5f, const std::string& name = ""): m_(m), n_(n), epsilon_(epsilon)
     {
         if (name.empty()) {
             name_ = "LayerNorm_" + std::to_string(m) + "x" + std::to_string(n);
@@ -314,19 +314,19 @@ public:
     /**
      * @brief Create standard LayerNorm test configurations
      */
-    static std::vector<std::shared_ptr<LayerNormConfig<T>>> create_layernorm_configs()
+    static std::vector<std::shared_ptr<NormConfig<T>>> create_layernorm_configs()
     {
-        std::vector<std::shared_ptr<LayerNormConfig<T>>> configs;
+        std::vector<std::shared_ptr<NormConfig<T>>> configs;
 
         // Standard sizes
-        configs.push_back(std::make_shared<LayerNormConfig<T>>(32, 768, 1e-5f, "Small"));
-        configs.push_back(std::make_shared<LayerNormConfig<T>>(128, 1024, 1e-5f, "Medium"));
-        configs.push_back(std::make_shared<LayerNormConfig<T>>(256, 2048, 1e-5f, "Large"));
+        configs.push_back(std::make_shared<NormConfig<T>>(32, 768, 1e-5f, "Small"));
+        configs.push_back(std::make_shared<NormConfig<T>>(128, 1024, 1e-5f, "Medium"));
+        configs.push_back(std::make_shared<NormConfig<T>>(256, 2048, 1e-5f, "Large"));
 
         // // Edge cases
-        // configs.push_back(std::make_shared<LayerNormConfig<T>>(1, 1, 1e-5f, "Minimal"));
-        // configs.push_back(std::make_shared<LayerNormConfig<T>>(1, 4096, 1e-5f, "Single_Row"));
-        // configs.push_back(std::make_shared<LayerNormConfig<T>>(512, 64, 1e-5f, "Many_Rows"));
+        // configs.push_back(std::make_shared<NormConfig<T>>(1, 1, 1e-5f, "Minimal"));
+        // configs.push_back(std::make_shared<NormConfig<T>>(1, 4096, 1e-5f, "Single_Row"));
+        // configs.push_back(std::make_shared<NormConfig<T>>(512, 64, 1e-5f, "Many_Rows"));
 
         return configs;
     }

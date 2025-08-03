@@ -20,30 +20,30 @@ public:
     {
         std::ostringstream oss;
         oss << "MoeGemm_"
-            << "m" << m_ << "_"
-            << "n" << n_ << "_"
-            << "k" << k_ << "_"
-            << "inter" << intermediate_size_ << "_"
-            << "experts" << num_experts_ << "_"
-            << "topk" << top_k_ << "_"
-            << "cap" << static_cast<int>(capacity_factor_ * 100) << "_"
-            << "dtype" << DataTypeToString(input_dtype_) << "_"
-            << "wtype" << DataTypeToString(weight_dtype_) << "_"
-            << "otype" << DataTypeToString(output_dtype_) << "_"
-            << "itype" << DataTypeToString(intermediate_dtype_) << "_"
-            << "act" << GetActivationShortName(activation_) << "_"
-            << (use_smooth_quant_ ? "squant" : "nosquant") << "_"
-            << "permute" << static_cast<int>(weight_permute_);
+            << "input_tokens" << input_tokens_ << "_"
+            << "hidden_size" << hidden_size_ << "_"
+            << "intermediate_size" << intermediate_size_ << "_"
+            << "output_hidden_size" << output_hidden_size_ << "_"
+            << "num_experts" << num_experts_ << "_"
+            << "top_k" << top_k_ << "_"
+            << "capacity_factor" << static_cast<int>(capacity_factor_ * 100) << "_"
+            << "input_dtype" << DataTypeToString(input_dtype_) << "_"
+            << "weight_dtype" << DataTypeToString(weight_dtype_) << "_"
+            << "output_dtype" << DataTypeToString(output_dtype_) << "_"
+            << "intermediate_dtype" << DataTypeToString(intermediate_dtype_) << "_"
+            << "index_dtype" << DataTypeToString(index_dtype_) << "_"
+            << "activation" << GetActivationShortName(activation_) << "_"
+            << (use_smooth_quant_ ? "squant" : "nosquant") << "_";
         return oss.str();
     }
 
     // ====================== Stage 0: Token-to-Intermediate Configuration ======================
     
     /// @brief Number of input tokens (batch size * sequence length)
-    int64_t m_;
-    
+    int64_t input_tokens_;
+
     /// @brief Input feature dimension (hidden size)
-    int64_t k_;
+    int64_t hidden_size_;
     
     /// @brief Intermediate dimension size (typically 4x or 8x hidden size)
     int64_t intermediate_size_;
@@ -51,7 +51,7 @@ public:
     // ====================== Stage 1: Intermediate-to-Output Configuration ======================
     
     /// @brief Output feature dimension (typically same as input hidden size)
-    int64_t n_;
+    int64_t output_hidden_size_;
 
     // ====================== Expert Configuration ======================
     
@@ -88,28 +88,7 @@ public:
     
     /// @brief Enable smooth quantization for weights
     bool use_smooth_quant_ = false;
-    
-    /// @brief Weight permutation strategy for memory optimization
-    MoeGemmWeightPermuteEnum weight_permute_ = MoeGemmWeightPermuteEnum::no_permute;
 
-    // ====================== Memory Layout Configuration ======================
-    
-    /// @brief Input memory stride
-    int64_t input_stride_;
-    
-    /// @brief Weight memory stride
-    int64_t weight_stride_;
-    
-    /// @brief Output memory stride  
-    int64_t output_stride_;
-    
-    /// @brief Intermediate memory stride
-    int64_t intermediate_stride_;
-
-    // ====================== Problem Kind Identification ======================
-    
-    /// @brief MoE GEMM operation kind for instance management
-    MoeGemmKind kind_;
 };
 
 }  // namespace flashck

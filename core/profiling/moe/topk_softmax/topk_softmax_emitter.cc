@@ -17,9 +17,8 @@ bool TopKSoftmaxEmitter::IsValidInstance(const TopKSoftmaxCodeGen& instance)
     const auto& problem = instance.problem_;
     
     // Validate parameters are positive
-    if (instance.num_experts_ <= 0 || instance.issues_pre_col_ <= 0 || 
-        instance.bytes_per_issue_ <= 0 || instance.block_size_ <= 0 ||
-        instance.min_block_pre_cu_ <= 0) {
+    if (instance.issues_per_col_ <= 0 || instance.bytes_per_issue_ <= 0 || instance.block_size_ <= 0 ||
+        instance.min_block_per_cu_ <= 0) {
         VLOG(3) << "Invalid TopK Softmax instance: negative or zero parameters not allowed";
         return false;
     }
@@ -28,16 +27,6 @@ bool TopKSoftmaxEmitter::IsValidInstance(const TopKSoftmaxCodeGen& instance)
     if (instance.block_size_ > 1024) {
         VLOG(3) << "Invalid TopK Softmax instance: block size " << instance.block_size_ 
                 << " exceeds hardware limit (1024)";
-        return false;
-    }
-
-    // Validate memory access pattern efficiency
-    const size_t memory_per_token = instance.num_experts_ * SizeOf(problem.input_dtype_);
-    const size_t total_memory = problem.num_tokens_ * memory_per_token;
-    const size_t max_memory = 1ULL << 31; // 2GB limit
-    if (total_memory > max_memory) {
-        VLOG(3) << "Invalid TopK Softmax instance: estimated memory " << total_memory 
-                << " exceeds limit " << max_memory;
         return false;
     }
 
@@ -62,7 +51,7 @@ std::vector<TopKSoftmaxCodeGen> TopKSoftmaxEmitter::HeuristicFilter(
         double score = 0.0;
         
         // 1. Memory bandwidth efficiency (prefer configurations that maximize throughput)
-        if (instance.issues_pre_col_ >= 2 && instance.issues_pre_col_ <= 8) {
+        if (instance.issues_per_col_ >= 2 && instance.issues_per_col_ <= 8) {
             score += 0.3;  // Good memory pipeline utilization
         }
         
@@ -71,13 +60,7 @@ std::vector<TopKSoftmaxCodeGen> TopKSoftmaxEmitter::HeuristicFilter(
             score += 0.25;  // Sweet spot for reduction operations
         }
         
-        // 3. TopK selectivity optimization
-        const double selectivity = static_cast<double>(moe_problem.topk_) / instance.num_experts_;
-        if (selectivity >= 0.1 && selectivity <= 0.5) {
-            score += 0.15;  // Good sparsity balance
-        }
-        
-        // 4. Memory access pattern optimization
+        // 3. Memory access pattern optimization
         if (instance.bytes_per_issue_ == 4 || instance.bytes_per_issue_ == 8) {
             score += 0.1;  // Aligned memory access
         }
@@ -144,11 +127,11 @@ std::vector<TopKSoftmaxCodeGen> TopKSoftmaxEmitter::CreateInstanceForConfig(
         // Construct TopKSoftmaxCodeGen
         TopKSoftmaxCodeGen instance;
         instance.problem_ = moe_problem;
-        instance.issues_pre_col_ = issues_per_col;
+        instance.issues_per_col_ = issues_per_col;
         instance.bytes_per_issue_ = bytes_per_issue;
         instance.launch_type_ = launch_type;
         instance.block_size_ = block_size;
-        instance.min_block_pre_cu_ = min_block_per_cu;
+        instance.min_block_per_cu_ = min_block_per_cu;
         
         result.push_back(instance);
     });
@@ -162,13 +145,6 @@ void TopKSoftmaxEmitter::GenerateInstances(MoeProblem& moe_problem)
     FC_ENFORCE_EQ(FLAGS_FC_TUNING_MODE >= 0 && FLAGS_FC_TUNING_MODE <= 2, true,
                   Unavailable("Invalid FC_TUNING_MODE: {}. Valid values: 0(heuristic), 1(autotuning), 2(hybrid)", 
                              FLAGS_FC_TUNING_MODE));
-
-    // Check if instances already exist for this TopK Softmax kind
-    if (instance_map_.find(moe_problem.kind_) != instance_map_.end() && 
-        !instance_map_[moe_problem.kind_].empty()) {
-        VLOG(2) << "TopK Softmax instances already generated for kind: " << GetTopKSoftmaxKindName(moe_problem.kind_);
-        return;
-    }
 
     std::vector<TopKSoftmaxCodeGen> all_instances;
 
@@ -257,13 +233,13 @@ void TopKSoftmaxEmitter::GenerateInstances(MoeProblem& moe_problem)
     num_instances_ = 0;
     for (const auto& instance : final_instances) {
         if (IsValidInstance(instance)) {
-            instance_map_[moe_problem.kind_][instance.GetInstanceName()] = instance;
+            instance_map_[instance.GetInstanceName()] = instance;
             ++num_instances_;
         }
     }
 
-    VLOG(1) << "Generated " << num_instances_ << " valid TopK Softmax instances for " 
-            << GetTopKSoftmaxKindName(moe_problem.kind_) << " (mode " << FLAGS_FC_TUNING_MODE << ")";
+    VLOG(1) << "Generated " << num_instances_ << " valid TopK Softmax instances " 
+            << " (mode " << FLAGS_FC_TUNING_MODE << ")";
 }
 
 int64_t TopKSoftmaxEmitter::GetNumInstances() const

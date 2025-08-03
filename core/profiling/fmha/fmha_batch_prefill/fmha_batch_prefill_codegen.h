@@ -24,13 +24,13 @@ public:
      * @brief Generate a unique identifier for this tile configuration
      * @return String identifier encoding all tile parameters
      */
-    std::string GetInstanceName() const;
+    std::string GetInstanceName();
 
     /**
      * @brief Generate C++ template parameters for kernel instantiation
      * @return String representation for TileFmhaShape template
      */
-    std::string Emit() const;
+    std::string Emit();
 
     // ====================== Q-K GEMM Block Tiling ======================
     /// Block size for query sequence dimension (M0)
@@ -99,25 +99,25 @@ public:
      * @brief Generate unique identifier for padding configuration
      * @return String encoding which dimensions have padding enabled
      */
-    std::string GetPadName() const;
+    std::string GetPadName();
 
     /**
      * @brief Generate identifier for pipeline configuration
      * @return String identifier for the selected pipeline implementation
      */
-    std::string GetPipelineConfigName() const;
+    std::string GetPipelineConfigName();
 
     /**
      * @brief Generate unique instance name combining all configuration parameters
      * @return Comprehensive string identifier for this kernel configuration
      */
-    std::string GetInstanceName() const;
+    std::string GetInstanceName();
 
     /**
      * @brief Generate complete GPU kernel code for this configuration
      * @return String containing the generated CUDA/HIP kernel implementation
      */
-    std::string Emit() const;
+    std::string Emit();
 
     // ====================== Problem Specification ======================
     /// Problem specification this codegen instance targets

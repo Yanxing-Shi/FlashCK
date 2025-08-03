@@ -91,7 +91,7 @@ private:
     float eps_;               ///< Numerical stability epsilon
 
     // Profiling and code generation
-    std::map<std::string, NormCodeGen> instance_map_;         ///< Generated kernel instances
+    std::map<std::string, LayerNormCodeGen> instance_map_;         ///< Generated kernel instances
     std::map<std::string, RunningItem> running_infos_;        ///< Profiling configurations
     std::shared_ptr<Kernel>            register_kernel_ptr_;  ///< Registered kernel
 };

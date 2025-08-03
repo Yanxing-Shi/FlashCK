@@ -287,13 +287,6 @@ void GemmEmitter::GenerateInstances(GemmProblem& gemm_problem)
                   Unavailable("Invalid FC_TUNING_MODE: {}. Valid values: 0(heuristic), 1(autotuning), 2(hybrid)", 
                              FLAGS_FC_TUNING_MODE));
 
-    // Check if instances already exist for this GEMM kind
-    if (instance_map_.find(gemm_problem.kind_) != instance_map_.end() && 
-        !instance_map_[gemm_problem.kind_].empty()) {
-        VLOG(2) << "GEMM instances already generated for kind: " << GetGemmKindName(gemm_problem.kind_);
-        return;
-    }
-
     std::vector<GemmCodeGen> all_instances;
 
     // Configuration loading based on enabled flags
@@ -381,13 +374,13 @@ void GemmEmitter::GenerateInstances(GemmProblem& gemm_problem)
     num_instances_ = 0;
     for (const auto& instance : final_instances) {
         if (IsValidInstance(instance)) {
-            instance_map_[gemm_problem.kind_][instance.GetInstanceName()] = instance;
+            instance_map_[instance.GetInstanceName()] = instance;
             ++num_instances_;
         }
     }
 
-    VLOG(1) << "Generated " << num_instances_ << " valid GEMM instances for " 
-            << GetGemmKindName(gemm_problem.kind_) << " (mode " << FLAGS_FC_TUNING_MODE << ")";
+    VLOG(1) << "Generated " << num_instances_ << " valid GEMM instances " 
+            << " (mode " << FLAGS_FC_TUNING_MODE << ")";
 }
 
 int64_t GemmEmitter::GetNumInstances() const

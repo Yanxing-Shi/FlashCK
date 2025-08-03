@@ -4,7 +4,7 @@
 
 namespace flashck {
 
-std::string FmhaPagedKVPrefillTileDesc::GetInstanceName() const
+std::string FmhaPagedKVPrefillTileDesc::GetInstanceName() 
 {
     return Sprintf(
         "{m0_block}x{n0_block}x{k0_block}_{n1_block}x{k1_block}x{k0_max_block}_{m0_warp}x{n0_warp}x{k0_warp}_{m1_warp}x{n1_warp}x{k1_warp}_{m0_warp_tile}x{n0_warp_tile}x{k0_warp_tile}_{m1_warp_tile}x{n1_warp_tile}x{k1_warp_tile}",
@@ -28,7 +28,7 @@ std::string FmhaPagedKVPrefillTileDesc::GetInstanceName() const
         fmt::arg("k1_warp_tile", k1_warp_tile_));
 }
 
-std::string FmhaPagedKVPrefillTileDesc::Emit() const
+std::string FmhaPagedKVPrefillTileDesc::Emit() 
 {
     std::string       tpl = R"(
     ck_tile::TileFmhaShape<ck_tile::sequence<{{m0_block}}, {{n0_block}}, {{k0_block}}, {{n1_block}}, {{k1_block}}, {{k0_max_block}}>,
@@ -59,7 +59,7 @@ std::string FmhaPagedKVPrefillTileDesc::Emit() const
     return TEMPLATE_CHECK(tpl, value_map, "FmhaFwdTileDesc::Emit");
 }
 
-std::string FmhaPagedKVPrefillCodeGen::GetPadName() const
+std::string FmhaPagedKVPrefillCodeGen::GetPadName() 
 {
     return Sprintf("{is_pad_q_seq_len}{is_pad_kv_seq_len}{is_pad_qk_head_dim}{is_pad_v_head_dim}",
                    fmt::arg("is_pad_q_seq_len", is_pad_q_seq_len_ ? "s" : ""),
@@ -68,7 +68,7 @@ std::string FmhaPagedKVPrefillCodeGen::GetPadName() const
                    fmt::arg("is_pad_v_head_dim", is_pad_v_head_dim_ ? "dv" : ""));
 }
 
-std::string FmhaPagedKVPrefillCodeGen::GetPipelineConfigName() const
+std::string FmhaPagedKVPrefillCodeGen::GetPipelineConfigName() 
 {
     return Sprintf("{pad_name}_{bias_short_name}_{is_static_quant}{block_per_cu}",
                    fmt::arg("pad_name", GetPadName()),
@@ -77,7 +77,7 @@ std::string FmhaPagedKVPrefillCodeGen::GetPipelineConfigName() const
                    fmt::arg("block_per_cu", min_block_per_cu_ == -1 ? "" : "_" + std::to_string(min_block_per_cu_)));
 }
 
-std::string FmhaPagedKVPrefillCodeGen::GetInstanceName() const
+std::string FmhaPagedKVPrefillCodeGen::GetInstanceName() 
 {
     return Sprintf("fmha_fwd_{dtype}_{mode}_{tile_desc}_{pipeline}",
                    fmt::arg("dtype", DataTypeToString(problem_.dtype_)),
@@ -86,7 +86,7 @@ std::string FmhaPagedKVPrefillCodeGen::GetInstanceName() const
                    fmt::arg("pipeline", GetPipelineConfigName()));
 }
 
-std::string FmhaPagedKVPrefillCodeGen::Emit() const
+std::string FmhaPagedKVPrefillCodeGen::Emit() 
 {
     std::string tpl = R"(
 using fmha_pipeline_problem_{{idx}} = ck_tile::BlockFmhaPipelineProblem<

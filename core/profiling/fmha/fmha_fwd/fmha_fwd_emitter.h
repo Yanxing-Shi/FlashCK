@@ -130,7 +130,7 @@ public:
     std::map<std::string, FmhaFwdCodeGen>& GetInstanceMap(FmhaProblem fmha_problem)
     {
         GenerateInstances(fmha_problem);
-        return instance_map_[fmha_problem.kind_];
+        return instance_map_;
     }
 
     /**
@@ -140,8 +140,8 @@ public:
 
 private:
     // Instance storage organized by FMHA operation type
-    std::map<FmhaKind, std::map<std::string, FmhaFwdCodeGen>> instance_map_;
-    
+    std::map<std::string, FmhaFwdCodeGen> instance_map_;
+
     // Performance tracking
     int64_t num_instances_ = 0;
 };

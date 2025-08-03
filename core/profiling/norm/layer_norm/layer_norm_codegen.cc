@@ -2,7 +2,7 @@
 
 namespace flashck {
 
-std::string LayerNormTileDesc::GetInstanceName() const
+std::string LayerNormTileDesc::GetInstanceName() 
 {
     return Sprintf("{m_repeat}_{n_repeat}_{m_thread_per_block}_{n_thread_per_block}_{n_vector}",
                    fmt::arg("m_repeat", m_repeat_),
@@ -12,7 +12,7 @@ std::string LayerNormTileDesc::GetInstanceName() const
                    fmt::arg("n_vector", n_vector_));
 }
 
-std::string LayerNormTileDesc::Emit() const
+std::string LayerNormTileDesc::Emit() 
 {
     bool is_warp_per_row = n_thread_per_block_ <= warpSize;
     FC_ENFORCE_EQ((m_thread_per_block_ * n_thread_per_block_) % warpSize,
@@ -74,22 +74,21 @@ std::string LayerNormTileDesc::Emit() const
     return TEMPLATE_CHECK(tile_desc, tile_desc_value_map, "LayerNormTileDesc::Emit");
 }
 
-std::string LayerNormCodeGen::GetInstanceName() const
+std::string LayerNormCodeGen::GetInstanceName() 
 {
-    return Sprintf("{kind_name}_{x_dtype}_{y_dtype}_{smooth_scale_dtype}_{y_scale_dtype}_"
+    return Sprintf("layer_norm_{x_dtype}_{y_dtype}_{smooth_scale_dtype}_{y_scale_dtype}_"
                    "{tile_desc}_{is_add_bias}_{fused_add}_{fused_quant}",
-                   fmt::arg("kind_name", GetNormKindShortName(kind_)),
-                   fmt::arg("x_dtype", DataTypeToString(x_dtype_)),
-                   fmt::arg("y_dtype", DataTypeToString(y_dtype_)),
-                   fmt::arg("smooth_scale_dtype", DataTypeToString(smooth_scale_dtype_)),
-                   fmt::arg("y_scale_dtype", DataTypeToString(y_scale_dtype_)),
+                   fmt::arg("x_dtype", DataTypeToString(problem_.x_dtype_)),
+                   fmt::arg("y_dtype", DataTypeToString(problem_.y_dtype_)),
+                   fmt::arg("smooth_scale_dtype", DataTypeToString(problem_.smooth_scale_dtype_)),
+                   fmt::arg("y_scale_dtype", DataTypeToString(problem_.y_scale_dtype_)),
                    fmt::arg("tile_desc", tile_desc_.GetInstanceName()),
-                   fmt::arg("is_add_bias", GetNormBiasShortName(is_add_bias_)),
-                   fmt::arg("fused_add", GetFusedAddShortName(fused_add_)),
-                   fmt::arg("fused_quant", GetFusedQuantShortName(fused_quant_)));
+                   fmt::arg("is_add_bias", GetNormBiasShortName(problem_.is_add_bias_)),
+                   fmt::arg("fused_add", GetFusedAddShortName(problem_.fused_add_)),
+                   fmt::arg("fused_quant", GetFusedQuantShortName(problem_.fused_quant_)));
 }
 
-std::string LayerNormCodeGen::Emit() const
+std::string LayerNormCodeGen::Emit() 
 {
     std::string tpl = R"(
     using pipeline_problem_{{idx}} = ck_tile::Layernorm2dFwdPipelineProblem<

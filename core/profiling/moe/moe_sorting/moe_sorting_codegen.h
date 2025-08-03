@@ -13,21 +13,21 @@ public:
      * @brief Generate a unique instance name for this configuration
      * @return String identifier combining operation type and parameters
      */
-    std::string GetInstanceName() const;
+    std::string GetInstanceName();
 
     /**
      * @brief Generate the complete kernel code for this configuration
      * @return String containing the generated GPU kernel code
      */
-    std::string Emit() const;
+    std::string Emit();
 
     // ====================== Operation Configuration ======================
-    MoeSortingProblem problem_;
+    MoeProblem problem_;
 
     int64_t internal_load_unroll_;
-    int64_t expert_tile_
+    int64_t expert_tile_;
 
-    int min_block_pre_cu_;
+    int min_block_per_cu_;
 
 };
 

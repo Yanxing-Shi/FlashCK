@@ -48,7 +48,7 @@ namespace test {
 
 // Forward declarations for config classes used in TFLOPs computation
 template<typename T>
-class LayerNormConfig;
+class NormConfig;
 template<typename T>
 class RMSNormConfig;
 
@@ -687,7 +687,7 @@ private:
         if (op_type == "LayerNorm") {
             // LayerNorm FLOPs: 2 * m * n (mean) + 2 * m * n (variance) + 3 * m * n (normalize + scale + bias)
             // Approximate: 7 * m * n operations
-            auto* ln_config = dynamic_cast<const LayerNormConfig<T>*>(&config);
+            auto* ln_config = dynamic_cast<const NormConfig<T>*>(&config);
             if (ln_config) {
                 double flops = 7.0 * ln_config->m() * ln_config->n();
                 return (flops / 1e12) / time_s;

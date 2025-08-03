@@ -164,13 +164,6 @@ void FmhaFwdAppendKVEmitter::GenerateInstances(FmhaProblem& fmha_problem)
                   Unavailable("Invalid FC_TUNING_MODE: {}. Valid values: 0(heuristic), 1(autotuning), 2(hybrid)", 
                              FLAGS_FC_TUNING_MODE));
 
-    // Check if instances already exist for this FMHA kind
-    if (instance_map_.find(fmha_problem.kind_) != instance_map_.end() && 
-        !instance_map_[fmha_problem.kind_].empty()) {
-        VLOG(2) << "FMHA append KV instances already generated for kind: " << GetFmhaKindName(fmha_problem.kind_);
-        return;
-    }
-
     std::vector<FmhaFwdAppendKVCodeGen> all_instances;
 
     // Configuration loading based on enabled flags
@@ -258,7 +251,7 @@ void FmhaFwdAppendKVEmitter::GenerateInstances(FmhaProblem& fmha_problem)
     num_instances_ = 0;
     for (const auto& instance : final_instances) {
         if (IsValidInstance(instance)) {
-            instance_map_[fmha_problem.kind_][instance.GetInstanceName()] = instance;
+            instance_map_[instance.GetInstanceName()] = instance;
             ++num_instances_;
         }
     }

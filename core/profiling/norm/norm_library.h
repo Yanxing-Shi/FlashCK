@@ -7,14 +7,6 @@
 
 namespace flashck {
 
-/// @file norm_library.h
-/// @brief Core library for normalization operations in FlashCK
-/// 
-/// This file provides the fundamental enumerations, data structures, and utility
-/// functions for all normalization operations including Layer Normalization and
-/// RMS Normalization. It defines bias handling modes, fused operation configurations,
-/// data type management, and kernel naming conventions.
-
 /**
  * @enum NormBiasEnum
  * @brief Defines bias handling modes for normalization operations
@@ -101,17 +93,6 @@ static const std::unordered_map<FusedQuantEnum, FusedQuantInfo> g_fused_quant_ma
 };
 
 // ====================== Utility Functions ======================
-
-/**
- * @brief Gets the name string for a norm kind
- * @param kind The norm kind to query
- * @return The name string, or "unknown" if not found
- */
-inline std::string GetNormKindName(NormKind kind)
-{
-    auto it = g_norm_map.find(kind);
-    return it != g_norm_map.end() ? it->second.name : "unknown";
-}
 
 /**
  * @brief Gets the bias info name for a bias enum

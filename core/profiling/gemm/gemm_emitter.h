@@ -171,7 +171,7 @@ public:
 
 private:
 
-    std::map<GemmKind, std::map<std::string, GemmCodeGen>> instance_map_;
+    std::map<std::string, GemmCodeGen> instance_map_;
     int64_t                                                num_instances_ = 0;
 };
 

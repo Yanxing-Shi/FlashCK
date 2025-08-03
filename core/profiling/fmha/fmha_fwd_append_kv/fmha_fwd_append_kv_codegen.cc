@@ -2,11 +2,9 @@
 
 #include "core/utils/macros.h"
 
-FC_DECLARE_int32(FC_TUNING_MODE);  // Mode for GEMM operation: 0 - heuristic, 1 - autotuning, 2 - hybrid
-
 namespace flashck {
 
-std::string FmhaFwdAppendKVTileDesc::GetInstanceName() const
+std::string FmhaFwdAppendKVTileDesc::GetInstanceName()
 {
     return Sprintf("{s_block}x{sk_block}x{d_block}x{dv_block}",
                    fmt::arg("s_block", s_block_),
@@ -15,7 +13,7 @@ std::string FmhaFwdAppendKVTileDesc::GetInstanceName() const
                    fmt::arg("dv_block", dv_block_));
 }
 
-std::string FmhaFwdAppendKVCodeGen::GetPadName() const
+std::string FmhaFwdAppendKVCodeGen::GetPadName() 
 {
     return Sprintf("{is_pad_q_seq_len}{is_pad_kv_seq_len}{is_pad_qk_head_dim}{is_pad_v_head_dim}",
                    fmt::arg("is_pad_q_seq_len", is_pad_q_seq_len_ ? "s" : ""),
@@ -24,7 +22,7 @@ std::string FmhaFwdAppendKVCodeGen::GetPadName() const
                    fmt::arg("is_pad_v_head_dim", is_pad_v_head_dim_ ? "dv" : ""));
 }
 
-std::string FmhaFwdAppendKVCodeGen::GetPipelineConfigName() const
+std::string FmhaFwdAppendKVCodeGen::GetPipelineConfigName() 
 {
     return Sprintf("{pad_name}_{rope_short_name}_{pagedkv}{block_per_cu}",
                    fmt::arg("pad_name", GetPadName()),
@@ -33,7 +31,7 @@ std::string FmhaFwdAppendKVCodeGen::GetPipelineConfigName() const
                    fmt::arg("block_per_cu", min_block_per_cu_ == -1 ? "" : "_" + std::to_string(min_block_per_cu_)));
 }
 
-std::string FmhaFwdAppendKVCodeGen::GetInstanceName() const
+std::string FmhaFwdAppendKVCodeGen::GetInstanceName() 
 {
     return Sprintf("fmha_fwd_appendkv_{dtype}_{mode}_{tile_desc}_{pipeline}",
                    fmt::arg("dtype", DataTypeToString(problem_.dtype_)),
@@ -42,7 +40,7 @@ std::string FmhaFwdAppendKVCodeGen::GetInstanceName() const
                    fmt::arg("pipeline", GetPipelineConfigName()));
 }
 
-std::string FmhaFwdAppendKVCodeGen::Emit() const
+std::string FmhaFwdAppendKVCodeGen::Emit() 
 {
     std::string source = R"(
 using fmha_fwd_appendkv_pipeline_problem_{{idx}} = ck_tile::BlockFmhaFwdAppendKVPipelineProblem<

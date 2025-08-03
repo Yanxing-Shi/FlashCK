@@ -21,7 +21,7 @@ public:
      * @brief Generate a unique name for this tile configuration
      * @return String identifier based on tile parameters
      */
-    std::string GetInstanceName() const;
+    std::string GetInstanceName();
 
     // ====================== Tile Configuration ======================
 
@@ -48,19 +48,19 @@ public:
      * @brief Generate pipeline configuration name
      * @return String identifier for pipeline configuration
      */
-    std::string GetPipelineConfigName() const;
+    std::string GetPipelineConfigName();
 
     /**
      * @brief Generate a unique instance name for this configuration
      * @return String identifier combining operation type and parameters
      */
-    std::string GetInstanceName() const;
+    std::string GetInstanceName();
 
     /**
      * @brief Generate the complete kernel code for this configuration
      * @return String containing the generated GPU kernel code
      */
-    std::string Emit() const;
+    std::string Emit();
 
     FmhaProblem problem_;
 

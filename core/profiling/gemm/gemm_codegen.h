@@ -21,13 +21,13 @@ public:
      * @brief Generate comprehensive unique identifier for this tile configuration
      * @return String identifier encoding all tile parameters for profiling and caching
      */
-    std::string GetInstanceName() const;
+    std::string GetInstanceName();
 
     /**
      * @brief Generate optimized code template parameters for GPU kernel instantiation
      * @return Template string with tile configuration for code generation
      */
-    std::string Emit() const;
+    std::string Emit();
 
     // ====================== Hierarchical Tiling Parameters ======================
 
@@ -66,13 +66,13 @@ public:
      * @brief Generate unique instance identifier combining all configuration parameters
      * @return Comprehensive string identifier for profiling, caching, and debugging
      */
-    std::string GetInstanceName() const;
+    std::string GetInstanceName();
 
     /**
      * @brief Generate complete optimized GPU kernel code for this GEMM configuration
      * @return String containing full kernel implementation with all optimizations applied
      */
-    std::string Emit() const;
+    std::string Emit();
 
     // ====================== Core Operation Configuration ======================
     

@@ -3,7 +3,7 @@
 namespace flashck {
 
 
-std::string GemmTileDesc::GetInstanceName() const
+std::string GemmTileDesc::GetInstanceName()
 {
     // Generate comprehensive tile descriptor name encoding all tiling parameters
     return Sprintf("{m_block}x{n_block}x{k_block}_{m_warp}x{n_warp}x{k_warp}_{m_warp_tile}x{n_warp_tile}x{k_warp_tile}_{a_permute}{b_permute}",
@@ -21,7 +21,7 @@ std::string GemmTileDesc::GetInstanceName() const
                 );
 }
 
-std::string GemmTileDesc::Emit() const
+std::string GemmTileDesc::Emit()
 {
     std::string tile_desc = R"(
         ck_block::TileGemmShape<ck_block::sequence<{{m_block}}, {{n_block}}, {{k_block}}>},
@@ -48,7 +48,7 @@ std::string GemmTileDesc::Emit() const
     return TEMPLATE_CHECK(tile_desc, tile_desc_value_map, "GemmTileDesc::Emit");
 }
 
-std::string GemmCodeGen::GetInstanceName() const
+std::string GemmCodeGen::GetInstanceName()
 {
     return Sprintf("{kind_name}_{elementwise_kind}_{a_dtype}_{b_dtype}_{c_dtype}_"
                    "{tile_desc}_{pipeline}_{epilogue}_{scheduler}_{min_block_per_cu}_"
@@ -69,7 +69,7 @@ std::string GemmCodeGen::GetInstanceName() const
                 );
 }
 
-std::string GemmCodeGen::Emit() const
+std::string GemmCodeGen::Emit()
 {
     std::string tpl = R"(
 using TilePartitioner_{{idx}} =
@@ -127,7 +127,7 @@ using GemmPipeline_{{idx}} = {{main_pipeline}}<UniversalGemmProblem_{{idx}}>;
 
 {{epilogue}}
 
-using Kernel_{{idx}} = {{kernel}}<TilePartitioner_{{idx}}, GemmPipeline_{{idx}}, GemmEpilogue_{{idx}}>;
+using {{name}} = {{kernel}}<TilePartitioner_{{idx}}, GemmPipeline_{{idx}}, GemmEpilogue_{{idx}}>;
 
 )";
     static int  idx = 0;

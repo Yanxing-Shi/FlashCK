@@ -22,13 +22,13 @@ public:
      * @brief Generate a unique name for this tile configuration
      * @return String identifier based on tile parameters
      */
-    std::string GetInstanceName() const;
+    std::string GetInstanceName();
 
     /**
      * @brief Generate code template parameters for this tile
      * @return String representation for code generation
      */
-    std::string Emit() const;
+    std::string Emit();
 
     // ====================== Q-K GEMM Tile Configuration ======================
     int64_t m0_block_;
@@ -79,25 +79,25 @@ public:
      * @brief Generate padding configuration name
      * @return String identifier for padding configuration
      */
-    std::string GetPadName() const;
+    std::string GetPadName();
 
     /**
      * @brief Generate pipeline configuration name
      * @return String identifier for pipeline configuration
      */
-    std::string GetPipelineConfigName() const;
+    std::string GetPipelineConfigName();
 
     /**
      * @brief Generate a unique instance name for this configuration
      * @return String identifier combining operation type and parameters
      */
-    std::string GetInstanceName() const;
+    std::string GetInstanceName();
 
     /**
      * @brief Generate the complete kernel code for this configuration
      * @return String containing the generated GPU kernel code
      */
-    std::string Emit() const;
+    std::string Emit();
 
     FmhaProblem problem_;
 

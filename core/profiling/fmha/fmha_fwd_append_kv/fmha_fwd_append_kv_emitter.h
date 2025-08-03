@@ -8,9 +8,7 @@
 
 #include "core/profiling/fmha/fmha_library.h"
 #include "core/profiling/fmha/fmha_problem.h"
-
 #include "core/profiling/fmha/fmha_fwd_append_kv/fmha_fwd_append_kv_codegen.h"
-#include "core/profiling/fmha/fmha_fwd_append_kv/fmha_fwd_append_kv_backup_config.h"
 
 namespace flashck {
 
@@ -147,7 +145,7 @@ public:
     std::map<std::string, FmhaFwdAppendKVCodeGen>& GetInstanceMap(FmhaProblem fmha_problem)
     {
         GenerateInstances(fmha_problem);
-        return instance_map_[fmha_problem.kind_];
+        return instance_map_;
     }
 
     /**
@@ -156,8 +154,8 @@ public:
     void ClearInstances();
 
 private:
-    
-    std::map<FmhaKind, std::map<std::string, FmhaFwdAppendKVCodeGen>> instance_map_;
+
+    std::map<std::string, FmhaFwdAppendKVCodeGen> instance_map_;
     int64_t                                                num_instances_ = 0;
 };
 

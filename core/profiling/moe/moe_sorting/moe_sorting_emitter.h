@@ -123,7 +123,7 @@ public:
     std::map<std::string, MoeSortingCodeGen>& GetInstanceMap(MoeProblem moe_problem)
     {
         GenerateInstances(moe_problem);
-        return instance_map_[moe_problem.kind_];
+        return instance_map_;
     }
 
     /**
@@ -133,7 +133,7 @@ public:
 
 private:
     // Instance storage organized by MoE operation type
-    std::map<MoeSortingKind, std::map<std::string, MoeSortingCodeGen>> instance_map_;
+    std::map<std::string, MoeSortingCodeGen> instance_map_;
     
     // Performance tracking
     int64_t num_instances_ = 0;

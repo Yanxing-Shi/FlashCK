@@ -278,7 +278,7 @@ bool MoeGemmEmitter::IsValidMoeCombination(const std::string& activation, const 
 bool MoeGemmEmitter::IsValidInstance(const MoeGemmCodeGen& instance)
 {
     return IsValidTile(instance.tile_desc_, instance.problem_) && 
-           IsValidMoeCombination(GetActivationEnumShortName(instance.act_), 
+           IsValidMoeCombination(GetActivationEnumShortName(instance.activation), 
                                "topk_routing",  // Default routing method
                                "data_parallel"); // Default parallelism
 }
@@ -327,11 +327,6 @@ std::vector<MoeGemmCodeGen> MoeGemmEmitter::HeuristicFilter(const std::vector<Mo
         if (moe_problem.n_ % tile_desc.n1_block_ == 0) score += 0.05;
         if (moe_problem.k_ % tile_desc.k0_block_ == 0) score += 0.05;
         
-        // 5. Activation function fusion efficiency
-        if (instances[i].act_ == GetActivationEnumFromString("swiglu") ||
-            instances[i].act_ == GetActivationEnumFromString("gelu")) {
-            score += 0.05;  // Favor activations that fuse well
-        }
         
         scored_instances.emplace_back(score, i);
     }
@@ -450,13 +445,6 @@ void MoeGemmEmitter::GenerateInstances(MoeProblem& moe_problem)
                   Unavailable("Invalid FC_TUNING_MODE: {}. Valid values: 0(heuristic), 1(autotuning), 2(hybrid)", 
                              FLAGS_FC_TUNING_MODE));
 
-    // Check if instances already exist for this MoE GEMM kind
-    if (instance_map_.find(moe_problem.kind_) != instance_map_.end() && 
-        !instance_map_[moe_problem.kind_].empty()) {
-        VLOG(2) << "MoE GEMM instances already generated for kind: " << GetMoeGemmKindName(moe_problem.kind_);
-        return;
-    }
-
     std::vector<MoeGemmCodeGen> all_instances;
 
     // Configuration loading based on enabled flags
@@ -544,7 +532,7 @@ void MoeGemmEmitter::GenerateInstances(MoeProblem& moe_problem)
     num_instances_ = 0;
     for (const auto& instance : final_instances) {
         if (IsValidInstance(instance)) {
-            instance_map_[moe_problem.kind_][instance.GetInstanceName()] = instance;
+            instance_map_[instance.GetInstanceName()] = instance;
             ++num_instances_;
         }
     }

@@ -138,7 +138,7 @@ public:
     std::map<std::string, FmhaFwdSplitKVCodeGen>& GetInstanceMap(FmhaProblem fmha_problem)
     {
         GenerateInstances(fmha_problem);
-        return instance_map_[fmha_problem.kind_];
+        return instance_map_;
     }
 
     /**
@@ -148,8 +148,8 @@ public:
 
 private:
     // Split-KV instance storage organized by FMHA operation type
-    std::map<FmhaKind, std::map<std::string, FmhaFwdSplitKVCodeGen>> instance_map_;
-    
+    std::map<std::string, FmhaFwdSplitKVCodeGen> instance_map_;
+
     // Performance tracking for split-KV operations
     int64_t num_instances_ = 0;
 };
