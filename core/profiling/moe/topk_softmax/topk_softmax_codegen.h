@@ -24,8 +24,6 @@ public:
     // ====================== Operation Configuration ======================
     TopKSoftmaxProblem problem_;
 
-    int64_t num_experts_;
-
     int issues_pre_col_;
     int bytes_per_issue_;
 

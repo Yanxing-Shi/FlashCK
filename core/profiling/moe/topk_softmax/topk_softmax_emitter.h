@@ -1,14 +1,14 @@
 #pragma once
 
-#include <cstdint>
 #include <map>
+#include <memory>
 #include <string>
 #include <vector>
 
-#include "core/profiling/gemm/gemm_codegen.h"
-#include "core/profiling/gemm/gemm_problem.h"
-
-#include "core/profiling/gemm/gemm_backup_config.h"
+#include "core/profiling/moe/moe_library.h"
+#include "core/profiling/moe/moe_problem.h"
+#include "core/profiling/moe/topk_softmax/topk_softmax_codegen.h"
+#include "core/utils/json_config.h"
 
 namespace flashck {
 
@@ -40,7 +40,7 @@ public:
 
     bool IsValidInstance(const TopKSoftmaxCodeGen& instance);
 
-    std::vector<TopKSoftmaxCodeGen> CreateInstanceForConfig(const flashck::TopKSoftmaxConfig& config, const TopKSoftmaxProblem& gemm_problem);
+    std::vector<TopKSoftmaxCodeGen> CreateInstanceForConfig(const flashck::TopKSoftmaxConfig& config, const MoeProblem& moe_problem);
 
     void GenerateInstances(TopKSoftmaxProblem& gemm_problem);
 

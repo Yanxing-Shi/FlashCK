@@ -13,7 +13,7 @@ FC_DECLARE_string(FC_CONFIG_JSON_PATH);     // Base path for config files
 
 namespace flashck {
 
-bool MoeGemmEmitter::IsValidTile(const MoeGemmTileDesc& tile_desc, const MoeGemmProblem& moe_problem) const
+bool MoeGemmEmitter::IsValidTile(const MoeGemmTileDesc& tile_desc, const MoeProblem& moe_problem) const
 {
     // Validate all dual-stage tile parameters are positive
     if (tile_desc.m0_block_ <= 0 || tile_desc.n0_block_ <= 0 || tile_desc.k0_block_ <= 0 ||
@@ -180,7 +180,7 @@ bool MoeGemmEmitter::IsValidTile(const MoeGemmTileDesc& tile_desc, const MoeGemm
     return true;
 }
 
-bool MoeGemmEmitter::IsValidExpertRouting(const MoeGemmTileDesc& tile_desc, const MoeGemmProblem& moe_problem) const
+bool MoeGemmEmitter::IsValidExpertRouting(const MoeGemmTileDesc& tile_desc, const MoeProblem& moe_problem) const
 {
     // Expert routing efficiency validation
     // Ensure tile sizes support efficient expert selection and routing
@@ -207,7 +207,7 @@ bool MoeGemmEmitter::IsValidExpertRouting(const MoeGemmTileDesc& tile_desc, cons
     return true;
 }
 
-bool MoeGemmEmitter::IsValidLoadBalancing(const MoeGemmTileDesc& tile_desc, const MoeGemmProblem& moe_problem) const
+bool MoeGemmEmitter::IsValidLoadBalancing(const MoeGemmTileDesc& tile_desc, const MoeProblem& moe_problem) const
 {
     // Load balancing validation across experts
     
@@ -237,7 +237,7 @@ bool MoeGemmEmitter::IsValidLoadBalancing(const MoeGemmTileDesc& tile_desc, cons
     return true;
 }
 
-bool MoeGemmEmitter::IsValidInterStageBandwidth(const MoeGemmTileDesc& tile_desc, const MoeGemmProblem& moe_problem) const
+bool MoeGemmEmitter::IsValidInterStageBandwidth(const MoeGemmTileDesc& tile_desc, const MoeProblem& moe_problem) const
 {
     // Inter-stage bandwidth validation
     
@@ -284,7 +284,7 @@ bool MoeGemmEmitter::IsValidInstance(const MoeGemmCodeGen& instance)
 }
 
 std::vector<MoeGemmCodeGen> MoeGemmEmitter::HeuristicFilter(const std::vector<MoeGemmCodeGen>& instances, 
-                                                           const MoeGemmProblem& moe_problem)
+                                                           const MoeProblem& moe_problem)
 {
     if (instances.empty()) {
         return {};
@@ -355,41 +355,40 @@ std::vector<MoeGemmCodeGen> MoeGemmEmitter::HeuristicFilter(const std::vector<Mo
 }
 
 // Generate all possible MoeGemmCodeGen instances from a MoeGemmConfig
-std::vector<MoeGemmCodeGen> MoeGemmEmitter::CreateInstanceForConfig(const MoeGemmConfig& config, const MoeGemmProblem& moe_problem) {
+std::vector<MoeGemmCodeGen> MoeGemmEmitter::CreateInstanceForConfig(const MoeGemmConfig& config, const MoeProblem& moe_problem) {
     std::vector<MoeGemmCodeGen> result;
 
     std::vector<std::vector<int64_t>> all_lists = {
         // Stage 0 BlockConfig
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.stage0_block_tile.m.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.stage0_block_tile.n.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.stage0_block_tile.k.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.block_tile.m0.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.block_tile.n0.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.block_tile.k0.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
         // Stage 1 BlockConfig
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.stage1_block_tile.m.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.stage1_block_tile.n.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.stage1_block_tile.k.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.block_tile.m1.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.block_tile.n1.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.block_tile.k1.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
         // Stage 0 WarpConfig
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.stage0_block_warps.m.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.stage0_block_warps.n.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.stage0_block_warps.k.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.block_warps.m0.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.block_warps.n0.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.block_warps.k0.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
         // Stage 1 WarpConfig
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.stage1_block_warps.m.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.stage1_block_warps.n.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.stage1_block_warps.k.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.block_warps.m1.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.block_warps.n1.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.block_warps.k1.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
         // Stage 0 WarpTileConfig
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.stage0_warp_tile.m.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.stage0_warp_tile.n.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.stage0_warp_tile.k.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.warp_tile.m0.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.warp_tile.n0.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.warp_tile.k0.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
         // Stage 1 WarpTileConfig
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.stage1_warp_tile.m.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.stage1_warp_tile.n.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.stage1_warp_tile.k.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        // Expert routing config
-        [&]{ std::vector<int64_t> v; for (auto x : config.expert_routing.num_experts.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.expert_routing.top_k.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        // Activation config (enum as int64_t)
-        [&]{ std::vector<int64_t> v; for (const auto& x : config.activation.function.values) v.emplace_back(static_cast<int64_t>(GetActivationEnumFromString(x))); return v; }(),
-        // Launch config
-        [&]{ std::vector<int64_t> v; for (auto x : config.launch.block_size.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.warp_tile.m1.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.warp_tile.n1.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.warp_tile.k1.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        // PaddingConfig (convert bool to int64_t)
+        [&]{ std::vector<int64_t> v; for (auto x : config.padding.hidden_size.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.padding.intermediate_size.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        // pipeline
+        [&]{ std::vector<int64_t> v; for (auto x : config.pipeline.interleave.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        // launch
         [&]{ std::vector<int64_t> v; for (auto x : config.launch.min_block_per_cu.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
     };
 
@@ -419,13 +418,13 @@ std::vector<MoeGemmCodeGen> MoeGemmEmitter::CreateInstanceForConfig(const MoeGem
         int64_t m1_warp_tile = vals[idx++];
         int64_t n1_warp_tile = vals[idx++];
         int64_t k1_warp_tile = vals[idx++];
-        // Expert routing config
-        int64_t num_experts = vals[idx++];
-        int64_t top_k = vals[idx++];
-        // Activation config
-        auto activation = static_cast<ActivationEnum>(vals[idx++]);
+
+        // padding
+        bool is_pad_hidden_size = static_cast<bool>(vals[idx++]);
+        bool is_pad_intermediate_size = static_cast<bool>(vals[idx++]);
+        bool is_interleave = static_cast<bool>(vals[idx++]);
+
         // Launch config
-        int64_t block_size = vals[idx++];
         int64_t min_block_per_cu = vals[idx++];
 
         // Construct MoeGemmCodeGen
@@ -434,16 +433,17 @@ std::vector<MoeGemmCodeGen> MoeGemmEmitter::CreateInstanceForConfig(const MoeGem
         moe_gemm.tile_desc_ = MoeGemmTileDesc{m0_block, n0_block, k0_block, m1_block, n1_block, k1_block,
                                              m0_warp, n0_warp, k0_warp, m1_warp, n1_warp, k1_warp,
                                              m0_warp_tile, n0_warp_tile, k0_warp_tile, m1_warp_tile, n1_warp_tile, k1_warp_tile};
-        moe_gemm.num_experts_ = num_experts;
-        moe_gemm.act_ = activation;
-        moe_gemm.block_size_ = block_size;
+
+        moe_gemm.is_pad_hidden_size_ = is_pad_hidden_size;
+        moe_gemm.is_pad_intermediate_size_ = is_pad_intermediate_size;
+        moe_gemm.is_interleave_ = is_interleave;
         moe_gemm.min_block_per_cu_ = min_block_per_cu;
         result.push_back(moe_gemm);
     });
     return result;
 }
 
-void MoeGemmEmitter::GenerateInstances(MoeGemmProblem& moe_problem)
+void MoeGemmEmitter::GenerateInstances(MoeProblem& moe_problem)
 {
     // Validate tuning mode
     FC_ENFORCE_EQ(FLAGS_FC_TUNING_MODE >= 0 && FLAGS_FC_TUNING_MODE <= 2, true,

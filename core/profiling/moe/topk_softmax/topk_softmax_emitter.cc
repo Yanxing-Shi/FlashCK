@@ -1,339 +1,269 @@
-#include "core/profiling/gemm/gemm_emitter.h"
+#include "core/profiling/moe/topk_softmax/topk_softmax_emitter.h"
 
-#include "core/utils/common.h"
+#include <algorithm>
+#include <filesystem>
+#include <random>
 
-FC_DECLARE_int32(FC_TUNING_MODE);  // Mode for gemm operation: 0 - heuristic, 1 - autotuning, 2 - hybrid
-FC_DECLARE_bool(FC_ENABLE_CONFIG_JSON);
-FC_DECLARE_string(FC_CONFIG_JSON_PATH);
-FC_DECLARE_int32(FC_ENABLE_JSON_MODE);
+FC_DECLARE_int32(FC_TUNING_MODE);    // 0: heuristic, 1: autotuning, 2: hybrid
+FC_DECLARE_bool(FC_ENABLE_BACKUP_JSON);   // Enable backup_config.json loading
+FC_DECLARE_bool(FC_ENABLE_DEFAULT_JSON);  // Enable default_config.json loading  
+FC_DECLARE_bool(FC_ENABLE_USER_JSON);     // Enable user_config.json loading
+FC_DECLARE_string(FC_CONFIG_JSON_PATH);   // Base path for config files
 
 namespace flashck {
 
-bool TopKSoftmaxEmitter::IsValidTile(const TopKSoftmaxTileDesc& tile_desc, const TopKSoftmaxProblem& gemm_problem) const
+bool TopKSoftmaxEmitter::IsValidInstance(const TopKSoftmaxCodeGen& instance)
 {
-    // Validate tile descriptor parameters (all tile dims > 0)
-    if (tile_desc.m_block_ <= 0 || tile_desc.n_block_ <= 0 || tile_desc.k_block_ <= 0
-        || tile_desc.m_warp_ <= 0 || tile_desc.n_warp_ <= 0 || tile_desc.k_warp_ <= 0
-        || tile_desc.m_warp_tile_ <= 0 || tile_desc.n_warp_tile_ <= 0 || tile_desc.k_warp_tile_ <= 0) {
-        VLOG(3) << "Invalid tile descriptor: negative or zero values not allowed";
+    const auto& problem = instance.problem_;
+    
+    // Validate parameters are positive
+    if (instance.num_experts_ <= 0 || instance.issues_pre_col_ <= 0 || 
+        instance.bytes_per_issue_ <= 0 || instance.block_size_ <= 0 ||
+        instance.min_block_pre_cu_ <= 0) {
+        VLOG(3) << "Invalid TopK Softmax instance: negative or zero parameters not allowed";
         return false;
     }
 
-    // Validate thread block size (example: m_block_ * n_block_ should not exceed 1024)
-    const int total_threads = tile_desc.m_block_ * tile_desc.n_block_;
-    if (total_threads > 1024) {
-        VLOG(3) << "Invalid tile descriptor: thread block size " << total_threads << " exceeds limit (1024)";
+    // Validate block size doesn't exceed hardware limits
+    if (instance.block_size_ > 1024) {
+        VLOG(3) << "Invalid TopK Softmax instance: block size " << instance.block_size_ 
+                << " exceeds hardware limit (1024)";
         return false;
     }
 
-    // Validate against problem dimensions
-    if (tile_desc.m_block_ > gemm_problem.m_ || tile_desc.n_block_ > gemm_problem.n_ || tile_desc.k_block_ > gemm_problem.k_) {
-        VLOG(3) << "Invalid tile descriptor: block dims (" << tile_desc.m_block_ << "," << tile_desc.n_block_ << "," << tile_desc.k_block_
-                << ") exceed problem dims (" << gemm_problem.m_ << "," << gemm_problem.n_ << "," << gemm_problem.k_ << ")";
-        return false;
-    }
-
-    std::tuple<int, int, int> warp_tuple = std::make_tuple(tile_desc.m_warp_, tile_desc.n_warp_, tile_desc.k_warp_);
-    if (std::find(g_tile_gemm_allowed_warp_combinations.begin(), g_tile_gemm_allowed_warp_combinations.end(), warp_tuple) == g_tile_gemm_allowed_warp_combinations.end()) {
-        VLOG(3) << "Invalid warp combination: warp_m(" << tile_desc.m_warp_ << ") * warp_n(" << tile_desc.n_warp_ << ") * warp_k(" << tile_desc.k_warp_ << ")";
-        return false;
-    }
-
-    // Dimension alignment check: tile dims must be divisible by warp*warp_tile dims
-    if (tile_desc.m_block_ % (tile_desc.m_warp_ * tile_desc.m_warp_tile_) != 0) {
-        VLOG(3) << "Dimension alignment failed: tile_m(" << tile_desc.m_block_ << ") % [" << tile_desc.m_warp_ << "x" << tile_desc.m_warp_tile_ << "] = "
-                << (tile_desc.m_block_ % (tile_desc.m_warp_ * tile_desc.m_warp_tile_));
-        return false;
-    }
-    if (tile_desc.n_block_ % (tile_desc.n_warp_ * tile_desc.n_warp_tile_) != 0) {
-        VLOG(3) << "Dimension alignment failed: tile_n(" << tile_desc.n_block_ << ") % [" << tile_desc.n_warp_ << "x" << tile_desc.n_warp_tile_ << "] = "
-                << (tile_desc.n_block_ % (tile_desc.n_warp_ * tile_desc.n_warp_tile_));
-        return false;
-    }
-    if (tile_desc.k_block_ % (tile_desc.k_warp_ * tile_desc.k_warp_tile_) != 0) {
-        VLOG(3) << "Dimension alignment failed: tile_k(" << tile_desc.k_block_ << ") % [" << tile_desc.k_warp_ << "x" << tile_desc.k_warp_tile_ << "] = "
-                << (tile_desc.k_block_ % (tile_desc.k_warp_ * tile_desc.k_warp_tile_));
-        return false;
-    }
-
-    // LDS capacity verification
-    size_t matrix_a_size = tile_desc.m_block_ * tile_desc.k_block_ *  SizeOf(gemm_problem.a_dtype_);
-    size_t matrix_b_size = tile_desc.n_block_ * tile_desc.k_block_ * SizeOf(gemm_problem.b_dtype_);
-    size_t total_tile_in_lds = matrix_a_size + matrix_b_size;
-
-    size_t max_tile_size =  (1 << 16); // 64KB
-
-    if (total_tile_in_lds > max_tile_size) {
-        VLOG(3) << "LDS capacity exceeded: Total required " << total_tile_in_lds << "B (" << (total_tile_in_lds / 1024.0) << "KB) > "
-                << "maximum allowed " << max_tile_size << "B (" << (max_tile_size / 1024) << "KB). Breakdown:\n"
-                << "- Matrix A (" << DataTypeToString(gemm_problem.a_dtype_) << "): " << tile_desc.m_block_ << "x" << tile_desc.k_block_ << " = " << matrix_a_size << "B\n"
-                << "- Matrix B (" << DataTypeToString(gemm_problem.b_dtype_) << "): " << tile_desc.n_block_ << "x" << tile_desc.k_block_ << " = " << matrix_b_size << "B";
-        return false;
-    }
-
-    // Warp tile combination validation
-    // Compose warp_tile_key as "matrix_a_matrix_b_matrix_c"
-    std::string warp_tile_key = Sprintf("{}_{}_{}", DataTypeToString(gemm_problem.a_dtype_),
-                                         DataTypeToString(gemm_problem.b_dtype_),
-                                         DataTypeToString(gemm_problem.c_dtype_));
-    std::array<int64_t, 3> current_combination = {tile_desc.m_warp_tile_, tile_desc.n_warp_tile_, tile_desc.k_warp_tile_};
-
-    std::string gpu_name = GetDeviceName();
-
-    auto gpu_warp_tile_key_it = g_tile_gemm_warp_tile_supported_combinations.find(gpu_name);
-    if (gpu_warp_tile_key_it == g_tile_gemm_warp_tile_supported_combinations.end()) {
-        VLOG(3) << "Trait: [GEMM], No valid warp tile combinations found for " << gpu_name << "/" << warp_tile_key << ", skip this check.";
-        return false;
-    }
-    const auto& gpu_warp_tile_key = gpu_warp_tile_key_it->second;
-    auto allowed_combinations_it = gpu_warp_tile_key.find(warp_tile_key);
-    if (allowed_combinations_it == gpu_warp_tile_key.end()) {
-        VLOG(3) << "Trait: [GEMM], No valid warp tile combinations found for " << gpu_name << "/" << warp_tile_key << ", skip this check.";
-        return false;
-    }
-    const auto& allowed_combinations = allowed_combinations_it->second;
-    if (std::find(allowed_combinations.begin(), allowed_combinations.end(), current_combination) == allowed_combinations.end()) {
-        VLOG(3) << "Trait: [GEMM], Invalid warp combination: [" << current_combination[0] << ", " << current_combination[1] << ", " << current_combination[2]
-                << "] not in allowed list. Valid combinations for data type '" << warp_tile_key << "': ";
-        for (const auto& comb : allowed_combinations) {
-            VLOG(3) << "  [" << comb[0] << ", " << comb[1] << ", " << comb[2] << "]";
-        }
+    // Validate memory access pattern efficiency
+    const size_t memory_per_token = instance.num_experts_ * SizeOf(problem.input_dtype_);
+    const size_t total_memory = problem.num_tokens_ * memory_per_token;
+    const size_t max_memory = 1ULL << 31; // 2GB limit
+    if (total_memory > max_memory) {
+        VLOG(3) << "Invalid TopK Softmax instance: estimated memory " << total_memory 
+                << " exceeds limit " << max_memory;
         return false;
     }
 
     return true;
 }
 
-bool TopKSoftmaxEmitter::IsValidCombination(const PipelineVersionEnum& pipeline, const EpilogueEnum& epilogue, const PipelineSchedulerEnum& scheduler)
+std::vector<TopKSoftmaxCodeGen> TopKSoftmaxEmitter::HeuristicFilter(
+    const std::vector<TopKSoftmaxCodeGen>& instances,
+    const MoeProblem& moe_problem)
 {
-    // Check if the current combination is valid (compare enums, not strings)
-    return std::find(g_tile_gemm_unsupported_combinations.begin(), g_tile_gemm_unsupported_combinations.end(),
-                    std::make_tuple(pipeline, epilogue, scheduler)) == g_tile_gemm_unsupported_combinations.end();
-}
+    if (instances.empty()) {
+        return {};
+    }
 
-bool TopKSoftmaxEmitter::IsValidInstance(const TopKSoftmaxCodeGen& instance)
-{
-    return IsValidTile(instance.tile_desc_, instance.problem_) && IsValidCombination(instance.pipeline_version_, instance.pipeline_epilogue_, instance.pipeline_scheduler_);
-}
-
-// std::vector<TopKSoftmaxTileDesc> TopKSoftmaxEmitter::HeuristicFilter(const std::vector<TopKSoftmaxTileDesc>& gemm_tile_desc,
-//                                                        const TopKSoftmaxProblem&               gemm_problem) const
-// {
+    std::vector<TopKSoftmaxCodeGen> filtered;
     
-// }
+    // Score and rank instances based on TopK Softmax performance heuristics
+    std::vector<std::pair<double, size_t>> scored_instances;
+    
+    for (size_t i = 0; i < instances.size(); ++i) {
+        const auto& instance = instances[i];
+        double score = 0.0;
+        
+        // 1. Memory bandwidth efficiency (prefer configurations that maximize throughput)
+        if (instance.issues_pre_col_ >= 2 && instance.issues_pre_col_ <= 8) {
+            score += 0.3;  // Good memory pipeline utilization
+        }
+        
+        // 2. Block size efficiency for parallel reduction
+        if (instance.block_size_ >= 256 && instance.block_size_ <= 512) {
+            score += 0.25;  // Sweet spot for reduction operations
+        }
+        
+        // 3. TopK selectivity optimization
+        const double selectivity = static_cast<double>(moe_problem.topk_) / instance.num_experts_;
+        if (selectivity >= 0.1 && selectivity <= 0.5) {
+            score += 0.15;  // Good sparsity balance
+        }
+        
+        // 4. Memory access pattern optimization
+        if (instance.bytes_per_issue_ == 4 || instance.bytes_per_issue_ == 8) {
+            score += 0.1;  // Aligned memory access
+        }
+        
+        scored_instances.emplace_back(score, i);
+    }
+    
+    // Sort by score (highest first)
+    std::sort(scored_instances.begin(), scored_instances.end(), 
+              [](const auto& a, const auto& b) { return a.first > b.first; });
+    
+    // Select top candidates (limit to reasonable number for heuristic mode)
+    size_t max_candidates = std::min(static_cast<size_t>(12), instances.size());
+    filtered.reserve(max_candidates);
+    
+    for (size_t i = 0; i < max_candidates; ++i) {
+        filtered.push_back(instances[scored_instances[i].second]);
+    }
+    
+    VLOG(2) << "TopK Softmax heuristic filter: reduced " << instances.size() 
+            << " instances to " << filtered.size() << " candidates";
+    
+    return filtered;
+}
 
-
-// Generate all possible TopKSoftmaxCodeGen instances from a TopKSoftmaxConfig
-std::vector<TopKSoftmaxCodeGen> TopKSoftmaxEmitter::CreateInstanceForConfig(const TopKSoftmaxConfig& config, const TopKSoftmaxProblem& gemm_problem) {
+std::vector<TopKSoftmaxCodeGen> TopKSoftmaxEmitter::CreateInstanceForConfig(
+    const TopKSoftmaxConfig& config, const MoeProblem& moe_problem) 
+{
     std::vector<TopKSoftmaxCodeGen> result;
 
-    std::vector<std::vector<int64_t>> all_lists = {
-        // BlockConfig
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.block_tile.m.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.block_tile.n.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.block_tile.k.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        // WarpConfig
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.block_warps.m.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.block_warps.n.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.block_warps.k.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        // WarpTileConfig
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.warp_tile.m.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.warp_tile.n.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.warp_tile.k.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        // PaddingConfig (convert bool to int64_t)
-        [&]{ std::vector<int64_t> v; for (auto x : config.padding.m.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.padding.n.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.padding.k.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        // LaunchConfig
-        [&]{ std::vector<int64_t> v; for (auto x : config.launch.min_block_per_cu.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        // PartitionConfig
-        [&]{ std::vector<int64_t> v; for (auto x : config.partition.num_wave_groups.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.partition.tile_partitioner_group_num.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.partition.tile_partitioner_m01.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        // PipelineConfig (enum as int64_t)
-        [&]{ std::vector<int64_t> v; for (const auto& x : config.pipeline.version.values) v.emplace_back(static_cast<int64_t>(GetPipelineVersionEnumFromString(x))); return v; }(),
-        [&]{ std::vector<int64_t> v; for (const auto& x : config.pipeline.scheduler.values) v.emplace_back(static_cast<int64_t>(GetPipelineSchedulerEnumFromString(x))); return v; }(),
-        [&]{ std::vector<int64_t> v; for (const auto& x : config.pipeline.epilogue.values) v.emplace_back(static_cast<int64_t>(GetEpilogueEnumFromString(x))); return v; }(),
+    // Convert all config parameters to int64_t vectors for CartesianProduct
+    std::vector<std::vector<int64_t>> all_param_lists = {
+        // Memory access configuration
+        [&]{ std::vector<int64_t> v; 
+             for (auto x : config.issues_per_col.values) v.push_back(static_cast<int64_t>(x)); 
+             return v; }(),
+        [&]{ std::vector<int64_t> v; 
+             for (auto x : config.bytes_per_issue.values) v.push_back(static_cast<int64_t>(x)); 
+             return v; }(),
+        // Launch configuration
+        [&]{ std::vector<int64_t> v; 
+             for (auto x : config.launch_type.values) v.push_back(static_cast<int64_t>(x)); 
+             return v; }(),
+        [&]{ std::vector<int64_t> v; 
+             for (auto x : config.block_size.values) v.push_back(static_cast<int64_t>(x)); 
+             return v; }(),
+        [&]{ std::vector<int64_t> v; 
+             for (auto x : config.launch.min_block_per_cu.values) v.push_back(static_cast<int64_t>(x)); 
+             return v; }(),
     };
 
-    CartesianProduct(all_lists, [&](const std::vector<int64_t>& vals) {
+    CartesianProduct(all_param_lists, [&](const std::vector<int64_t>& vals) {
         size_t idx = 0;
-        // BlockConfig
-        int64_t m_block = vals[idx++];
-        int64_t n_block = vals[idx++];
-        int64_t k_block = vals[idx++];
-        // WarpConfig
-        int64_t m_warp = vals[idx++];
-        int64_t n_warp = vals[idx++];
-        int64_t k_warp = vals[idx++];
-        // WarpTileConfig
-        int64_t m_warp_tile = vals[idx++];
-        int64_t n_warp_tile = vals[idx++];
-        int64_t k_warp_tile = vals[idx++];
-        // PaddingConfig
-        bool pad_m = static_cast<bool>(vals[idx++]);
-        bool pad_n = static_cast<bool>(vals[idx++]);
-        bool pad_k = static_cast<bool>(vals[idx++]);
-        // LaunchConfig
-        int64_t min_block_per_cu = vals[idx++];
-        // PartitionConfig
-        int64_t num_wave_groups = vals[idx++];
-        int64_t tile_partitioner_group_num = vals[idx++];
-        int64_t tile_partitioner_m01 = vals[idx++];
-        // PipelineConfig
-        auto version = static_cast<PipelineVersionEnum>(vals[idx++]);
-        auto scheduler = static_cast<PipelineSchedulerEnum>(vals[idx++]);
-        // EpilogueConfig
-        auto epilogue = static_cast<EpilogueEnum>(vals[idx++]);
+        
+        // Memory access configuration
+        int issues_per_col = static_cast<int>(vals[idx++]);
+        int bytes_per_issue = static_cast<int>(vals[idx++]);
+        
+        // Launch configuration
+        int launch_type = static_cast<int>(vals[idx++]);
+        int64_t block_size = vals[idx++];
+        int min_block_per_cu = static_cast<int>(vals[idx++]);
 
-        // Construct  TopKSoftmaxCodeGen
-        TopKSoftmaxCodeGen gemm;
-        gemm.problem_ = gemm_problem;
-        gemm.tile_desc_ = TopKSoftmaxTileDesc{m_block, n_block, k_block, m_warp, n_warp, k_warp, m_warp_tile, n_warp_tile, k_warp_tile};
-        gemm.pipeline_version_ = version;
-        gemm.pipeline_scheduler_ = scheduler;
-        gemm.pipeline_epilogue_ = epilogue;
-        gemm.is_pad_m_ = pad_m;
-        gemm.is_pad_n_ = pad_n;
-        gemm.is_pad_k_ = pad_k;
-        gemm.min_block_per_cu_ = min_block_per_cu;
-        gemm.num_wave_groups_ = num_wave_groups;
-        gemm.tile_partitioner_group_num_ = tile_partitioner_group_num;
-        gemm.tile_partitioner_m01_ = tile_partitioner_m01;
-        result.push_back(gemm);
+        // Construct TopKSoftmaxCodeGen
+        TopKSoftmaxCodeGen instance;
+        instance.problem_ = moe_problem;
+        instance.issues_pre_col_ = issues_per_col;
+        instance.bytes_per_issue_ = bytes_per_issue;
+        instance.launch_type_ = launch_type;
+        instance.block_size_ = block_size;
+        instance.min_block_pre_cu_ = min_block_per_cu;
+        
+        result.push_back(instance);
     });
+    
     return result;
 }
 
-void TopKSoftmaxEmitter::GenerateInstances(TopKSoftmaxProblem& gemm_problem)
+void TopKSoftmaxEmitter::GenerateInstances(MoeProblem& moe_problem)
 {
-    FC_ENFORCE_EQ(FLAGS_FC_TUNING_MODE == 0 || FLAGS_FC_TUNING_MODE == 1 || FLAGS_FC_TUNING_MODE == 2,
-                  true,
-                  Unavailable("Unsupported mode: {}, valid modes are 0 (heuristic), 1 (autotuning), 2 (hybrid)", FLAGS_FC_TUNING_MODE));
+    // Validate tuning mode
+    FC_ENFORCE_EQ(FLAGS_FC_TUNING_MODE >= 0 && FLAGS_FC_TUNING_MODE <= 2, true,
+                  Unavailable("Invalid FC_TUNING_MODE: {}. Valid values: 0(heuristic), 1(autotuning), 2(hybrid)", 
+                             FLAGS_FC_TUNING_MODE));
 
-    // Check if instances already exist for this GEMM kind
-    if (instance_map_.find(gemm_problem.kind_) != instance_map_.end() && !instance_map_[gemm_problem.kind_].empty()) {
-        VLOG(2) << "Instances already generated for GEMM kind: " << GetTopKSoftmaxKindName(gemm_problem.kind_);
+    // Check if instances already exist for this TopK Softmax kind
+    if (instance_map_.find(moe_problem.kind_) != instance_map_.end() && 
+        !instance_map_[moe_problem.kind_].empty()) {
+        VLOG(2) << "TopK Softmax instances already generated for kind: " << GetTopKSoftmaxKindName(moe_problem.kind_);
         return;
     }
 
-    // Load tile GEMM configuration if available
-    std::vector<TopKSoftmaxCodeGen> gemm_instances;
-    if (FLAGS_FC_ENABLE_CONFIG_JSON) {
-        std::filesystem::path base_json_path = FLAGS_FC_CONFIG_JSON_PATH;
-        if(FLAGS_FC_ENABLE_JSON_MODE == 0) {
-            std::filesystem::path json_path = base_json_path / "default_config.json";
-            TopKSoftmaxConfig config = LoadDefaultConfigJson<TopKSoftmaxConfig>(json_path);
-            gemm_instances = CreateInstanceForConfig(config, gemm_problem);
-        } else if (FLAGS_FC_ENABLE_JSON_MODE == 1) {
-            std::filesystem::path json_path = base_json_path / "user_config.json";
-            TopKSoftmaxConfig config = LoadDefaultConfigJson<TopKSoftmaxConfig>(json_path);
-            gemm_instances = CreateInstanceForConfig(config, gemm_problem);
-        } else if (FLAGS_FC_ENABLE_JSON_MODE == 2) {
-            std::filesystem::path default_json_path = base_json_path / "default_config.json";
-            TopKSoftmaxConfig default_config = LoadDefaultConfigJson<TopKSoftmaxConfig>(default_json_path);
-            auto gemm_default_instances = CreateInstanceForConfig(default_config, gemm_problem);
+    std::vector<TopKSoftmaxCodeGen> all_instances;
 
-            std::filesystem::path user_json_path = base_json_path / "user_config.json";
-            TopKSoftmaxConfig user_config = LoadDefaultConfigJson<TopKSoftmaxConfig>(user_json_path);
-            auto gemm_user_instances = CreateInstanceForConfig(user_config, gemm_problem);
+    // Configuration loading based on enabled flags
+    auto base_json_path = std::filesystem::path(FLAGS_FC_CONFIG_JSON_PATH) / "topk_softmax";
 
-            gemm_instances.insert(gemm_instances.end(), gemm_default_instances.begin(), gemm_default_instances.end());
-            gemm_instances.insert(gemm_instances.end(), gemm_user_instances.begin(), gemm_user_instances.end());
-        } else{
-            LOG(WARNING)<< "FC_ENABLE_JSON_MODE is set to an unsupported value: " << FLAGS_FC_ENABLE_JSON_MODE;
-        }
-    } else{
-        LOG(WARNING)<< "FC_ENABLE_CONFIG_JSON is not enabled";
-    }
-
-    for (const auto& config : g_tile_gemm_backup_tile_config) {
-        TopKSoftmaxCodeGen gemm;
-
-        gemm.problem_ = gemm_problem;
-
-        gemm.tile_desc_ = TopKSoftmaxTileDesc{
-            config.tile_shape.block_tile.m.values[0],
-            config.tile_shape.block_tile.n.values[0],
-            config.tile_shape.block_tile.k.values[0],
-            config.tile_shape.block_warps.m.values[0],
-            config.tile_shape.block_warps.n.values[0],
-            config.tile_shape.block_warps.k.values[0],
-            config.tile_shape.warp_tile.m.values[0],
-            config.tile_shape.warp_tile.n.values[0],
-            config.tile_shape.warp_tile.k.values[0],
-        };
-
-        gemm.pipeline_version_ = GetPipelineVersionEnumFromString(config.pipeline.version.values[0]);
-        gemm.pipeline_scheduler_ = GetPipelineSchedulerEnumFromString(config.pipeline.scheduler.values[0]);
-        gemm.pipeline_epilogue_ = GetEpilogueEnumFromString(config.pipeline.epilogue.values[0]);
-
-        gemm.min_block_per_cu_ = config.launch.min_block_per_cu.values[0];
-        gemm.num_wave_groups_ = config.partition.num_wave_groups.values[0];
-        gemm.tile_partitioner_group_num_ = config.partition.tile_partitioner_group_num.values[0];
-        gemm.tile_partitioner_m01_ = config.partition.tile_partitioner_m01.values[0];
-
-        gemm_instances.push_back(gemm);
-    }
-
-    // check instances
-    std::vector<TopKSoftmaxCodeGen> valid_gemm_instances;
-    for (const auto& gemm_instance : gemm_instances) {
-        if (IsValidInstance(gemm_instance)) {
-            valid_gemm_instances.push_back(gemm_instance);
-        }
-    }
-
-    switch (FLAGS_FC_TUNING_MODE) {
-        case 0: {
-            // 
-        }
-        case 1: {
-            VLOG(1) << "Generating instances using autotuning mode for GEMM kind: "
-                    << GetTopKSoftmaxKindName(gemm_problem.kind_);
-            break;
-        }
-        case 2: {
-            VLOG(1) << "Generating instances using hybrid mode for GEMM kind: " << GetTopKSoftmaxKindName(gemm_problem.kind_);
-            break;
-        }
-        default:
-            FC_THROW(Unavailable("Invalid mode:{} ", FLAGS_FC_TUNING_MODE));
-    }
-
-
-    if (valid_gemm_instances.empty()) {
-        FC_THROW(Unavailable("No valid GEMM instances found for GEMM problem"));
-    }
-    
-
-    // Generate instances
-    std::map<std::string, TopKSoftmaxCodeGen>& kind_instance_map = instance_map_[gemm_problem.kind_];
-    int64_t                             generated_count   = 0;
-
-    for (const auto& instance : valid_gemm_instances) {
+    // Load backup configurations (pre-validated single configs)
+    if (FLAGS_FC_ENABLE_BACKUP_JSON) {
         try {
-            std::string instance_name = instance.GetInstanceName();
-
-            // Avoid duplicates
-            if (kind_instance_map.find(instance_name) == kind_instance_map.end()) {
-                kind_instance_map[instance_name] = std::move(instance);
-                generated_count++;
-                VLOG(2) << "Generated GEMM instance: " << instance_name;
+            std::filesystem::path backup_path = base_json_path / "backup_config.json";
+            if (std::filesystem::exists(backup_path)) {
+                auto backup_configs = LoadConfigJson<std::vector<TopKSoftmaxConfig>>(backup_path);
+                for (const auto& config : backup_configs) {
+                    auto backup_instances = CreateInstanceForConfig(config, moe_problem);
+                    all_instances.insert(all_instances.end(), backup_instances.begin(), backup_instances.end());
+                }
+                VLOG(2) << "Loaded " << backup_configs.size() << " TopK Softmax backup configurations";
             }
-            else {
-                VLOG(3) << "Skipped duplicate GEMM instance: " << instance_name;
-            }
-        }
-        catch (const std::exception& e) {
-            LOG(WARNING) << "Failed to create GEMM codegen for instance: " << instance.GetInstanceName()
-                         << ", error: " << e.what();
+        } catch (const std::exception& e) {
+            LOG(WARNING) << "Failed to load TopK Softmax backup config: " << e.what();
         }
     }
 
-    num_instances_ += generated_count;
-    VLOG(1) << "Generated " << generated_count << " GEMM instances for kind: " << GetTopKSoftmaxKindName(gemm_problem.kind_)
-            << " (total: " << num_instances_ << ")";
+    // Load default configurations (parameter ranges)
+    if (FLAGS_FC_ENABLE_DEFAULT_JSON) {
+        try {
+            std::filesystem::path default_path = base_json_path / "default_config.json";
+            if (std::filesystem::exists(default_path)) {
+                auto default_config = LoadConfigJson<TopKSoftmaxConfig>(default_path);
+                auto default_instances = CreateInstanceForConfig(default_config, moe_problem);
+                all_instances.insert(all_instances.end(), default_instances.begin(), default_instances.end());
+                VLOG(2) << "Loaded TopK Softmax default configuration with " << default_instances.size() << " instances";
+            }
+        } catch (const std::exception& e) {
+            LOG(WARNING) << "Failed to load TopK Softmax default config: " << e.what();
+        }
+    }
+
+    // Load user configurations (custom parameter ranges)
+    if (FLAGS_FC_ENABLE_USER_JSON) {
+        try {
+            std::filesystem::path user_path = base_json_path / "user_config.json";
+            if (std::filesystem::exists(user_path)) {
+                auto user_config = LoadConfigJson<TopKSoftmaxConfig>(user_path);
+                auto user_instances = CreateInstanceForConfig(user_config, moe_problem);
+                all_instances.insert(all_instances.end(), user_instances.begin(), user_instances.end());
+                VLOG(2) << "Loaded TopK Softmax user configuration with " << user_instances.size() << " instances";
+            }
+        } catch (const std::exception& e) {
+            LOG(WARNING) << "Failed to load TopK Softmax user config: " << e.what();
+        }
+    }
+
+    // Apply mode-specific processing
+    std::vector<TopKSoftmaxCodeGen> final_instances;
+    
+    switch (FLAGS_FC_TUNING_MODE) {
+        case 0: {  // Heuristic mode: filter + random selection for fast execution
+            auto filtered_instances = HeuristicFilter(all_instances, moe_problem);
+            if (!filtered_instances.empty()) {
+                // Randomly select one optimal configuration for fast execution
+                std::random_device rd;
+                std::mt19937 gen(rd());
+                std::uniform_int_distribution<> dis(0, filtered_instances.size() - 1);
+                final_instances.push_back(filtered_instances[dis(gen)]);
+                VLOG(1) << "TopK Softmax heuristic mode: selected 1 instance from " 
+                        << filtered_instances.size() << " filtered candidates";
+            }
+            break;
+        }
+        case 1: {  // Autotuning mode: use all valid instances for comprehensive search
+            final_instances = all_instances;
+            VLOG(1) << "TopK Softmax autotuning mode: using all " << all_instances.size() << " instances";
+            break;
+        }
+        case 2: {  // Hybrid mode: heuristic filtering + broader search
+            auto filtered_instances = HeuristicFilter(all_instances, moe_problem);
+            final_instances = filtered_instances.empty() ? all_instances : filtered_instances;
+            VLOG(1) << "TopK Softmax hybrid mode: using " << final_instances.size() 
+                    << " instances (filtered from " << all_instances.size() << ")";
+            break;
+        }
+    }
+
+    // Validate and store instances
+    num_instances_ = 0;
+    for (const auto& instance : final_instances) {
+        if (IsValidInstance(instance)) {
+            instance_map_[moe_problem.kind_][instance.GetInstanceName()] = instance;
+            ++num_instances_;
+        }
+    }
+
+    VLOG(1) << "Generated " << num_instances_ << " valid TopK Softmax instances for " 
+            << GetTopKSoftmaxKindName(moe_problem.kind_) << " (mode " << FLAGS_FC_TUNING_MODE << ")";
 }
 
 int64_t TopKSoftmaxEmitter::GetNumInstances() const
@@ -348,3 +278,4 @@ void TopKSoftmaxEmitter::ClearInstances()
 }
 
 }  // namespace flashck
+

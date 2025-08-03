@@ -48,11 +48,11 @@ public:
 
     MoeSmoothQuantTileDesc tile_desc_;
 
-    bool is_padding_n_;
+    bool is_pad_n_;
 
     bool is_two_pass_;
 
-    int min_block_pre_cu_;
+    int min_block_per_cu_;
 
 };
 

@@ -181,29 +181,17 @@ public:
 
     // Dual-stage hierarchical tiling strategy
     MoeGemmTileDesc tile_desc_;   ///< Complete tile configuration for optimal MoE performance
-
-    // ====================== Expert Configuration ======================
     
-    int64_t num_experts_;         ///< Total number of experts in the MoE ensemble
+    bool is_pad_hidden_size_;
+    bool is_pad_intermediate_size_;
 
-    // ====================== Memory Access Optimization ======================
-    
-    int issues_pre_col_;          ///< Memory access issues per column for bandwidth optimization
-    int bytes_per_issue_;         ///< Bytes per memory issue for alignment control
+    bool is_interleave_;
 
     // ====================== Launch Configuration ======================
     
-    int launch_type_;             ///< Launch strategy (persistent, dynamic, etc.)
-    int64_t block_size_;          ///< Thread block size for GPU kernel execution
     int min_block_per_cu_;        ///< Minimum blocks per compute unit for occupancy control
 
-    // ====================== Activation Function ======================
-    
-    ActivationEnum act_;          ///< Activation function for MoE computation (SwiGLU, GELU, etc.)
 };
 
 }  // namespace flashck
 
-};
-
-}  // namespace flashck

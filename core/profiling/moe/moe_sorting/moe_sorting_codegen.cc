@@ -1,4 +1,4 @@
-#include "core/profiling/moe/moe_sorting_codegen.h"
+#include "core/profiling/moe/moe_sorting/moe_sorting_codegen.h"
 
 namespace flashck {
 

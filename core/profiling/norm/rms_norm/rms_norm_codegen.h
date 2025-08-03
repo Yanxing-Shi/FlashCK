@@ -65,6 +65,10 @@ public:
     // Tiling strategy
     RmsNormTileDesc tile_desc_;  ///< Tile configuration for this operation
 
+    bool is_two_pass_;
+
+    bool is_pad_n_;
+
 };
 
 }  // namespace flashck

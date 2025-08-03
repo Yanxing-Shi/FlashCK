@@ -1,4 +1,4 @@
-#include "core/profiling/moe/moe_gemm_codegen.h"
+#include "core/profiling/moe/moe_smooth_quant/moe_smooth_quant_codegen.h"
 
 namespace flashck {
 
@@ -113,7 +113,7 @@ std::string MoeSmoothQuantCodeGen::Emit() const
 
     jinja2::ValuesMap value_map{{"idx", idx++},
                                 {"shape", tile_desc_.Emit()},
-                                {"is_pad_n", is_padding_n_},
+                                {"is_pad_n", is_pad_n_},
                                 {"is_two_pass", is_two_pass_}
                                };
 

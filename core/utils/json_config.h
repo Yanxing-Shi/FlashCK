@@ -311,6 +311,11 @@ struct NormPaddingConfig {
 };
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(NormPaddingConfig, n)
 
+struct NormPipelineConfig {
+    BoolEnumConfigParam is_two_pass;
+};
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(NormPipelineConfig, is_two_pass)
+
 struct NormLaunchConfig {
     IntEnumConfigParam min_block_per_cu;
 };
@@ -319,42 +324,86 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(NormLaunchConfig, min_block_per_cu)
 struct NormConfig {
     NormTileConfig tile_shape;
     NormPaddingConfig padding;
+    NormPipelineConfig pipeline;
     NormLaunchConfig launch;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(NormConfig, tile_shape, padding, launch)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(NormConfig, tile_shape, padding, pipeline, launch)
 
 // ========== Moe Structs ==========
-struct MoeBlockConfig {
+struct MoeGemmBlockConfig {
     IntEnumConfigParam m, n, k;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MoeBlockConfig, m, n, k)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MoeGemmBlockConfig, m, n, k)
 
-struct MoeWarpConfig {
+struct MoeGemmWarpConfig {
     IntEnumConfigParam m, n, k;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MoeWarpConfig, m, n, k)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MoeGemmWarpConfig, m, n, k)
 
-struct MoeWarpTileConfig {
+struct MoeGemmWarpTileConfig {
     IntEnumConfigParam m, n, k;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MoeWarpTileConfig, m, n, k)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MoeGemmWarpTileConfig, m, n, k)
 
-struct MoeTileConfig {
-    MoeBlockConfig block_tile;
-    MoeWarpConfig block_warps;
-    MoeWarpTileConfig warp_tile;
+struct MoeGemmTileConfig {
+    MoeGemmBlockConfig block_tile;
+    MoeGemmWarpConfig block_warps;
+    MoeGemmWarpTileConfig warp_tile;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MoeTileConfig, block_tile, block_warps, warp_tile)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MoeGemmTileConfig, block_tile, block_warps, warp_tile)
+
+struct MoeGemmPipelineConfig {
+    BoolEnumConfigParam interleave;
+};
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MoeGemmPipelineConfig, interleave)
+
+struct MoeGemmPaddingConfig {
+    BoolEnumConfigParam hidden_size;
+    BoolEnumConfigParam intermediate_size;
+};
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MoeGemmPaddingConfig, hidden_size, intermediate_size)
+
 
 struct MoeLaunchConfig {
     IntEnumConfigParam min_block_per_cu;
 };
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MoeLaunchConfig, min_block_per_cu)
-struct MoeConfig {
-    MoeTileConfig tile_shape;
+
+struct MoeGemmConfig {
+    MoeGemmTileConfig tile_shape;
+    MoeGemmPaddingConfig padding;
+    MoeGemmPipelineConfig pipeline;
     MoeLaunchConfig launch;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MoeConfig, tile_shape, launch);
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MoeGemmConfig, tile_shape, padding, pipeline, launch);
+
+struct MoeQuantTileConfig {
+    IntEnumConfigParam m_repeat, n_repeat, m_thread_per_block, n_thread_per_block, n_vector;
+};
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MoeQuantTileConfig, m_repeat, n_repeat, m_thread_per_block, n_thread_per_block, n_vector)
+
+struct MoeQuantPaddingConfig {
+    BoolEnumConfigParam n;
+};
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MoeQuantPaddingConfig, n)
+
+struct MoePipelineConfig {
+    BoolEnumConfigParam is_two_pass;
+};
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MoePipelineConfig, is_two_pass)
+
+struct MoeQuantLaunchConfig {
+    IntEnumConfigParam min_block_per_cu;
+};
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MoeQuantLaunchConfig, min_block_per_cu)
+
+struct MoeQuantConfig {
+    MoeQuantTileConfig tile_shape;
+    MoeQuantPaddingConfig padding;
+    MoePipelineConfig pipeline;
+    MoeQuantLaunchConfig launch;
+};
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MoeQuantConfig, tile_shape, padding, launch)
 
 struct MoeSortingConfig {
     IntEnumConfigParam internal_load_unroll;

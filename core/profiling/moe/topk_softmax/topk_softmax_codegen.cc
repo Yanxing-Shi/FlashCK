@@ -1,4 +1,4 @@
-#include "core/profiling/moe/topk_softmax_codegen.h"
+#include "core/profiling/moe/topk_softmax/topk_softmax_codegen.h"
 
 namespace flashck {
 

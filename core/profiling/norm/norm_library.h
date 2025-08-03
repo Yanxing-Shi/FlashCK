@@ -7,6 +7,14 @@
 
 namespace flashck {
 
+/// @file norm_library.h
+/// @brief Core library for normalization operations in FlashCK
+/// 
+/// This file provides the fundamental enumerations, data structures, and utility
+/// functions for all normalization operations including Layer Normalization and
+/// RMS Normalization. It defines bias handling modes, fused operation configurations,
+/// data type management, and kernel naming conventions.
+
 /**
  * @enum NormBiasEnum
  * @brief Defines bias handling modes for normalization operations

@@ -1,4 +1,4 @@
-#include "core/profiling/norm/norm_codegen.h"
+#include "core/profiling/norm/rms_norm/rms_norm_codegen.h"
 
 namespace flashck {
 

@@ -115,7 +115,7 @@ public:
      * - Load balancing constraints across experts
      * - Inter-stage memory bandwidth requirements
      */
-    bool IsValidTile(const MoeGemmTileDesc& tile_desc, const MoeGemmProblem& moe_problem) const;
+    bool IsValidTile(const MoeGemmTileDesc& tile_desc, const MoeProblem& moe_problem) const;
 
     /**
      * @brief Apply intelligent filtering to reduce MoE search space with expert routing optimization
@@ -132,7 +132,7 @@ public:
      * - Evaluates expert parallelism efficiency
      */
     std::vector<MoeGemmCodeGen> HeuristicFilter(const std::vector<MoeGemmCodeGen>& instances, 
-                                               const MoeGemmProblem& moe_problem);
+                                               const MoeProblem& moe_problem);
 
     /**
      * @brief Validates MoE-specific combination of activation, routing, and parallelism
@@ -158,14 +158,14 @@ public:
      * @return Vector of generated MoE kernel instances
      */
     std::vector<MoeGemmCodeGen> CreateInstanceForConfig(const flashck::MoeGemmConfig& config, 
-                                                       const MoeGemmProblem& moe_problem);
+                                                       const MoeProblem& moe_problem);
 
     /**
      * @brief Generates MoE GEMM operation instances based on the problem specification
      * @param moe_problem The MoE GEMM problem configuration
      * @return Map of generated MoE operations organized by kind and config name
      */
-    void GenerateInstances(MoeGemmProblem& moe_problem);
+    void GenerateInstances(MoeProblem& moe_problem);
 
     /**
      * @brief Gets the total number of generated MoE instances
@@ -178,7 +178,7 @@ public:
      * @param moe_problem MoE problem specification
      * @return Reference to instance map for the specified MoE kind
      */
-    std::map<std::string, MoeGemmCodeGen>& GetInstanceMap(MoeGemmProblem moe_problem)
+    std::map<std::string, MoeGemmCodeGen>& GetInstanceMap(MoeProblem moe_problem)
     {
         GenerateInstances(moe_problem);
         return instance_map_[moe_problem.kind_];
@@ -196,7 +196,7 @@ private:
      * @param moe_problem MoE problem with expert routing requirements
      * @return true if routing pattern is efficient
      */
-    bool IsValidExpertRouting(const MoeGemmTileDesc& tile_desc, const MoeGemmProblem& moe_problem) const;
+    bool IsValidExpertRouting(const MoeGemmTileDesc& tile_desc, const MoeProblem& moe_problem) const;
 
     /**
      * @brief Validates load balancing constraints across experts
@@ -204,7 +204,7 @@ private:
      * @param moe_problem MoE problem with load balancing requirements
      * @return true if load balancing is optimal
      */
-    bool IsValidLoadBalancing(const MoeGemmTileDesc& tile_desc, const MoeGemmProblem& moe_problem) const;
+    bool IsValidLoadBalancing(const MoeGemmTileDesc& tile_desc, const MoeProblem& moe_problem) const;
 
     /**
      * @brief Validates inter-stage memory bandwidth requirements
@@ -212,7 +212,7 @@ private:
      * @param moe_problem MoE problem specification
      * @return true if bandwidth requirements are satisfied
      */
-    bool IsValidInterStageBandwidth(const MoeGemmTileDesc& tile_desc, const MoeGemmProblem& moe_problem) const;
+    bool IsValidInterStageBandwidth(const MoeGemmTileDesc& tile_desc, const MoeProblem& moe_problem) const;
 
     std::map<MoeGemmKind, std::map<std::string, MoeGemmCodeGen>> instance_map_;
     int64_t                                                      num_instances_ = 0;

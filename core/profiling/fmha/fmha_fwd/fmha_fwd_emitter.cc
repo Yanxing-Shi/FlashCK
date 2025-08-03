@@ -1,4 +1,4 @@
-#include "core/profiling/fmha/fmha_fwd_prefill/fmha_fwd_prefill_emitter.h"
+#include "core/profiling/fmha/fmha_fwd/fmha_fwd_emitter.h"
 
 #include <algorithm>
 #include <filesystem>

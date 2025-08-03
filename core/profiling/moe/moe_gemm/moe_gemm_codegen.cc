@@ -1,7 +1,3 @@
-#include "core/profiling/moe/moe_gemm_codegen.h"
-
-namespace flashck {
-
 #include "core/profiling/moe/moe_gemm/moe_gemm_codegen.h"
 
 #include "core/utils/macros.h"
@@ -73,17 +69,15 @@ std::string MoeGemmTileDesc::Emit() const
 std::string MoeGemmCodeGen::GetInstanceName() const
 {
     // Generate unique instance identifier combining all MoE GEMM configuration aspects
-    return Sprintf("moe_gemm_{input_dtype}_{weight_dtype}_{index_dtype}_{tile}_{num_experts}_{activation}_{launch_config}",
+    return Sprintf("moe_gemm_{input_dtype}_{weight_dtype}_{index_dtype}_{tile}_{is_pad_hidden_size}_{is_pad_intermediate_size}_{is_interleave_}_{activation}_{min_block_per_cu}",
                    fmt::arg("input_dtype", DataTypeToString(problem_.input_dtype_)),
                    fmt::arg("weight_dtype", DataTypeToString(problem_.weight_dtype_)),
                    fmt::arg("index_dtype", DataTypeToString(problem_.index_dtype_)),
                    fmt::arg("tile", tile_desc_.GetInstanceName()),
-                   fmt::arg("num_experts", num_experts_),
-                   fmt::arg("activation", GetActivationEnumShortName(act_)),
-                   fmt::arg("launch_config", Sprintf("ipc{}_bpi{}_lt{}_bs{}_bpc{}",
-                           issues_pre_col_, bytes_per_issue_, launch_type_, 
-                           block_size_, min_block_per_cu_))
-                );
+                   fmt::arg("is_pad_hidden_size", is_pad_hidden_size_),
+                   fmt::arg("is_pad_intermediate_size", is_pad_intermediate_size_),
+                   fmt::arg("is_interleave", is_interleave_),
+                   fmt::arg("min_block_per_cu", min_block_per_cu_));
 }
 
 std::string MoeGemmCodeGen::Emit() const
@@ -122,7 +116,7 @@ std::string MoeGemmCodeGen::Emit() const
     using moe_partitioner_{{idx}} = ck_tile::FusedMoeGemmTilePartitioner_Linear<{{shape}}>;
 
     // Complete MoE GEMM Kernel Definition
-    using moe_kernel_{{idx}} = ck_tile::FusedMoeGemmKernel<
+    using {{name}} = ck_tile::FusedMoeGemmKernel<
         moe_partitioner_{{idx}}, 
         moe_pipeline_{{idx}}, 
         void                     // Custom epilogue (if needed)
@@ -133,6 +127,7 @@ std::string MoeGemmCodeGen::Emit() const
     static int idx = 0; // Unique index for each generated kernel
 
     jinja2::ValuesMap value_map{
+        {"name", GetInstanceName()}
         {"idx", idx++},
         {"input_dtype", DataTypeToString(problem_.input_dtype_)},
         {"weight_dtype", DataTypeToString(problem_.weight_dtype_)},
@@ -141,7 +136,6 @@ std::string MoeGemmCodeGen::Emit() const
         {"issue_per_col", issues_pre_col_},
         {"bytes_per_issue", bytes_per_issue_},
         {"launch_type", launch_type_},
-        {"block_size", block_size_},
         {"min_block_per_cu", min_block_per_cu_},
         {"shape", tile_desc_.Emit()},
         {"activation", GetActivationTag(act_)},
@@ -189,16 +183,15 @@ std::string MoeGemmTileDesc::Emit()
 std::string MoeGemmCodeGen::GetInstanceName() 
 {
     return Sprintf("moe_gemm_{input_dtype}_{weight_dtype}_{index_dtype}_"
-                   "{tile}_{num_experts}_{issue_per_col}_{bytes_per_issue}_{launch_type}_{block_size}_{min_block_per_cu}",
+                   "{tile}_{num_experts}_{issue_per_col}_{bytes_per_issue}_{launch_type}_{min_block_per_cu}",
                    fmt::arg("input_dtype", DataTypeToString(problem_.input_dtype_)),
                    fmt::arg("weight_dtype", DataTypeToString(problem_.weight_dtype_)),
                    fmt::arg("index_dtype", DataTypeToString(problem_.index_dtype_)),
                    fmt::arg("tile", tile_desc_.GetInstanceName()),
-                   fmt::arg("num_experts", num_experts_),
+                   fmt::arg("num_experts", problem_.num_experts_),
                    fmt::arg("issue_per_col", issues_pre_col_),
                    fmt::arg("bytes_per_issue", bytes_per_issue_),
                    fmt::arg("launch_type", launch_type_),
-                   fmt::arg("block_size", block_size_),
                    fmt::arg("min_block_per_cu", min_block_per_cu_)
                 );
 }
@@ -206,7 +199,8 @@ std::string MoeGemmCodeGen::GetInstanceName()
 std::string MoeGemmCodeGen::Emit() 
 {
     std::string tpl = R"(
-    using traits_{{idx}} = ck_tile::FusedMoeGemmTraits<{{is_only_gate}}, {{use_smooth_quant}}, 1 /*atomic*/>;
+    using traits_{{idx}} = ck_tile::FusedMoeGemmTraits<{{is_only_gate}}, {{use_smooth_quant}}, 1 /*atomic*/, FusedMoeGemmWeightPermuteEnum::b_nr_kr_waveflatten, 
+                                                        {{is_pad_hidden_size}}, {{is_pad_intermediate_size}}, {{is_interleave}}>;
     using problem_{{idx}} = ck_tile::FusedMoeGemmPipelineProblem<ADataType,
                                                                  GDataType,
                                                                  DDataType,
@@ -229,14 +223,11 @@ std::string MoeGemmCodeGen::Emit()
     static int  idx = 0;
 
     jinja2::ValuesMap value_map{{"idx", idx++},
-                                {"input_dtype", DataTypeToString(problem_.input_dtype_)},
-                                {"weight_dtype", DataTypeToString(problem_.weight_dtype_)},
-                                {"index_dtype", DataTypeToString(problem_.index_dtype_)},
-                                {"num_experts", problem_.num_experts_},
-                                {"issue_per_col", issues_pre_col_},
-                                {"bytes_per_issue", bytes_per_issue_},
-                                {"launch_type", launch_type_},
-                                {"block_size", block_size_},
+                                {"is_only_gate", problem_.is_only_gate_},
+                                {"use_smooth_quant", problem_.use_smooth_quant_},
+                                {"is_pad_hidden_size", is_pad_hidden_size_},
+                                {"is_pad_intermediate_size", is_pad_intermediate_size_},
+                                {"is_interleave", is_interleave_},
                                 {"min_block_per_cu", min_block_per_cu_},
                                 {"shape", tile_desc_.Emit()},
                                 {"activation", GetActivationTag(act_)}

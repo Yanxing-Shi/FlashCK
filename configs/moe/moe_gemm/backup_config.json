@@ -26,7 +26,7 @@
   },
   "padding":{
     "hidden_size": { "values": [false] },
-    "intermediate": { "values": [false] }
+    "intermediate_size": { "values": [false] }
   },
   "pipeline": {
     "interleave": { "values": [true] }

@@ -150,10 +150,10 @@ std::string LayerNormCodeGen::Emit() const
                                 {"is_fast_div", "true"},
                                 {"is_two_pass", is_two_pass_},
                                 {"is_welford", "true"},
-                                {"is_add_bias", static_cast<int>(is_add_bias_)},
-                                {"fused_add", static_cast<int>(fused_add_)},
-                                {"fused_quant", static_cast<int>(fused_quant_)},
-                                {"is_smooth_quant", static_cast<int>(fused_quant_) == 1 ? true : false},
+                                {"is_add_bias", static_cast<int>(problem_.is_add_bias_)},
+                                {"fused_add", static_cast<int>(problem_.fused_add_)},
+                                {"fused_quant", static_cast<int>(problem_.fused_quant_)},
+                                {"is_smooth_quant", static_cast<int>(problem_.fused_quant_) == 1 ? true : false},
                                 {"shape", tile_desc_.Emit()}};
 
     return TEMPLATE_CHECK(tpl, value_map, "LayerNormCodeGen::Emit");
