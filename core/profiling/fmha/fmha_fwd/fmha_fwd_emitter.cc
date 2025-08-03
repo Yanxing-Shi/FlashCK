@@ -9,7 +9,6 @@ FC_DECLARE_bool(FC_ENABLE_BACKUP_JSON);   // Enable backup_config.json loading
 FC_DECLARE_bool(FC_ENABLE_DEFAULT_JSON);  // Enable default_config.json loading  
 FC_DECLARE_bool(FC_ENABLE_USER_JSON);     // Enable user_config.json loading
 FC_DECLARE_string(FC_CONFIG_JSON_PATH);   // Base path for config files
-FC_DECLARE_int32(FC_ENABLE_JSON_MODE);    // JSON configuration mode
 
 namespace flashck {
 
