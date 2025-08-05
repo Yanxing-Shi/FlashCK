@@ -86,7 +86,7 @@ def is_available(operation_type: Optional[str] = None) -> bool:
         True if FlashCK is available for the specified operation, False otherwise.
     """
     if operation_type is None:
-        return any(_FLASHCK_AVAILABILITY.values())
+        return any(_FLASHCK_AVAILABILITY.GetAllValues()())
 
     return _FLASHCK_AVAILABILITY.get(operation_type, False)
 

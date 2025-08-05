@@ -46,6 +46,12 @@ public:
         return static_cast<T*>(this)->SerializeImpl();
     }
 
+    std::string GetName()
+    {
+        return static_cast<T*>(this)->GetNameImpl();
+    }
+
+
 protected:
     /// Protected destructor to prevent deletion through base pointer
     ~ProblemBase() = default;

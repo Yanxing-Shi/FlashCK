@@ -95,20 +95,20 @@ std::vector<TopKSoftmaxCodeGen> TopKSoftmaxEmitter::CreateInstanceForConfig(
     std::vector<std::vector<int64_t>> all_param_lists = {
         // Memory access configuration
         [&]{ std::vector<int64_t> v; 
-             for (auto x : config.issues_per_col.values) v.push_back(static_cast<int64_t>(x)); 
+             for (auto x : config.issues_per_col.GetAllValues()) v.push_back(static_cast<int64_t>(x)); 
              return v; }(),
         [&]{ std::vector<int64_t> v; 
-             for (auto x : config.bytes_per_issue.values) v.push_back(static_cast<int64_t>(x)); 
+             for (auto x : config.bytes_per_issue.GetAllValues()) v.push_back(static_cast<int64_t>(x)); 
              return v; }(),
         // Launch configuration
         [&]{ std::vector<int64_t> v; 
-             for (auto x : config.launch_type.values) v.push_back(static_cast<int64_t>(x)); 
+             for (auto x : config.launch_type.GetAllValues()) v.push_back(static_cast<int64_t>(x)); 
              return v; }(),
         [&]{ std::vector<int64_t> v; 
-             for (auto x : config.block_size.values) v.push_back(static_cast<int64_t>(x)); 
+             for (auto x : config.block_size.GetAllValues()) v.push_back(static_cast<int64_t>(x)); 
              return v; }(),
         [&]{ std::vector<int64_t> v; 
-             for (auto x : config.launch.min_block_per_cu.values) v.push_back(static_cast<int64_t>(x)); 
+             for (auto x : config.launch.min_block_per_cu.GetAllValues()) v.push_back(static_cast<int64_t>(x)); 
              return v; }(),
     };
 

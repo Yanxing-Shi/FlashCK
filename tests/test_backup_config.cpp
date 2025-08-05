@@ -21,41 +21,41 @@ void demonstrateBackupConfig(const std::string& config_name, const std::string& 
             
             if constexpr (std::is_same_v<ConfigType, FmhaBatchPrefillConfig>) {
                 const auto& config = backup_configs[i];
-                std::cout << "  Block size: " << config.tile_shape.block_tile.m0.values[0] 
-                         << "x" << config.tile_shape.block_tile.n0.values[0] 
-                         << "x" << config.tile_shape.block_tile.k0.values[0] << std::endl;
-                std::cout << "  Pipeline: " << config.pipeline.values[0] << std::endl;
+                std::cout << "  Block size: " << config.tile_shape.block_tile.m0.GetAllValues()[0] 
+                         << "x" << config.tile_shape.block_tile.n0.GetAllValues()[0] 
+                         << "x" << config.tile_shape.block_tile.k0.GetAllValues()[0] << std::endl;
+                std::cout << "  Pipeline: " << config.pipeline.GetAllValues()[0] << std::endl;
                 
                 // Verify single values
-                assert(config.tile_shape.block_tile.m0.values.size() == 1);
-                assert(config.tile_shape.block_tile.n0.values.size() == 1);
-                assert(config.pipeline.values.size() == 1);
+                assert(config.tile_shape.block_tile.m0.GetAllValues().size() == 1);
+                assert(config.tile_shape.block_tile.n0.GetAllValues().size() == 1);
+                assert(config.pipeline.GetAllValues().size() == 1);
             }
             
             if constexpr (std::is_same_v<ConfigType, FmhaFwdConfig>) {
                 const auto& config = backup_configs[i];
-                std::cout << "  Block size: " << config.tile_shape.block_tile.m0.values[0] 
-                         << "x" << config.tile_shape.block_tile.n0.values[0] 
-                         << "x" << config.tile_shape.block_tile.k0.values[0] << std::endl;
-                std::cout << "  Pipeline: " << config.pipeline.values[0] << std::endl;
+                std::cout << "  Block size: " << config.tile_shape.block_tile.m0.GetAllValues()[0] 
+                         << "x" << config.tile_shape.block_tile.n0.GetAllValues()[0] 
+                         << "x" << config.tile_shape.block_tile.k0.GetAllValues()[0] << std::endl;
+                std::cout << "  Pipeline: " << config.pipeline.GetAllValues()[0] << std::endl;
                 
                 // Verify single values
-                assert(config.tile_shape.block_tile.m0.values.size() == 1);
-                assert(config.tile_shape.block_tile.n0.values.size() == 1);
-                assert(config.pipeline.values.size() == 1);
+                assert(config.tile_shape.block_tile.m0.GetAllValues().size() == 1);
+                assert(config.tile_shape.block_tile.n0.GetAllValues().size() == 1);
+                assert(config.pipeline.GetAllValues().size() == 1);
             }
             
             if constexpr (std::is_same_v<ConfigType, GemmConfig>) {
                 const auto& config = backup_configs[i];
-                std::cout << "  Block size: " << config.tile_shape.block_tile.m.values[0] 
-                         << "x" << config.tile_shape.block_tile.n.values[0] 
-                         << "x" << config.tile_shape.block_tile.k.values[0] << std::endl;
-                std::cout << "  Pipeline: " << config.pipeline.version.values[0] << std::endl;
+                std::cout << "  Block size: " << config.tile_shape.block_tile.m.GetAllValues()[0] 
+                         << "x" << config.tile_shape.block_tile.n.GetAllValues()[0] 
+                         << "x" << config.tile_shape.block_tile.k.GetAllValues()[0] << std::endl;
+                std::cout << "  Pipeline: " << config.pipeline.version.GetAllValues()[0] << std::endl;
                 
                 // Verify single values
-                assert(config.tile_shape.block_tile.m.values.size() == 1);
-                assert(config.tile_shape.block_tile.n.values.size() == 1);
-                assert(config.pipeline.version.values.size() == 1);
+                assert(config.tile_shape.block_tile.m.GetAllValues().size() == 1);
+                assert(config.tile_shape.block_tile.n.GetAllValues().size() == 1);
+                assert(config.pipeline.version.GetAllValues().size() == 1);
             }
         }
         
@@ -74,12 +74,12 @@ int main() {
     // Test different config types
     demonstrateBackupConfig<FmhaBatchPrefillConfig>(
         "FMHA Batch Prefill", 
-        "configs/fmha/fmha_batch_prefill/backup_config.json"
+        "configs/attention/fmha_batch_prefill/backup_config.json"
     );
     
     demonstrateBackupConfig<FmhaFwdConfig>(
         "FMHA Forward", 
-        "configs/fmha/fmha_fwd/backup_config.json"
+        "configs/attention/fmha_fwd/backup_config.json"
     );
     
     demonstrateBackupConfig<GemmConfig>(
@@ -92,7 +92,7 @@ int main() {
     std::cout << "auto backup_configs = LoadBackupConfigJson<FmhaBatchPrefillConfig>(path);" << std::endl;
     std::cout << "for (const auto& config : backup_configs) {" << std::endl;
     std::cout << "    // Each config has single values, ready to use directly" << std::endl;
-    std::cout << "    int m0 = config.tile_shape.block_tile.m0.values[0];" << std::endl;
+    std::cout << "    int m0 = config.tile_shape.block_tile.m0.GetAllValues()[0];" << std::endl;
     std::cout << "    // ... instantiate kernel with this specific config" << std::endl;
     std::cout << "}" << std::endl;
     

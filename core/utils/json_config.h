@@ -3,6 +3,7 @@
 #include <string>
 #include <vector>
 #include <fstream>
+#include <algorithm>
 #include <nlohmann/json.hpp>
 
 namespace flashck {
@@ -12,20 +13,153 @@ using json = nlohmann::json;
 // ========== Common Parameter Structs ==========
 
 struct IntEnumConfigParam {
+    json data;  // Store raw JSON data to support both modes
+    
+    // Get all values, supporting both "values" and "min/max/step/exclude" modes
+    std::vector<int> GetAllValues() const {
+        if (data.contains("values") && data["values"].is_array()) {
+            return data["values"].get<std::vector<int>>();
+        }
+        
+        // Generate from min/max/step/exclude
+        std::vector<int> result;
+        if (data.contains("min") && data.contains("max")) {
+            int min_val = data["min"].get<int>();
+            int max_val = data["max"].get<int>();
+            int step_val = data.contains("step") ? data["step"].get<int>() : 1;
+            std::vector<int> exclude_vals;
+            if (data.contains("exclude")) {
+                exclude_vals = data["exclude"].get<std::vector<int>>();
+            }
+            
+            for (int v = min_val; v <= max_val; v += step_val) {
+                if (std::find(exclude_vals.begin(), exclude_vals.end(), v) == exclude_vals.end()) {
+                    result.push_back(v);
+                }
+            }
+        }
+        return result;
+    }
+    
+    // Legacy compatibility - access values directly
     std::vector<int> values;
+    
+    // Constructor to maintain backward compatibility
+    IntEnumConfigParam() = default;
+    IntEnumConfigParam(const std::vector<int>& vals) : values(vals) {
+        data["values"] = vals;
+    }
 };
 
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(IntEnumConfigParam, values)
+// Custom JSON serialization for IntEnumConfigParam
+inline void to_json(json& j, const IntEnumConfigParam& p) {
+    j = p.data;
+}
+
+inline void from_json(const json& j, IntEnumConfigParam& p) {
+    p.data = j;
+    // For backward compatibility, populate values if present
+    if (j.contains("values")) {
+        p.GetAllValues() = j["values"].get<std::vector<int>>();
+    } else {
+        p.GetAllValues() = p.GetAllValues();
+    }
+}
 
 struct BoolEnumConfigParam {
+    json data;  // Store raw JSON data to support both modes
+    
+    // Get all values, supporting both "values" and "min/max/exclude" modes
+    std::vector<bool> GetAllValues() const {
+        if (data.contains("values") && data["values"].is_array()) {
+            return data["values"].get<std::vector<bool>>();
+        }
+        
+        // Generate from min/max/exclude (for bool, typically just [false, true])
+        std::vector<bool> result;
+        if (data.contains("min") && data.contains("max")) {
+            bool min_val = data["min"].get<bool>();
+            bool max_val = data["max"].get<bool>();
+            std::vector<bool> exclude_vals;
+            if (data.contains("exclude")) {
+                exclude_vals = data["exclude"].get<std::vector<bool>>();
+            }
+            
+            std::vector<bool> candidates = {false, true};
+            for (bool v : candidates) {
+                if (v >= min_val && v <= max_val) {
+                    if (std::find(exclude_vals.begin(), exclude_vals.end(), v) == exclude_vals.end()) {
+                        result.push_back(v);
+                    }
+                }
+            }
+        }
+        return result;
+    }
+    
+    // Legacy compatibility - access values directly
     std::vector<bool> values;
+    
+    // Constructor to maintain backward compatibility
+    BoolEnumConfigParam() = default;
+    BoolEnumConfigParam(const std::vector<bool>& vals) : values(vals) {
+        data["values"] = vals;
+    }
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(BoolEnumConfigParam, values)
+
+// Custom JSON serialization for BoolEnumConfigParam
+inline void to_json(json& j, const BoolEnumConfigParam& p) {
+    j = p.data;
+}
+
+inline void from_json(const json& j, BoolEnumConfigParam& p) {
+    p.data = j;
+    // For backward compatibility, populate values if present
+    if (j.contains("values")) {
+        p.GetAllValues() = j["values"].get<std::vector<bool>>();
+    } else {
+        p.GetAllValues() = p.GetAllValues();
+    }
+}
 
 struct StrEnumConfigParam {
+    json data;  // Store raw JSON data to support both modes
+    
+    // Get all values, supporting both "values" and "exclude" modes
+    std::vector<std::string> GetAllValues() const {
+        if (data.contains("values") && data["values"].is_array()) {
+            return data["values"].get<std::vector<std::string>>();
+        }
+        
+        // For strings, min/max/step typically not meaningful, so just return empty
+        // Could be extended if needed for specific use cases
+        return {};
+    }
+    
+    // Legacy compatibility - access values directly
     std::vector<std::string> values;
+    
+    // Constructor to maintain backward compatibility
+    StrEnumConfigParam() = default;
+    StrEnumConfigParam(const std::vector<std::string>& vals) : values(vals) {
+        data["values"] = vals;
+    }
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(StrEnumConfigParam, values)
+
+// Custom JSON serialization for StrEnumConfigParam
+inline void to_json(json& j, const StrEnumConfigParam& p) {
+    j = p.data;
+}
+
+inline void from_json(const json& j, StrEnumConfigParam& p) {
+    p.data = j;
+    // For backward compatibility, populate values if present
+    if (j.contains("values")) {
+        p.GetAllValues() = j["values"].get<std::vector<std::string>>();
+    } else {
+        p.GetAllValues() = p.GetAllValues();
+    }
+}
 
 
 // ========== Tile-based GEMM Structs ==========
@@ -117,9 +251,10 @@ struct FmhaFwdConfig {
     FmhaFwdTileConfig tile_shape;
     FmhaFwdPaddingConfig padding;
     FmhaFwdLaunchConfig launch;
+    BoolEnumConfigParam skip_min_q_seq_len;
     StrEnumConfigParam pipeline;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdConfig, tile_shape, padding, launch, pipeline)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdConfig, tile_shape, padding, launch, skip_min_q_seq_len, pipeline)
 
 // ========== FMHA Fwd append kv Structs ==========
 struct FmhaFwdAppendKVBlockConfig {
@@ -185,10 +320,13 @@ NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdSplitKVLaunchConfig, min_block_per_cu)
 struct FmhaFwdSplitKVConfig {
     FmhaFwdSplitKVTileConfig tile_shape;
     FmhaFwdSplitKVPaddingConfig padding;
+    IntEnumConfigParam num_splits;
+    BoolEnumConfigParam has_uneven_splits;
+    BoolEnumConfigParam merge_groups_num_head_q_seq_len;
     FmhaFwdSplitKVLaunchConfig launch;
     StrEnumConfigParam pipeline;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdSplitKVConfig, tile_shape, padding, launch, pipeline)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdSplitKVConfig, tile_shape, padding, num_splits, launch, has_uneven_splits, merge_groups_num_head_q_seq_len, pipeline)
 
 // ========== FMHA Fwd split kv combine Structs ==========
 struct FmhaFwdSplitKVCombineBlockConfig {

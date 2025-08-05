@@ -355,36 +355,36 @@ std::vector<MoeGemmCodeGen> MoeGemmEmitter::CreateInstanceForConfig(const MoeGem
 
     std::vector<std::vector<int64_t>> all_lists = {
         // Stage 0 BlockConfig
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.block_tile.m0.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.block_tile.n0.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.block_tile.k0.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.block_tile.m0.GetAllValues()) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.block_tile.n0.GetAllValues()) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.block_tile.k0.GetAllValues()) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
         // Stage 1 BlockConfig
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.block_tile.m1.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.block_tile.n1.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.block_tile.k1.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.block_tile.m1.GetAllValues()) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.block_tile.n1.GetAllValues()) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.block_tile.k1.GetAllValues()) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
         // Stage 0 WarpConfig
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.block_warps.m0.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.block_warps.n0.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.block_warps.k0.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.block_warps.m0.GetAllValues()) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.block_warps.n0.GetAllValues()) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.block_warps.k0.GetAllValues()) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
         // Stage 1 WarpConfig
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.block_warps.m1.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.block_warps.n1.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.block_warps.k1.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.block_warps.m1.GetAllValues()) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.block_warps.n1.GetAllValues()) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.block_warps.k1.GetAllValues()) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
         // Stage 0 WarpTileConfig
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.warp_tile.m0.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.warp_tile.n0.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.warp_tile.k0.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.warp_tile.m0.GetAllValues()) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.warp_tile.n0.GetAllValues()) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.warp_tile.k0.GetAllValues()) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
         // Stage 1 WarpTileConfig
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.warp_tile.m1.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.warp_tile.n1.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.warp_tile.k1.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.warp_tile.m1.GetAllValues()) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.warp_tile.n1.GetAllValues()) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.warp_tile.k1.GetAllValues()) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
         // PaddingConfig (convert bool to int64_t)
-        [&]{ std::vector<int64_t> v; for (auto x : config.padding.hidden_size.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.padding.intermediate_size.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.padding.hidden_size.GetAllValues()) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.padding.intermediate_size.GetAllValues()) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
         // pipeline
-        [&]{ std::vector<int64_t> v; for (auto x : config.pipeline.interleave.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.pipeline.interleave.GetAllValues()) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
         // launch
-        [&]{ std::vector<int64_t> v; for (auto x : config.launch.min_block_per_cu.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.launch.min_block_per_cu.GetAllValues()) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
     };
 
     CartesianProduct(all_lists, [&](const std::vector<int64_t>& vals) {

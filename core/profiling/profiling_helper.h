@@ -10,7 +10,7 @@
 #include "core/utils/common.h"
 
 #include "core/profiling/gemm/gemm_problem.h"
-#include "core/profiling/fmha/fmha_problem.h"
+#include "core/profiling/attention/fmha_problem.h"
 #include "core/profiling/norm/norm_problem.h"
 
 // Flag declarations for tuning configuration
@@ -68,9 +68,9 @@ inline std::string MetricToString(Metric metric)
  */
 enum class CodeGenKind {
     Gemm      = 0,  ///< General Matrix Multiplication kernels
-    Norm      = 1,  ///< Normalization kernels (LayerNorm, RMSNorm, etc.)
-    Embedding = 2,  ///< Embedding lookup and transformation kernels
+    Norm      = 1,  ///< Normalization kernels
     Fmha      = 3,  ///< Fused Multi-Head Attention kernels
+    Moe       = 4,  ///< Moe kernels
 };
 
 /**

@@ -204,31 +204,31 @@ std::vector<GemmCodeGen> GemmEmitter::CreateInstanceForConfig(const GemmConfig& 
 
     std::vector<std::vector<int64_t>> all_lists = {
         // BlockConfig
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.block_tile.m.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.block_tile.n.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.block_tile.k.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.block_tile.m.GetAllValues()) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.block_tile.n.GetAllValues()) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.block_tile.k.GetAllValues()) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
         // WarpConfig
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.block_warps.m.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.block_warps.n.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.block_warps.k.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.block_warps.m.GetAllValues()) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.block_warps.n.GetAllValues()) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.block_warps.k.GetAllValues()) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
         // WarpTileConfig
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.warp_tile.m.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.warp_tile.n.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.warp_tile.k.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.warp_tile.m.GetAllValues()) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.warp_tile.n.GetAllValues()) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.warp_tile.k.GetAllValues()) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
         // PaddingConfig (convert bool to int64_t)
-        [&]{ std::vector<int64_t> v; for (auto x : config.padding.m.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.padding.n.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.padding.k.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.padding.m.GetAllValues()) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.padding.n.GetAllValues()) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.padding.k.GetAllValues()) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
         // LaunchConfig
-        [&]{ std::vector<int64_t> v; for (auto x : config.launch.min_block_per_cu.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.launch.min_block_per_cu.GetAllValues()) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
         // PartitionConfig
-        [&]{ std::vector<int64_t> v; for (auto x : config.partition.num_wave_groups.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.partition.tile_partitioner_group_num.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.partition.tile_partitioner_m01.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.partition.num_wave_groups.GetAllValues()) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.partition.tile_partitioner_group_num.GetAllValues()) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.partition.tile_partitioner_m01.GetAllValues()) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
         // PipelineConfig (enum as int64_t)
-        [&]{ std::vector<int64_t> v; for (const auto& x : config.pipeline.version.values) v.emplace_back(static_cast<int64_t>(GetPipelineVersionEnumFromString(x))); return v; }(),
-        [&]{ std::vector<int64_t> v; for (const auto& x : config.pipeline.scheduler.values) v.emplace_back(static_cast<int64_t>(GetPipelineSchedulerEnumFromString(x))); return v; }(),
-        [&]{ std::vector<int64_t> v; for (const auto& x : config.pipeline.epilogue.values) v.emplace_back(static_cast<int64_t>(GetEpilogueEnumFromString(x))); return v; }(),
+        [&]{ std::vector<int64_t> v; for (const auto& x : config.pipeline.version.GetAllValues()) v.emplace_back(static_cast<int64_t>(GetPipelineVersionEnumFromString(x))); return v; }(),
+        [&]{ std::vector<int64_t> v; for (const auto& x : config.pipeline.scheduler.GetAllValues()) v.emplace_back(static_cast<int64_t>(GetPipelineSchedulerEnumFromString(x))); return v; }(),
+        [&]{ std::vector<int64_t> v; for (const auto& x : config.pipeline.epilogue.GetAllValues()) v.emplace_back(static_cast<int64_t>(GetEpilogueEnumFromString(x))); return v; }(),
     };
 
     CartesianProduct(all_lists, [&](const std::vector<int64_t>& vals) {

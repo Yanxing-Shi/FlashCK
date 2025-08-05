@@ -136,24 +136,24 @@ std::vector<LayerNormCodeGen> LayerNormEmitter::CreateInstanceForConfig(
     std::vector<std::vector<int64_t>> all_param_lists = {
         // Thread configuration
         [&]{ std::vector<int64_t> v; 
-             for (auto x : config.tile_shape.m_repeat.values) v.push_back(static_cast<int64_t>(x)); 
+             for (auto x : config.tile_shape.m_repeat.GetAllValues()) v.push_back(static_cast<int64_t>(x)); 
              return v; }(),
         [&]{ std::vector<int64_t> v; 
-             for (auto x : config.tile_shape.n_repeat.values) v.push_back(static_cast<int64_t>(x)); 
+             for (auto x : config.tile_shape.n_repeat.GetAllValues()) v.push_back(static_cast<int64_t>(x)); 
              return v; }(),
         [&]{ std::vector<int64_t> v; 
-             for (auto x : config.tile_shape.m_thread_per_block.values) v.push_back(static_cast<int64_t>(x)); 
+             for (auto x : config.tile_shape.m_thread_per_block.GetAllValues()) v.push_back(static_cast<int64_t>(x)); 
              return v; }(),
         [&]{ std::vector<int64_t> v; 
-             for (auto x : config.tile_shape.n_thread_per_block.values) v.push_back(static_cast<int64_t>(x)); 
+             for (auto x : config.tile_shape.n_thread_per_block.GetAllValues()) v.push_back(static_cast<int64_t>(x)); 
              return v; }(),
         [&]{ std::vector<int64_t> v; 
-             for (auto x : config.tile_shape.n_vector.values) v.push_back(static_cast<int64_t>(x)); 
+             for (auto x : config.tile_shape.n_vector.GetAllValues()) v.push_back(static_cast<int64_t>(x)); 
              return v; }(),
         // PaddingConfig (convert bool to int64_t)
-        [&]{ std::vector<int64_t> v; for (auto x : config.padding.n.values) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.padding.n.GetAllValues()) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
         // PipelineConfig (convert bool to int64_t)
-        [&]{ std::vector<int64_t> v; for (auto x : config.pipeline.is_two_pass.values) v.emplace_back(static_cast<int64_t>(x)); return v; }()
+        [&]{ std::vector<int64_t> v; for (auto x : config.pipeline.is_two_pass.GetAllValues()) v.emplace_back(static_cast<int64_t>(x)); return v; }()
     };
 
     CartesianProduct(all_param_lists, [&](const std::vector<int64_t>& vals) {
