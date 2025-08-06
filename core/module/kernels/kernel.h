@@ -6,10 +6,10 @@
 #include "core/module/kernels/norm_kernels/layer_norm/layer_norm_call.h"
 #include "core/module/kernels/norm_kernels/rms_norm/rms_norm_call.h"
 
-#include "core/module/kernels/fmha_kernels/fmha_fwd/fmha_fwd_call.h"
-#include "core/module/kernels/fmha_kernels/fmha_fwd_append_kv/fmha_fwd_append_kv_call.h"
-#include "core/module/kernels/fmha_kernels/fmha_fwd_split_kv/fmha_fwd_split_kv_call.h"
-#include "core/module/kernels/fmha_kernels/fmha_fwd_split_kv_combine/fmha_fwd_split_kv_combine_call.h"
+#include "core/module/kernels/attention_kernels/fmha_fwd/fmha_fwd_call.h"
+#include "core/module/kernels/attention_kernels/fmha_fwd_append_kv/fmha_fwd_append_kv_call.h"
+#include "core/module/kernels/attention_kernels/fmha_fwd_split_kv/fmha_fwd_split_kv_call.h"
+#include "core/module/kernels/attention_kernels/fmha_fwd_split_kv_combine/fmha_fwd_split_kv_combine_call.h"
 
 #include "core/module/kernels/gemm_kernels/gemm/gemm_call.h"
 #include "core/module/kernels/gemm_kernels/gemm_multi_d/gemm_multi_d_call.h"

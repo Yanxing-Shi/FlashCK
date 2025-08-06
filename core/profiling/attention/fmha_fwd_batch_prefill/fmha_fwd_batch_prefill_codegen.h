@@ -10,7 +10,7 @@
 namespace flashck {
 
 /**
- * @class FmhaBatchPrefillTileDesc
+ * @class FmhaFwdBatchPrefillTileDesc
  * @brief Describes the hierarchical tiling configuration for FMHA batch prefill operations
  *
  * This class encapsulates the complete tiling strategy for FMHA operations including:
@@ -18,7 +18,7 @@ namespace flashck {
  * - Warp-level distribution within each block
  * - Warp-tile level memory access patterns
  */
-class FmhaBatchPrefillTileDesc {
+class FmhaFwdBatchPrefillTileDesc {
 public:
     /**
      * @brief Generate a unique identifier for this tile configuration
@@ -79,7 +79,7 @@ public:
 };
 
 /**
- * @class FmhaBatchPrefillCodeGen
+ * @class FmhaFwdBatchPrefillCodeGen
  * @brief Complete code generator for FMHA batch prefill operations
  *
  * This class encapsulates all parameters needed to generate efficient FMHA kernels:
@@ -88,24 +88,18 @@ public:
  * - Performance tuning parameters (occupancy control)
  * - Pipeline implementation selection
  */
-class FmhaBatchPrefillCodeGen {
+class FmhaFwdBatchPrefillCodeGen {
 public:
     /**
      * @brief Default constructor with sensible defaults
      */
-    FmhaBatchPrefillCodeGen() = default;
+    FmhaFwdBatchPrefillCodeGen() = default;
 
     /**
      * @brief Generate unique identifier for padding configuration
      * @return String encoding which dimensions have padding enabled
      */
     std::string GetPaddingConfigName();
-
-    /**
-     * @brief Generate identifier for pipeline configuration
-     * @return String identifier for the selected pipeline implementation
-     */
-    std::string GetPipelineConfigName();
 
     /**
      * @brief Generate unique instance name combining all configuration parameters
@@ -121,11 +115,11 @@ public:
 
     // ====================== Problem Specification ======================
     /// Problem specification this codegen instance targets
-    FmhaProblem problem_; 
+    FmhaFwdBatchPrefillProblem problem_; 
 
     // ====================== Hierarchical Tiling Configuration ======================
     /// Complete tile configuration for this FMHA operation
-    FmhaBatchPrefillTileDesc tile_desc_;
+    FmhaFwdBatchPrefillTileDesc tile_desc_;
 
     // ====================== Padding Configuration ======================
     /// Enable padding for query sequence length dimension
@@ -144,6 +138,8 @@ public:
     // ====================== Pipeline Implementation ======================
     /// Selected FMHA pipeline implementation variant
     BlockFmhaPipelineEnum pipeline_ = BlockFmhaPipelineEnum::QRKSVS;
+
+    bool is_skip_min_q_seqlen_;
 };
 
 }  // namespace flashck

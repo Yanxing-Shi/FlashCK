@@ -1,10 +1,10 @@
-#include "core/profiling/attention/fmha_paged_kv_prefill/fmha_paged_kv_prefill_codegen.h"
+#include "core/profiling/attention/fmha_fwd_paged_kv_prefill/fmha_fwd_paged_kv_prefill_codegen.h"
 
 #include "core/utils/macros.h"
 
 namespace flashck {
 
-std::string FmhaPagedKVPrefillTileDesc::GetInstanceName() 
+std::string FmhaFwdPagedKVPrefillTileDesc::GetInstanceName() 
 {
     return Sprintf(
         "{m0_block}x{n0_block}x{k0_block}_{n1_block}x{k1_block}x{k0_max_block}_{m0_warp}x{n0_warp}x{k0_warp}_{m1_warp}x{n1_warp}x{k1_warp}_{m0_warp_tile}x{n0_warp_tile}x{k0_warp_tile}_{m1_warp_tile}x{n1_warp_tile}x{k1_warp_tile}",
@@ -28,7 +28,7 @@ std::string FmhaPagedKVPrefillTileDesc::GetInstanceName()
         fmt::arg("k1_warp_tile", k1_warp_tile_));
 }
 
-std::string FmhaPagedKVPrefillTileDesc::Emit() 
+std::string FmhaFwdPagedKVPrefillTileDesc::Emit() 
 {
     std::string       tpl = R"(
     ck_tile::TileFmhaShape<ck_tile::sequence<{{m0_block}}, {{n0_block}}, {{k0_block}}, {{n1_block}}, {{k1_block}}, {{k0_max_block}}>,
@@ -59,7 +59,7 @@ std::string FmhaPagedKVPrefillTileDesc::Emit()
     return TEMPLATE_CHECK(tpl, value_map, "FmhaFwdTileDesc::Emit");
 }
 
-std::string FmhaPagedKVPrefillCodeGen::GetPaddingConfigName() 
+std::string FmhaFwdPagedKVPrefillCodeGen::GetPaddingConfigName() 
 {
     return Sprintf("{is_pad_q_seq_len}{is_pad_kv_seq_len}{is_pad_qk_head_dim}{is_pad_v_head_dim}",
                    fmt::arg("is_pad_q_seq_len", is_pad_q_seq_len_ ? "s" : ""),
@@ -68,25 +68,18 @@ std::string FmhaPagedKVPrefillCodeGen::GetPaddingConfigName()
                    fmt::arg("is_pad_v_head_dim", is_pad_v_head_dim_ ? "dv" : ""));
 }
 
-std::string FmhaPagedKVPrefillCodeGen::GetPipelineConfigName() 
-{
-    return Sprintf("{pad_name}_{bias_short_name}_{is_static_quant}{block_per_cu}",
-                   fmt::arg("pad_name", GetPaddingConfigName()),
-                   fmt::arg("bias_short_name", GetBiasShortName(problem_.bias_enum_)),
-                   fmt::arg("is_static_quant", problem_.is_static_quant_ ? "squant" : "nosquant"),
-                   fmt::arg("block_per_cu", min_block_per_cu_ == -1 ? "" : "_" + std::to_string(min_block_per_cu_)));
-}
 
-std::string FmhaPagedKVPrefillCodeGen::GetInstanceName() 
+std::string FmhaFwdCodeGen::GetInstanceName() 
 {
-    return Sprintf("fmha_fwd_{dtype}_{mode}_{tile_desc}_{pipeline}",
-                   fmt::arg("dtype", DataTypeToString(problem_.dtype_)),
-                   fmt::arg("mode", GetFmhaModeName(problem_.mode_)),
+    return Sprintf("fmha_fwd_{problem_name}_{tile_desc}_{padding}_{min_block_per_cu}_{pipeline}",
+                   fmt::arg("problem_name", problem_.GetName()),
                    fmt::arg("tile_desc", tile_desc_.GetInstanceName()),
-                   fmt::arg("pipeline", GetPipelineConfigName()));
+                   fmt::arg("padding", GetPaddingConfigName()),
+                   fmt::arg("min_block_per_cu", min_block_per_cu_),
+                   fmt::arg("pipeline", GetFwdPipelineShortName(pipeline_)));
 }
 
-std::string FmhaPagedKVPrefillCodeGen::Emit() 
+std::string FmhaFwdPagedKVPrefillCodeGen::Emit() 
 {
     std::string tpl = R"(
 using fmha_pipeline_problem_{{idx}} = ck_tile::BlockFmhaPipelineProblem<
@@ -139,8 +132,8 @@ using {{name}}  =
         {"is_pad_v_head_dim", is_pad_v_head_dim_},
         {"has_logits_soft_cap", problem_.has_logits_soft_cap_},
         {"attention_bias", GetBiasClassTag(problem_.bias_enum_)},
-        {"is_store_lse", problem_.is_store_lse_},
-        {"skip_min_q_seq_len", problem_.is_skip_min_q_seqlen_},
+        {"is_store_lse", false},
+        {"skip_min_q_seq_len", is_skip_min_q_seqlen_},
         {"is_static_quant", problem_.is_static_quant_},
         {"block_per_cu", std::to_string(min_block_per_cu_)},
         {"pipeline", GetFwdPipelineClassTag(pipeline_)}};

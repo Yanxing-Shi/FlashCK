@@ -8,7 +8,7 @@ int main() {
     // Test reading single config (default_config.json)
     std::cout << "Testing single config loading..." << std::endl;
     try {
-        auto single_config = LoadDefaultConfigJson<FmhaBatchPrefillConfig>("configs/attention/fmha_batch_prefill/default_config.json");
+        auto single_config = LoadDefaultConfigJson<FmhaFwdBatchPrefillConfig>("configs/attention/fmha_fwd_batch_prefill/default_config.json");
         std::cout << "Single config loaded successfully!" << std::endl;
         std::cout << "Pipeline values count: " << single_config.pipeline.GetAllValues().size() << std::endl;
         std::cout << "Block tile m0 values count: " << single_config.tile_shape.block_tile.m0.GetAllValues().size() << std::endl;
@@ -19,7 +19,7 @@ int main() {
     // Test reading backup config array (backup_config.json)
     std::cout << "\nTesting backup config array loading..." << std::endl;
     try {
-        auto backup_configs = LoadBackupConfigJson<FmhaBatchPrefillConfig>("configs/attention/fmha_batch_prefill/backup_config.json");
+        auto backup_configs = LoadBackupConfigJson<FmhaFwdBatchPrefillConfig>("configs/attention/fmha_fwd_batch_prefill/backup_config.json");
         std::cout << "Backup configs loaded successfully!" << std::endl;
         std::cout << "Number of backup configs: " << backup_configs.size() << std::endl;
         

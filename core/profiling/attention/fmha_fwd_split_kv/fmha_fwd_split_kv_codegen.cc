@@ -78,7 +78,7 @@ std::string FmhaFwdSplitKVCodeGen::GetInstanceName()
                    fmt::arg("has_uneven_splits", has_uneven_splits_),
                    fmt::arg("merge_groups_num_head_q_seq_len", merge_groups_num_head_q_seq_len_),
                    fmt::arg("min_block_per_cu", min_block_per_cu_),
-                   fmt::arg("pipeline", GetPipelineConfigName()));
+                   fmt::arg("pipeline", GetFwdSplitKVPipelineShortName(pipeline_)));
 }
 
 std::string FmhaFwdSplitKVCodeGen::Emit() 

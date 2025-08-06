@@ -17,7 +17,7 @@ namespace flashck {
  * and how attention computation is tiled across different dimensions.
  * It specifies the work distribution strategy for optimal GPU performance.
  */
-class FmhaPagedKVPrefillTileDesc {
+class FmhaFwdPagedKVPrefillTileDesc {
 public:
     /**
      * @brief Generate a unique name for this tile configuration
@@ -67,24 +67,18 @@ public:
  * optimized GPU kernels for Forward Multi-Head Attention operations. It combines
  * problem specifications with tiling strategies and attention-specific configurations.
  */
-class FmhaPagedKVPrefillCodeGen {
+class FmhaFwdPagedKVPrefillCodeGen {
 public:
     /**
      * @brief Default constructor with sensible defaults
      */
-    FmhaPagedKVPrefillCodeGen() = default;
+    FmhaFwdPagedKVPrefillCodeGen() = default;
 
     /**
      * @brief Generate padding configuration name
      * @return String identifier for padding configuration
      */
     std::string GetPaddingConfigName();
-
-    /**
-     * @brief Generate pipeline configuration name
-     * @return String identifier for pipeline configuration
-     */
-    std::string GetPipelineConfigName();
 
     /**
      * @brief Generate a unique instance name for this configuration
@@ -98,11 +92,11 @@ public:
      */
     std::string Emit();
 
-    FmhaProblem problem_; 
+    FmhaFwdPagedKVPrefillProblem problem_; 
 
     // ====================== Tiling Configuration ======================
 
-    FmhaPagedKVPrefillTileDesc tile_desc_;  ///< Tile configuration for this FMHA operation
+    FmhaFwdPagedKVPrefillTileDesc tile_desc_;  ///< Tile configuration for this FMHA operation
 
     // ====================== Padding Configuration ======================
 
@@ -118,6 +112,9 @@ public:
     // ====================== Pipeline Configuration ======================
 
     BlockFmhaPipelineEnum pipeline_ = BlockFmhaPipelineEnum::QRKSVS;  ///< FMHA pipeline implementation variant
+
+    bool is_skip_min_q_seqlen_;
+
 };
 
 }  // namespace flashck

@@ -1,4 +1,4 @@
-#include "core/profiling/attention/fmha_paged_kv_prefill/fmha_paged_kv_prefill_emitter.h"
+#include "core/profiling/attention/fmha_batch_prefill/fmha_batch_prefill_emitter.h"
 
 #include <algorithm>
 #include <filesystem>
@@ -12,7 +12,7 @@ FC_DECLARE_string(FC_CONFIG_JSON_PATH);   // Base path for config files
 
 namespace flashck {
 
-bool FmhaPagedKVPrefillEmitter::IsValidTile(const FmhaPagedKVPrefillTileDesc& tile_desc, const FmhaProblem& fmha_problem)
+bool FmhaFwdBatchPrefillEmitter::IsValidTile(const FmhaFwdBatchPrefillTileDesc& tile_desc, const FmhaFwdBatchPrefillProblem& fmha_fwd_batch_prefill_problem)
 {
     // Validate all tile parameters are positive
     if (tile_desc.m0_block_ <= 0 || tile_desc.n0_block_ <= 0 || tile_desc.k0_block_ <= 0 || 
@@ -54,11 +54,11 @@ bool FmhaPagedKVPrefillEmitter::IsValidTile(const FmhaPagedKVPrefillTileDesc& ti
     }
 
     // Validate against problem dimensions for Batch mode
-    if (fmha_problem.mode_ == FmhaMode::Batch) {
-        if (tile_desc.m0_block_ > fmha_problem.q_seq_len_ || 
-            tile_desc.n0_block_ > fmha_problem.kv_seq_len_ ||
-            tile_desc.n1_block_ > fmha_problem.v_head_dim_ || 
-            tile_desc.k0_max_block_ > fmha_problem.qk_head_dim_) {
+    if (fmha_fwd_batch_prefill_problem.mode_ == FmhaMode::Batch) {
+        if (tile_desc.m0_block_ > fmha_fwd_batch_prefill_problem.q_seq_len_ || 
+            tile_desc.n0_block_ > fmha_fwd_batch_prefill_problem.kv_seq_len_ ||
+            tile_desc.n1_block_ > fmha_fwd_batch_prefill_problem.v_head_dim_ || 
+            tile_desc.k0_max_block_ > fmha_fwd_batch_prefill_problem.qk_head_dim_) {
             VLOG(3) << "Invalid FMHA tile: dimensions exceed problem dimensions";
             return false;
         }
@@ -67,20 +67,20 @@ bool FmhaPagedKVPrefillEmitter::IsValidTile(const FmhaPagedKVPrefillTileDesc& ti
     return true;
 }
 
-bool FmhaPagedKVPrefillEmitter::IsValidInstance(const FmhaPagedKVPrefillCodeGen& instance)
+bool FmhaFwdBatchPrefillEmitter::IsValidInstance(const FmhaFwdBatchPrefillCodeGen& instance)
 {
     return IsValidTile(instance.tile_desc_, instance.problem_);
 }
 
-std::vector<FmhaPagedKVPrefillCodeGen> FmhaPagedKVPrefillEmitter::HeuristicFilter(
-    const std::vector<FmhaPagedKVPrefillCodeGen>& instances,
-    const FmhaProblem& fmha_problem) const
+std::vector<FmhaFwdBatchPrefillCodeGen> FmhaFwdBatchPrefillEmitter::HeuristicFilter(
+    const std::vector<FmhaFwdBatchPrefillCodeGen>& instances,
+    const FmhaFwdBatchPrefillProblem& fmha_fwd_batch_prefill_problem) const
 {
     if (instances.empty()) {
         return {};
     }
 
-    std::vector<FmhaPagedKVPrefillCodeGen> filtered;
+    std::vector<FmhaFwdBatchPrefillCodeGen> filtered;
     
     // Heuristic 1: Prefer larger block sizes for better memory efficiency
     constexpr int64_t preferred_min_block_size = 128;
@@ -89,7 +89,7 @@ std::vector<FmhaPagedKVPrefillCodeGen> FmhaPagedKVPrefillEmitter::HeuristicFilte
     constexpr int64_t preferred_warp_count = 4;
     
     // Heuristic 3: Filter based on problem size ratios
-    const int64_t seq_len_ratio = fmha_problem.q_seq_len_ / fmha_problem.kv_seq_len_;
+    const int64_t seq_len_ratio = fmha_fwd_batch_prefill_problem.q_seq_len_ / fmha_fwd_batch_prefill_problem.kv_seq_len_;
     
     for (const auto& instance : instances) {
         const auto& tile = instance.tile_desc_;
@@ -112,7 +112,7 @@ std::vector<FmhaPagedKVPrefillCodeGen> FmhaPagedKVPrefillEmitter::HeuristicFilte
         }
         
         // Filter 4: Avoid excessive head dimension splitting
-        if (tile.k0_block_ < fmha_problem.qk_head_dim_ / 4) {
+        if (tile.k0_block_ < fmha_fwd_batch_prefill_problem.qk_head_dim_ / 4) {
             continue;
         }
         
@@ -130,10 +130,10 @@ std::vector<FmhaPagedKVPrefillCodeGen> FmhaPagedKVPrefillEmitter::HeuristicFilte
     return filtered;
 }
 
-std::vector<FmhaPagedKVPrefillCodeGen> FmhaPagedKVPrefillEmitter::CreateInstanceForConfig(
-    const FmhaPagedKVPrefillConfig& config, const FmhaProblem& fmha_problem) 
+std::vector<FmhaFwdBatchPrefillCodeGen> FmhaFwdBatchPrefillEmitter::CreateInstanceForConfig(
+    const FmhaFwdBatchPrefillConfig& config, const FmhaFwdBatchPrefillProblem& fmha_fwd_batch_prefill_problem) 
 {
-    std::vector<FmhaPagedKVPrefillCodeGen> result;
+    std::vector<FmhaFwdBatchPrefillCodeGen> result;
 
     // Convert all config parameters to int64_t vectors for CartesianProduct
     std::vector<std::vector<int64_t>> all_param_lists = {
@@ -211,6 +211,11 @@ std::vector<FmhaPagedKVPrefillCodeGen> FmhaPagedKVPrefillEmitter::CreateInstance
              for (auto x : config.padding.dv.GetAllValues()) v.push_back(static_cast<int64_t>(x)); 
              return v; }(),
         
+        // Skip minimum query sequence length (1 parameters, bool->int64_t)
+        [&]{ std::vector<int64_t> v; 
+             for (auto x : config.skip_min_q_seq_len.GetAllValues()) v.push_back(static_cast<int64_t>(x)); 
+             return v; }(),
+
         // Launch configuration (1 parameter)
         [&]{ std::vector<int64_t> v; 
              for (auto x : config.launch.min_block_per_cu.GetAllValues()) v.push_back(static_cast<int64_t>(x)); 
@@ -256,6 +261,9 @@ std::vector<FmhaPagedKVPrefillCodeGen> FmhaPagedKVPrefillEmitter::CreateInstance
         bool is_pad_kv_seq_len = static_cast<bool>(param_values[idx++]);
         bool is_pad_qk_head_dim = static_cast<bool>(param_values[idx++]);
         bool is_pad_v_head_dim = static_cast<bool>(param_values[idx++]);
+
+        // Skip minimum query sequence length
+        bool skip_min_q_seq_len_ = static_cast<bool>(param_values[idx++]);
         
         // Extract launch parameters
         int64_t min_block_per_cu = param_values[idx++];
@@ -263,9 +271,9 @@ std::vector<FmhaPagedKVPrefillCodeGen> FmhaPagedKVPrefillEmitter::CreateInstance
         // Extract pipeline parameters
         BlockFmhaPipelineEnum pipeline = static_cast<BlockFmhaPipelineEnum>(param_values[idx++]);
 
-        // Construct FmhaPagedKVPrefillCodeGen instance
-        FmhaPagedKVPrefillCodeGen instance;
-        instance.problem_ = fmha_problem;
+        // Construct FmhaFwdBatchPrefillCodeGen instance
+        FmhaFwdBatchPrefillCodeGen instance;
+        instance.problem_ = fmha_fwd_batch_prefill_problem;
         
         // Set tile descriptor
         instance.tile_desc_.m0_block_ = m0_block;
@@ -295,6 +303,9 @@ std::vector<FmhaPagedKVPrefillCodeGen> FmhaPagedKVPrefillEmitter::CreateInstance
         
         // Set launch configuration
         instance.min_block_per_cu_ = min_block_per_cu;
+
+        // Set skip min q seq len
+        instance.skip_min_q_seq_len_ = skip_min_q_seq_len_;
         
         // Set pipeline configuration
         instance.pipeline_ = pipeline;
@@ -305,26 +316,26 @@ std::vector<FmhaPagedKVPrefillCodeGen> FmhaPagedKVPrefillEmitter::CreateInstance
     return result;
 }
 
-void FmhaPagedKVPrefillEmitter::GenerateInstances(FmhaProblem& fmha_problem)
+void FmhaFwdBatchPrefillEmitter::GenerateInstances(FmhaFwdBatchPrefillProblem& fmha_fwd_batch_prefill_problem)
 {
     // Validate tuning mode
     FC_ENFORCE_EQ(FLAGS_FC_TUNING_MODE >= 0 && FLAGS_FC_TUNING_MODE <= 2, true,
                   Unavailable("Invalid tuning mode: {}, valid modes are 0 (heuristic), 1 (autotuning), 2 (hybrid)", 
                               FLAGS_FC_TUNING_MODE));
 
-    VLOG(1) << "Generating FMHA paged kv prefill instances for mode: " << FLAGS_FC_TUNING_MODE;
+    VLOG(1) << "Generating FMHA batch prefill instances for mode: " << FLAGS_FC_TUNING_MODE;
 
     // Load configurations from JSON files
-    auto base_json_path = std::filesystem::path(FLAGS_FC_CONFIG_JSON_PATH) / GetFmhaKindName(fmha_problem.kind_);
-    std::vector<FmhaPagedKVPrefillCodeGen> all_instances;
+    auto base_json_path = std::filesystem::path(FLAGS_FC_CONFIG_JSON_PATH) / "attention" / "fmha_fwd_batch_prefill";
+    std::vector<FmhaFwdBatchPrefillCodeGen> all_instances;
     
     // Load backup configurations (pre-validated, single-value configs)
     if (FLAGS_FC_ENABLE_BACKUP_JSON) {
         std::filesystem::path json_path = base_json_path / "backup_config.json";
         try {
-            auto backup_configs = LoadConfigJson<std::vector<FmhaPagedKVPrefillConfig>>(json_path);
+            auto backup_configs = LoadConfigJson<std::vector<FmhaFwdBatchPrefillConfig>>(json_path);
             for (const auto& config : backup_configs) {
-                auto instances = CreateInstanceForConfig(config, fmha_problem);
+                auto instances = CreateInstanceForConfig(config, fmha_fwd_batch_prefill_problem);
                 all_instances.insert(all_instances.end(), instances.begin(), instances.end());
             }
             VLOG(2) << "Loaded " << backup_configs.size() << " backup configurations";
@@ -337,8 +348,8 @@ void FmhaPagedKVPrefillEmitter::GenerateInstances(FmhaProblem& fmha_problem)
     if (FLAGS_FC_ENABLE_DEFAULT_JSON) {
         std::filesystem::path json_path = base_json_path / "default_config.json";
         try {
-            auto default_config = LoadConfigJson<FmhaPagedKVPrefillConfig>(json_path);
-            auto instances = CreateInstanceForConfig(default_config, fmha_problem);
+            auto default_config = LoadConfigJson<FmhaFwdBatchPrefillConfig>(json_path);
+            auto instances = CreateInstanceForConfig(default_config, fmha_fwd_batch_prefill_problem);
             all_instances.insert(all_instances.end(), instances.begin(), instances.end());
             VLOG(2) << "Loaded default configuration with " << instances.size() << " instances";
         } catch (const std::exception& e) {
@@ -350,8 +361,8 @@ void FmhaPagedKVPrefillEmitter::GenerateInstances(FmhaProblem& fmha_problem)
     if (FLAGS_FC_ENABLE_USER_JSON) {
         std::filesystem::path json_path = base_json_path / "user_config.json";
         try {
-            auto user_config = LoadConfigJson<FmhaPagedKVPrefillConfig>(json_path);
-            auto instances = CreateInstanceForConfig(user_config, fmha_problem);
+            auto user_config = LoadConfigJson<FmhaFwdBatchPrefillConfig>(json_path);
+            auto instances = CreateInstanceForConfig(user_config, fmha_fwd_batch_prefill_problem);
             all_instances.insert(all_instances.end(), instances.begin(), instances.end());
             VLOG(2) << "Loaded user configuration with " << instances.size() << " instances";
         } catch (const std::exception& e) {
@@ -360,7 +371,7 @@ void FmhaPagedKVPrefillEmitter::GenerateInstances(FmhaProblem& fmha_problem)
     }
 
     // Filter out invalid instances
-    std::vector<FmhaPagedKVPrefillCodeGen> valid_instances;
+    std::vector<FmhaFwdBatchPrefillCodeGen> valid_instances;
     for (const auto& instance : all_instances) {
         if (IsValidInstance(instance)) {
             valid_instances.push_back(instance);
@@ -374,11 +385,11 @@ void FmhaPagedKVPrefillEmitter::GenerateInstances(FmhaProblem& fmha_problem)
     }
 
     // Apply mode-specific strategy
-    std::vector<FmhaPagedKVPrefillCodeGen> final_instances;
+    std::vector<FmhaFwdBatchPrefillCodeGen> final_instances;
     switch (FLAGS_FC_TUNING_MODE) {
         case 0: {
             // Heuristic mode: filter + random selection
-            final_instances = HeuristicFilter(valid_instances, fmha_problem);
+            final_instances = HeuristicFilter(valid_instances, fmha_fwd_batch_prefill_problem);
             if (!final_instances.empty()) {
                 // Randomly select one instance for fast execution
                 std::uniform_int_distribution<> dist(0, final_instances.size() - 1);
@@ -396,7 +407,7 @@ void FmhaPagedKVPrefillEmitter::GenerateInstances(FmhaProblem& fmha_problem)
         }
         case 2: {
             // Hybrid mode: combine heuristic filtering + all instances
-            auto heuristic_instances = HeuristicFilter(valid_instances, fmha_problem);
+            auto heuristic_instances = HeuristicFilter(valid_instances, fmha_fwd_batch_prefill_problem);
             final_instances = heuristic_instances;
             final_instances.insert(final_instances.end(), valid_instances.begin(), valid_instances.end());
             
@@ -418,7 +429,7 @@ void FmhaPagedKVPrefillEmitter::GenerateInstances(FmhaProblem& fmha_problem)
     }
 
     if (final_instances.empty()) {
-        FC_THROW(Unavailable("No final FMHA paged KV prefill instances after mode-specific filtering"));
+        FC_THROW(Unavailable("No final FMHA batch prefill instances after mode-specific filtering"));
     }
 
     // Store instances in the map
@@ -443,11 +454,10 @@ void FmhaPagedKVPrefillEmitter::GenerateInstances(FmhaProblem& fmha_problem)
     }
 
     num_instances_ += generated_count;
-    VLOG(1) << "Generated " << generated_count << " FMHA paged KV prefill instances " 
-            << " (total: " << num_instances_ << ")";
+    VLOG(1) << "Generated " << generated_count << " FMHA batch prefill instances " << " (total: " << num_instances_ << ")";
 }
 
-void FmhaPagedKVPrefillEmitter::ClearInstances()
+void FmhaFwdBatchPrefillEmitter::ClearInstances()
 {
     instance_map_.clear();
     num_instances_ = 0;

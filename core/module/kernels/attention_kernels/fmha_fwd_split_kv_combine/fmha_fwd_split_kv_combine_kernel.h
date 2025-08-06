@@ -3,14 +3,13 @@
 #include "core/module/kernels/kernel_registry.h"
 #include "core/module/kernels/kernel.h"
 
-#include "core/module/kernels/fmha_kernels/fmha_common_kernel.h"
-
+#include "core/module/kernels/attention_kernels/fmha_common_kernel.h"
 
 namespace flashck {
-class FmhaFwdAppendKVKernel: public FmhaCommonKernel {
+class FmhaFwdSplitKVCombineKernel: public FmhaCommonKernel {
 public:
-    FmhaFwdAppendKVKernel()  = default;
-    ~FmhaFwdAppendKVKernel() = default;
+    FmhaFwdSplitKVCombineKernel()  = default;
+    ~FmhaFwdSplitKVCombineKernel() = default;
 
     std::vector<std::tuple<std::filesystem::path, std::filesystem::path>>
     CodeGenForTuning(const std::string&    model_name,
@@ -28,4 +27,5 @@ public:
 
 }  // namespace flashck
 
-FC_REGISTER_KERNEL(TILE, fmha_fwd_appendkv, flashck::FmhaFwdAppendKVKernel, ALL_LAYOUT, FP16, BF16);
+FC_REGISTER_KERNEL(
+    TILE, fmha_fwd_splitkv_combine, flashck::FmhaFwdSplitKVCombineKernel, ALL_LAYOUT, FP16, BF16);

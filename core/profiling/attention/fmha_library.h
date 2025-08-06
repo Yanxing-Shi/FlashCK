@@ -68,8 +68,8 @@ static const std::unordered_map<FmhaKind, FmhaKindInfo> g_fmha_kind_map = {
     {FmhaKind::FwdAppendKV, {"fmha_fwd_append_kv", "FA"}},
     {FmhaKind::FwdSplitKV, {"fmha_fwd_split_kv", "FS"}},
     {FmhaKind::FwdSplitKVCombine, {"fmha_fwd_split_kv_combine", "FSC"}},
-    {FmhaKind::BatchPrefill, {"fmha_batch_prefill", "FBP"}},
-    {FmhaKind::PagedKVPrefill, {"fmha_paged_kv_prefill", "FPKP"}},
+    {FmhaKind::BatchPrefill, {"fmha_fwd_batch_prefill", "FBP"}},
+    {FmhaKind::PagedKVPrefill, {"fmha_fwd_paged_kv_prefill", "FPKP"}},
 };
 
 /**
@@ -475,6 +475,12 @@ inline std::string GetFwdPipelineClassTag(BlockFmhaPipelineEnum pipeline)
     return it != g_block_fmha_fwd_pipeline_map.end() ? it->second.class_tag : "unknown";
 }
 
+inline std::string GetFwdPipelineShortName(BlockFmhaPipelineEnum pipeline)
+{
+    auto it = g_block_fmha_fwd_pipeline_map.find(pipeline);
+    return it != g_block_fmha_fwd_pipeline_map.end() ? it->second.short_name : "unknown";
+}
+
 /**
  * @brief Gets the class tag for forward split-KV FMHA pipeline
  * @param pipeline The pipeline type to query
@@ -485,6 +491,13 @@ inline std::string GetFwdSplitKVPipelineClassTag(BlockFmhaPipelineEnum pipeline)
     auto it = g_block_fmha_fwd_splitkv_pipeline_map.find(pipeline);
     return it != g_block_fmha_fwd_splitkv_pipeline_map.end() ? it->second.class_tag : "unknown";
 }
+
+inline std::string GetFwdSplitKVPipelineShortName(BlockFmhaPipelineEnum pipeline)
+{
+    auto it = g_block_fmha_fwd_splitkv_pipeline_map.find(pipeline);
+    return it != g_block_fmha_fwd_splitkv_pipeline_map.end() ? it->second.short_name : "unknown";
+}
+ 
 
 // ====================== Validation Functions ======================
 

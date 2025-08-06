@@ -73,7 +73,7 @@ std::string FmhaFwdCodeGen::GetInstanceName()
                    fmt::arg("tile_desc", tile_desc_.GetInstanceName()),
                    fmt::arg("padding", GetPaddingConfigName()),
                    fmt::arg("min_block_per_cu", min_block_per_cu_),
-                   fmt::arg("pipeline", GetPipelineConfigName()));
+                   fmt::arg("pipeline", GetFwdPipelineShortName(pipeline_)));
 }
 
 std::string FmhaFwdCodeGen::Emit() 

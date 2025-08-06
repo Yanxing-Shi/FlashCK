@@ -2,17 +2,17 @@
   "tile_shape": {
     "block_tile": {
       "m0": { "values": [128] },
-      "n0": { "values": [128] },
-      "k0": { "values": [32] },
-      "n1": { "values": [128] },
+      "n0": { "values": [64] },
+      "k0": { "values": [16] },
+      "n1": { "values": [32] },
       "k1": { "values": [32] },
-      "k0_max": { "values": [128] }
+      "k0_max": { "values": [32] }
     },
     "block_warps": {
-      "m0": { "values": [4] },
+      "m0": { "values": [2] },
       "n0": { "values": [1] },
       "k0": { "values": [1] },
-      "m1": { "values": [4] },
+      "m1": { "values": [2] },
       "n1": { "values": [1] },
       "k1": { "values": [1] }
     },
@@ -33,6 +33,9 @@
   },
   "launch": {
     "min_block_per_cu": { "values": [1] }
+  },
+  "skip_min_q_seq_len":{
+    "values": [true, false]
   },
   "pipeline": {
     "values": ["QRKSVS"]

@@ -8,15 +8,15 @@
 #include <vector>
 
 #include "core/profiling/attention/fmha_library.h"
-#include "core/profiling/attention/fmha_problem.h"
+#include "core/profiling/attention/fmha_fwd_batch_prefill_problem.h"
 #include "core/utils/json_config.h"
 
-#include "core/profiling/attention/fmha_batch_prefill/fmha_batch_prefill_codegen.h"
+#include "core/profiling/attention/fmha_fwd_batch_prefill/fmha_fwd_batch_prefill_codegen.h"
 
 namespace flashck {
 
 /**
- * @class FmhaBatchPrefillEmitter
+ * @class FmhaFwdBatchPrefillEmitter
  * @brief Manages FMHA batch prefill operation code generation and tile selection
  *
  * This class provides functionality to generate FMHA operation instances based on
@@ -24,57 +24,57 @@ namespace flashck {
  * Supports three config types: default, backup, and user configurations.
  * Interface is designed to be consistent with GemmEmitter.
  */
-class FmhaBatchPrefillEmitter {
+class FmhaFwdBatchPrefillEmitter {
 public:
-    FmhaBatchPrefillEmitter()  = default;
-    ~FmhaBatchPrefillEmitter() = default;
+    FmhaFwdBatchPrefillEmitter()  = default;
+    ~FmhaFwdBatchPrefillEmitter() = default;
 
     // Delete copy constructor and assignment operator to maintain singleton pattern
-    FmhaBatchPrefillEmitter(const FmhaBatchPrefillEmitter&)            = delete;
-    FmhaBatchPrefillEmitter& operator=(const FmhaBatchPrefillEmitter&) = delete;
+    FmhaFwdBatchPrefillEmitter(const FmhaFwdBatchPrefillEmitter&)            = delete;
+    FmhaFwdBatchPrefillEmitter& operator=(const FmhaFwdBatchPrefillEmitter&) = delete;
 
     /**
-     * @brief Get singleton instance of FmhaBatchPrefillEmitter
+     * @brief Get singleton instance of FmhaFwdBatchPrefillEmitter
      * @return Pointer to the singleton instance
      */
-    static FmhaBatchPrefillEmitter* GetInstance()
+    static FmhaFwdBatchPrefillEmitter* GetInstance()
     {
-        static FmhaBatchPrefillEmitter instance;
+        static FmhaFwdBatchPrefillEmitter instance;
         return &instance;
     }
 
     /**
      * @brief Validate tile descriptor against problem constraints
      * @param tile_desc Tile configuration to validate
-     * @param fmha_problem Problem specification for validation context
+     * @param fmha_fwd_batch_prefill_problem Problem specification for validation context
      * @return true if tile is valid, false otherwise
      */
-    bool IsValidTile(const FmhaBatchPrefillTileDesc& tile_desc, const FmhaProblem& fmha_problem);
+    bool IsValidTile(const FmhaFwdBatchPrefillTileDesc& tile_desc, const FmhaFwdBatchPrefillProblem& fmha_fwd_batch_prefill_problem);
 
     /**
      * @brief Validate complete FMHA instance configuration
      * @param instance Complete instance to validate
      * @return true if instance is valid, false otherwise
      */
-    bool IsValidInstance(const FmhaBatchPrefillCodeGen& instance);
+    bool IsValidInstance(const FmhaFwdBatchPrefillCodeGen& instance);
 
     /**
      * @brief Generate all possible instances from a configuration
      * @param config Configuration containing parameter ranges
-     * @param fmha_problem Problem specification
+     * @param fmha_fwd_batch_prefill_problem Problem specification
      * @return Vector of generated instances (Cartesian product of parameters)
      */
-    std::vector<FmhaBatchPrefillCodeGen> CreateInstanceForConfig(const FmhaBatchPrefillConfig& config, 
-                                                                const FmhaProblem& fmha_problem);
+    std::vector<FmhaFwdBatchPrefillCodeGen> CreateInstanceForConfig(const FmhaFwdBatchPrefillConfig& config, 
+                                                                const FmhaFwdBatchPrefillProblem& fmha_fwd_batch_prefill_problem);
 
     /**
      * @brief Apply heuristic filtering to reduce instance count
      * @param instances Input instance list
-     * @param fmha_problem Problem specification for filtering context
+     * @param fmha_fwd_batch_prefill_problem Problem specification for filtering context
      * @return Filtered instance list optimized for the given problem
      */
-    std::vector<FmhaBatchPrefillCodeGen> HeuristicFilter(const std::vector<FmhaBatchPrefillCodeGen>& instances,
-                                                        const FmhaProblem& fmha_problem) const;
+    std::vector<FmhaFwdBatchPrefillCodeGen> HeuristicFilter(const std::vector<FmhaFwdBatchPrefillCodeGen>& instances,
+                                                        const FmhaFwdBatchPrefillProblem& fmha_fwd_batch_prefill_problem) const;
 
     /**
      * @brief Generates FMHA operation instances based on the problem specification
@@ -89,9 +89,9 @@ public:
      * - FC_ENABLE_DEFAULT_JSON: Load default_config.json (parameter ranges for tuning)
      * - FC_ENABLE_USER_JSON: Load user_config.json (custom user configurations)
      * 
-     * @param fmha_problem The FMHA problem configuration
+     * @param fmha_fwd_batch_prefill_problem The FMHA problem configuration
      */
-    void GenerateInstances(FmhaProblem& fmha_problem);
+    void GenerateInstances(FmhaFwdBatchPrefillProblem& fmha_fwd_batch_prefill_problem);
 
     /**
      * @brief Gets the total number of generated instances
@@ -101,12 +101,12 @@ public:
 
     /**
      * @brief Get profiling instance map for the given FMHA kind
-     * @param fmha_problem The FMHA problem configuration
+     * @param fmha_fwd_batch_prefill_problem The FMHA problem configuration
      * @return Reference to the instance map for the specific FMHA kind
      */
-    std::map<std::string, FmhaBatchPrefillCodeGen>& GetInstanceMap(FmhaProblem fmha_problem)
+    std::map<std::string, FmhaFwdBatchPrefillCodeGen>& GetInstanceMap(FmhaFwdBatchPrefillProblem fmha_fwd_batch_prefill_problem)
     {
-        GenerateInstances(fmha_problem);
+        GenerateInstances(fmha_fwd_batch_prefill_problem);
         return instance_map_;
     }
 
@@ -117,7 +117,7 @@ public:
 
 private:
     /// Instance storage: {instance_name -> CodeGen}
-    std::map<std::string, FmhaBatchPrefillCodeGen> instance_map_;
+    std::map<std::string, FmhaFwdBatchPrefillCodeGen> instance_map_;
 
     /// Total number of generated instances across all kinds
     int64_t num_instances_ = 0;

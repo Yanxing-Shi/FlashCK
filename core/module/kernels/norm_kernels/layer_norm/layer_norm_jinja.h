@@ -4,7 +4,7 @@
 
 static const std::string g_layer_norm_dtype_config_utils_tpl = R"(
 
-template <typename InType, typename OutType, typename SmoothSScaleDataType_, typename YScaleDataType_>
+template <typename InType, typename OutType, typename SmoothScaleDataType_, typename YScaleDataType_>
 struct LayerNormTypeConfig;
 
 template <typename OutType, typename SmoothScaleDataType_, typename YScaleDataType_>

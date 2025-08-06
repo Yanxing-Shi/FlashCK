@@ -9,7 +9,7 @@
 namespace flashck {
 
 /**
- * @class FmhaProblem
+ * @class FmhaFwdPagedKVPrefillProblem
  * @brief Represents a Fused Multi-Head Attention (FMHA) operation problem configuration
  *
  * This class encapsulates all the parameters needed to define an FMHA operation,
@@ -17,7 +17,7 @@ namespace flashck {
  * optimization options like quantization, bias, and RoPE embeddings.
  * It provides serialization capabilities for problem representation and comparison.
  */
-class FmhaProblem: public ProblemBase<FmhaProblem> {
+class FmhaFwdPagedKVPrefillProblem: public ProblemBase<FmhaFwdPagedKVPrefillProblem> {
 public:
     /**
      * @brief Get the type name of this problem
@@ -25,7 +25,7 @@ public:
      */
     std::string GetTypeImpl()
     {
-        return "FmhaProblem";
+        return "FmhaFwdPagedKVPrefillProblem";
     }
 
     /**
@@ -35,28 +35,35 @@ public:
     std::string SerializeImpl()
     {
         std::ostringstream oss;
-        oss << "{"
-            << "\"mode\": \"" << GetFmhaModeName(mode_) << "\", "
-            << "\"kind\": \"" << GetFmhaKindName(kind_) << "\", "
-            << "\"dtype\": \"" << DataTypeToString(dtype_) << "\", "
-            << "\"mask_type\": \"" << GetAttentionMaskName(mask_type_) << "\", "
-            << "\"window_size\": [" << window_size_[0] << ", " << window_size_[1] << "], "
-            << "\"bias_enum\": \"" << GetBiasName(bias_enum_) << "\", "
-            << "\"is_static_quant\": " << (is_static_quant_ ? "true" : "false") << ", "
-            << "\"batch_size\": " << batch_size_ << ", "
-            << "\"q_seq_len\": " << q_seq_len_ << ", "
-            << "\"q_max_seq_len\": " << q_max_seq_len_ << ", "
-            << "\"kv_seq_len\": " << kv_seq_len_ << ", "
-            << "\"q_num_heads\": " << q_num_heads_ << ", "
-            << "\"kv_num_heads\": " << kv_num_heads_ << ", "
-            << "\"qk_head_dim\": " << qk_head_dim_ << ", "
-            << "\"v_head_dim\": " << v_head_dim_ << ", "
-            << "\"paged_block_size\": " << paged_block_size_ << ", "
-            << "\"use_batch_cache_idx\": " << (use_batch_cache_idx_ ? "true" : "false") << ", "
-            << "\"rope_type\": \"" << GetRopeName(rope_type_) << "\", "
-            << "\"rotary_dim\": " << rotary_dim_ << ", "
-            << "\"num_splits\": " << num_splits_ << "}";
+        oss << "{";
+        oss << "\"dtype\": \"" << DataTypeToString(dtype_) << "\",";
+        oss << "\"mode\": \"" << GetFmhaModeName(mode_) << "\",";
+        oss << "\"mask_type\": \"" << GetAttentionMaskName(mask_type_) << "\",";
+        oss << "\"window_size\": [" << window_size_[0] << ", " << window_size_[1] << "],";
+        oss << "\"bias_enum\": \"" << GetBiasName(bias_enum_) << "\",";
+        oss << "\"bias_rank_info\": " << bias_rank_info_ << ",";
+        oss << "\"is_static_quant\": " << (is_static_quant_ ? "true" : "false") << ",";
+        oss << "\"has_logits_soft_cap\": " << (has_logits_soft_cap_ ? "true" : "false") << ",";
+        oss << "\"batch_size\": " << batch_size_ << ",";
+        oss << "\"q_seq_len\": " << q_seq_len_ << ",";
+        oss << "\"q_max_seq_len\": " << q_max_seq_len_ << ",";
+        oss << "\"kv_seq_len\": " << kv_seq_len_ << ",";
+        oss << "\"q_num_heads\": " << q_num_heads_ << ",";
+        oss << "\"kv_num_heads\": " << kv_num_heads_ << ",";
+        oss << "\"qk_head_dim\": " << qk_head_dim_ << ",";
+        oss << "\"v_head_dim\": " << v_head_dim_;
+        oss << "}";
         return oss.str();
+    }
+
+    std::string GetNameImpl(){
+        return Sprintf("{dtype}_{mode}_{mask_type}_{bias_enum}_{is_static_quant}_{has_logits_soft_cap}",
+                       fmt::arg("dtype", DataTypeToString(dtype_)),
+                       fmt::arg("mode", GetFmhaModeShortName(mode_)),
+                       fmt::arg("mask_type", GetAttentionMaskShortName(mask_type_)),
+                       fmt::arg("bias_enum", GetBiasShortName(bias_enum_)),
+                       fmt::arg("is_static_quant", is_static_quant_),
+                       fmt::arg("has_logits_soft_cap", has_logits_soft_cap_))
     }
 
     // ====================== Problem Configuration ======================
@@ -66,7 +73,6 @@ public:
 
     // Operation mode and type
     FmhaMode mode_;  ///< Batch or Group mode for attention computation
-    FmhaKind kind_;  ///< Type of FMHA operation (Fwd, FwdAppendKV, etc.)
 
     // Attention configuration
     GenericAttentionMaskEnum mask_type_;    ///< Type of attention mask applied
@@ -76,6 +82,8 @@ public:
 
     // Quantization configuration
     bool is_static_quant_;  ///< Whether to use static quantization
+
+    bool has_logits_soft_cap_;
 
     // Sequence and batch dimensions
     int64_t batch_size_;     ///< Batch size for the operation
@@ -90,13 +98,6 @@ public:
     // Dimension configuration
     int64_t qk_head_dim_;  ///< Query-Key head dimension
     int64_t v_head_dim_;   ///< Value head dimension
-
-    // Memory and optimization configuration
-    int64_t paged_block_size_;     ///< Block size for paged attention
-    bool    use_batch_cache_idx_;  ///< Enable batch cache index optimization
-
-    // Split-KV configuration
-    int64_t num_splits_;  ///< Number of splits for key/value (for SplitKV variants)
 
 };
 }  // namespace flashck

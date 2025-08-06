@@ -7,20 +7,14 @@ std::string FmhaFwdSplitKVCombineTileDesc::GetInstanceName()
     return "b" + std::to_string(n1_block_);
 }
 
-std::string FmhaFwdSplitKVCombineCodeGen::GetPipelineConfigName() 
-{
-    return Sprintf("{is_static_quant}_{block_per_cu}",
-                   fmt::arg("is_static_quant", problem_.is_static_quant_ ? "squant" : "nosquant"),
-                   fmt::arg("block_per_cu", min_block_per_cu_ == -1 ? "" : "_" + std::to_string(min_block_per_cu_)));
-}
 
-std::string FmhaFwdSplitKVCombineCodeGen::GetInstanceName()
+std::string FmhaFwdSplitKVCombineCodeGen::GetInstanceName() 
 {
-    return Sprintf("fmha_fwd_splitkv_combine_{dtype}_{mode}_{tile_desc}_{pipeline}",
-                   fmt::arg("dtype", DataTypeToString(problem_.dtype_)),
-                   fmt::arg("mode", GetFmhaModeName(problem_.mode_)),
+    return Sprintf("fmha_fwd_split_kv_combine_{problem_name}_{tile_desc}_{padding}_{min_block_per_cu}",
+                   fmt::arg("problem_name", problem_.GetName()),
                    fmt::arg("tile_desc", tile_desc_.GetInstanceName()),
-                   fmt::arg("pipeline", GetPipelineConfigName()));
+                   fmt::arg("padding", GetPaddingConfigName()),
+                   fmt::arg("min_block_per_cu", min_block_per_cu_));
 }
 
 std::string FmhaFwdSplitKVCombineCodeGen::Emit() 
@@ -53,18 +47,29 @@ using {{name}} =
 
 )";
 
+    auto get_log_max_splits_func = [](int num_splits) {
+        FC_ENFORCE_GT(num_splits, 0, Unavailable("num splits must > 0"));
+        int log_max_splits = 0;
+        int val = 1;
+        while (val < num_splits) {
+            val <<= 1;
+            ++log_max_splits;
+        }
+        return log_max_splits;
+    };
+
     static int idx = 0;
 
     jinja2::ValuesMap value_map = {{"name", GetInstanceName()},
-                                   {"idx", std::to_string(idx++)},
-                                   {"hdim", std::to_string(problem_.qk_head_dim_)},
-                                   {"n1_block", std::to_string(tile_desc_.n1_block_)},
+                                   {"idx", idx++},
+                                   {"hdim", problem_.qk_head_dim_},
+                                   {"n1_block", tile_desc_.n1_block_},
                                    {"mode", problem_.mode_ == FmhaMode::Batch ? "false" : "true"},
                                    {"is_pad_q_seq_len", is_pad_q_seq_len_},
                                    {"is_pad_v_head_dim", is_pad_v_head_dim_},
-                                   {"log_max_splits", std::to_string(log_max_splits_)},
+                                   {"log_max_splits", get_log_max_splits_func(problem_.num_splits_)},
                                    {"is_static_quant", problem_.is_static_quant_},
-                                   {"block_per_cu", std::to_string(min_block_per_cu_)}};
+                                   {"block_per_cu", min_block_per_cu_}};
 
     return TEMPLATE_CHECK(tpl, value_map, "FmhaFwdSplitKVCombineCodeGen::Emit");
 }

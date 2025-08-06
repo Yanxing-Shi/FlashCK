@@ -1,10 +1,10 @@
-#include "core/profiling/attention/fmha_batch_prefill/fmha_batch_prefill_codegen.h"
+#include "core/profiling/attention/fmha_fwd_batch_prefill/fmha_fwd_batch_prefill_codegen.h"
 
 #include "core/utils/macros.h"
 
 namespace flashck {
 
-std::string FmhaBatchPrefillTileDesc::GetInstanceName()
+std::string FmhaFwdBatchPrefillTileDesc::GetInstanceName()
 {
     // Generate comprehensive tile descriptor name encoding all tiling parameters
     return Sprintf(
@@ -31,7 +31,7 @@ std::string FmhaBatchPrefillTileDesc::GetInstanceName()
         fmt::arg("k1_warp_tile", k1_warp_tile_));
 }
 
-std::string FmhaBatchPrefillTileDesc::Emit() 
+std::string FmhaFwdBatchPrefillTileDesc::Emit() 
 {
     // Generate TileFmhaShape template instantiation
     std::string tpl = R"(
@@ -66,10 +66,10 @@ std::string FmhaBatchPrefillTileDesc::Emit()
         {"k1_warp_tile", k1_warp_tile_}
     };
 
-    return TEMPLATE_CHECK(tpl, value_map, "FmhaBatchPrefillTileDesc::Emit");
+    return TEMPLATE_CHECK(tpl, value_map, "FmhaFwdBatchPrefillTileDesc::Emit");
 }
 
-std::string FmhaBatchPrefillCodeGen::GetPaddingConfigName() 
+std::string FmhaFwdBatchPrefillCodeGen::GetPaddingConfigName() 
 {
     // Generate compact padding configuration identifier
     return Sprintf("{q_pad}{kv_pad}{qk_head_pad}{v_head_pad}",
@@ -79,28 +79,18 @@ std::string FmhaBatchPrefillCodeGen::GetPaddingConfigName()
                    fmt::arg("v_head_pad", is_pad_v_head_dim_ ? "dv" : ""));
 }
 
-std::string FmhaBatchPrefillCodeGen::GetPipelineConfigName() 
-{
-    // Generate complete pipeline configuration identifier
-    return Sprintf("{pad_name}_{bias_name}_{quant_mode}{occupancy_override}",
-                   fmt::arg("pad_name", GetPaddingConfigName()),
-                   fmt::arg("bias_name", GetBiasShortName(problem_.bias_enum_)),
-                   fmt::arg("quant_mode", problem_.is_static_quant_ ? "squant" : "nosquant"),
-                   fmt::arg("occupancy_override", 
-                           min_block_per_cu_ == -1 ? "" : "_bpc" + std::to_string(min_block_per_cu_)));
-}
-
-std::string FmhaBatchPrefillCodeGen::GetInstanceName() 
+std::string FmhaFwdBatchPrefillCodeGen::GetInstanceName() 
 {
     // Generate unique instance identifier combining all configuration aspects
-    return Sprintf("fmha_batch_prefill_{dtype}_{mode}_{tile_desc}_{pipeline_config}",
-                   fmt::arg("dtype", DataTypeToString(problem_.dtype_)),
-                   fmt::arg("mode", GetFmhaModeName(problem_.mode_)),
+    return Sprintf("fmha_fwd_batch_prefill_{problem_name}_{tile_desc}_{padding}_{min_block_per_cu}_{pipeline}",
+                   fmt::arg("problem_name", problem_.GetName()),
                    fmt::arg("tile_desc", tile_desc_.GetInstanceName()),
-                   fmt::arg("pipeline_config", GetPipelineConfigName()));
+                   fmt::arg("padding", GetPaddingConfigName()),
+                   fmt::arg("min_block_per_cu", min_block_per_cu_),
+                   fmt::arg("pipeline",  GetFwdPipelineShortName(pipeline_)));
 }
 
-std::string FmhaBatchPrefillCodeGen::Emit() 
+std::string FmhaFwdBatchPrefillCodeGen::Emit() 
 {
     // Generate complete kernel instantiation template
     std::string tpl = R"(
@@ -137,7 +127,7 @@ std::string FmhaBatchPrefillCodeGen::Emit()
     >;
 
     // Complete Kernel Type Definition
-    using {{name}}_{{idx}} = ck_tile::FmhaBatchPrefillWithPagedKVCacheKernel<
+    using {{name}} = ck_tile::FmhaFwdBatchPrefillWithPagedKVCacheKernel<
         {{pipeline}}<fmha_pipeline_problem_{{idx}}>,
         ck_tile::Default2DEpilogue<ck_tile::Default2DEpilogueProblem<
             OaccDataType, 
@@ -162,14 +152,14 @@ std::string FmhaBatchPrefillCodeGen::Emit()
         {"is_pad_v_head_dim", is_pad_v_head_dim_},
         {"has_logits_soft_cap", problem_.has_logits_soft_cap_},
         {"attention_bias", GetBiasClassTag(problem_.bias_enum_)},
-        {"is_store_lse", problem_.is_store_lse_},
+        {"is_store_lse", false},
         {"skip_min_q_seq_len", problem_.is_skip_min_q_seqlen_},
         {"is_static_quant", problem_.is_static_quant_},
-        {"block_per_cu", std::to_string(min_block_per_cu_)},
+        {"block_per_cu", min_block_per_cu_},
         {"pipeline", GetFwdPipelineClassTag(pipeline_)}
     };
 
-    return TEMPLATE_CHECK(tpl, value_map, "FmhaBatchPrefillCodeGen::Emit");
+    return TEMPLATE_CHECK(tpl, value_map, "FmhaFwdBatchPrefillCodeGen::Emit");
 }
 
 }  // namespace flashck

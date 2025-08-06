@@ -1,4 +1,4 @@
-#include "core/module/kernels/fmha_kernels/fmha_fwd_split_kv_combine/fmha_fwd_split_kv_combine_kernel.h"
+#include "core/module/kernels/attention_kernels/fmha_fwd_split_kv_combine/fmha_fwd_split_kv_combine_kernel.h"
 
 namespace flashck {
 

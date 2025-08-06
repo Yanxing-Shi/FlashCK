@@ -7,13 +7,13 @@
 #include <vector>
 
 #include "core/profiling/attention/fmha_library.h"
-#include "core/profiling/attention/fmha_problem.h"
-#include "core/profiling/attention/fmha_paged_kv_prefill/fmha_paged_kv_prefill_codegen.h"
+#include "core/profiling/attention/fmha_fwd_paged_kv_prefill_problem.h"
+#include "core/profiling/attention/fmha_fwd_paged_kv_prefill/fmha_fwd_paged_kv_prefill_codegen.h"
 
 namespace flashck {
 
 /**
- * @class FmhaPagedKVPrefillEmitter
+ * @class FmhaFwdPagedKVPrefillEmitter
  * @brief High-performance FMHA paged KV prefill operation instance generator with intelligent optimization
  *
  * This class provides comprehensive FMHA paged KV prefill instance generation and management with support for:
@@ -41,62 +41,62 @@ namespace flashck {
  * - default_config.json: Single configuration with parameter ranges
  * - user_config.json: Single configuration with custom parameter ranges
  */
-class FmhaPagedKVPrefillEmitter {
+class FmhaFwdPagedKVPrefillEmitter {
 public:
-    FmhaPagedKVPrefillEmitter()  = default;
-    ~FmhaPagedKVPrefillEmitter() = default;
+    FmhaFwdPagedKVPrefillEmitter()  = default;
+    ~FmhaFwdPagedKVPrefillEmitter() = default;
 
     // Enforce singleton pattern with deleted copy operations
-    FmhaPagedKVPrefillEmitter(const FmhaPagedKVPrefillEmitter&)            = delete;
-    FmhaPagedKVPrefillEmitter& operator=(const FmhaPagedKVPrefillEmitter&) = delete;
+    FmhaFwdPagedKVPrefillEmitter(const FmhaFwdPagedKVPrefillEmitter&)            = delete;
+    FmhaFwdPagedKVPrefillEmitter& operator=(const FmhaFwdPagedKVPrefillEmitter&) = delete;
 
     /**
      * @brief Thread-safe singleton instance access
      * @return Pointer to the singleton instance
      */
-    static FmhaPagedKVPrefillEmitter* GetInstance()
+    static FmhaFwdPagedKVPrefillEmitter* GetInstance()
     {
-        static FmhaPagedKVPrefillEmitter instance;
+        static FmhaFwdPagedKVPrefillEmitter instance;
         return &instance;
     }
 
     /**
      * @brief Validate tile descriptor against problem constraints and hardware limitations
      * @param tile_desc Tile descriptor to validate
-     * @param fmha_problem Problem specification for validation context
+     * @param fmha_fwd_paged_kv_prefill_problem Problem specification for validation context
      * @return true if tile descriptor is valid, false otherwise
      */
-    bool IsValidTile(const FmhaPagedKVPrefillTileDesc& tile_desc, const FmhaProblem& fmha_problem);
+    bool IsValidTile(const FmhaFwdPagedKVPrefillTileDesc& tile_desc, const FmhaFwdPagedKVPrefillProblem& fmha_fwd_paged_kv_prefill_problem);
 
     /**
      * @brief Validate complete instance configuration
      * @param instance Instance to validate
      * @return true if instance is valid, false otherwise
      */
-    bool IsValidInstance(const FmhaPagedKVPrefillCodeGen& instance);
+    bool IsValidInstance(const FmhaFwdPagedKVPrefillCodeGen& instance);
 
     /**
      * @brief Apply intelligent heuristic filtering to reduce search space
      * @param instances Vector of instances to filter
-     * @param fmha_problem Problem context for filtering decisions
+     * @param fmha_fwd_paged_kv_prefill_problem Problem context for filtering decisions
      * @return Filtered vector of high-quality instances
      */
-    std::vector<FmhaPagedKVPrefillCodeGen> HeuristicFilter(const std::vector<FmhaPagedKVPrefillCodeGen>& instances, 
-                                                           const FmhaProblem& fmha_problem);
+    std::vector<FmhaFwdPagedKVPrefillCodeGen> HeuristicFilter(const std::vector<FmhaFwdPagedKVPrefillCodeGen>& instances, 
+                                                           const FmhaFwdPagedKVPrefillProblem& fmha_fwd_paged_kv_prefill_problem);
 
     /**
      * @brief Create instances from configuration specification
      * @param config Configuration with parameter ranges or fixed values
-     * @param fmha_problem Problem specification for context
+     * @param fmha_fwd_paged_kv_prefill_problem Problem specification for context
      * @return Vector of generated instances
      */
-    std::vector<FmhaPagedKVPrefillCodeGen> CreateInstanceForConfig(const FmhaPagedKVPrefillConfig& config, const FmhaProblem& fmha_problem);
+    std::vector<FmhaFwdPagedKVPrefillCodeGen> CreateInstanceForConfig(const FmhaFwdPagedKVPrefillConfig& config, const FmhaFwdPagedKVPrefillProblem& fmha_fwd_paged_kv_prefill_problem);
 
     /**
      * @brief Generates FMHA operation instances based on the problem specification
-     * @param fmha_problem The FMHA problem configuration
+     * @param fmha_fwd_paged_kv_prefill_problem The FMHA problem configuration
      */
-    void GenerateInstances(FmhaProblem& fmha_problem);
+    void GenerateInstances(FmhaFwdPagedKVPrefillProblem& fmha_fwd_paged_kv_prefill_problem);
 
     /**
      * @brief Gets the total number of generated instances
@@ -109,12 +109,12 @@ public:
 
     /**
      * @brief Get profiling instance map for the given FMHA kind
-     * @param fmha_problem The FMHA problem configuration
+     * @param fmha_fwd_paged_kv_prefill_problem The FMHA problem configuration
      * @return Reference to the instance map for the specific FMHA kind
      */
-    std::map<std::string, FmhaPagedKVPrefillCodeGen>& GetInstanceMap(FmhaProblem fmha_problem)
+    std::map<std::string, FmhaFwdPagedKVPrefillCodeGen>& GetInstanceMap(FmhaFwdPagedKVPrefillProblem fmha_fwd_paged_kv_prefill_problem)
     {
-        GenerateInstances(fmha_problem);
+        GenerateInstances(fmha_fwd_paged_kv_prefill_problem);
         return instance_map_;
     }
 
@@ -125,7 +125,7 @@ public:
 
 private:
 
-    std::map<std::string, FmhaPagedKVPrefillCodeGen> instance_map_;
+    std::map<std::string, FmhaFwdPagedKVPrefillCodeGen> instance_map_;
     int64_t                                                num_instances_ = 0;
 };
 

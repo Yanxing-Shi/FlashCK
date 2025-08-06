@@ -12,7 +12,7 @@ FC_DECLARE_string(FC_CONFIG_JSON_PATH);    // Base path for config files
 
 namespace flashck {
 
-bool FmhaFwdAppendKVEmitter::IsValidTile(const FmhaFwdAppendKVTileDesc& tile_desc, const FmhaProblem& fmha_problem)
+bool FmhaFwdAppendKVEmitter::IsValidTile(const FmhaFwdAppendKVTileDesc& tile_desc, const FmhaFwdAppendKVProblem& fmha_fwd_append_kv_problem)
 {
     // Validate all tile parameters are positive
     if (tile_desc.s_block_ <= 0 || tile_desc.sk_block_ <= 0 || 
@@ -22,11 +22,11 @@ bool FmhaFwdAppendKVEmitter::IsValidTile(const FmhaFwdAppendKVTileDesc& tile_des
     }
 
     // Validate against problem dimensions for Batch mode
-    if (fmha_problem.mode_ == FmhaMode::Batch) {
-        if (tile_desc.s_block_ > fmha_problem.q_seq_len_ || 
-            tile_desc.sk_block_ > fmha_problem.kv_seq_len_ ||
-            tile_desc.d_block_ > fmha_problem.qk_head_dim_ || 
-            tile_desc.dv_block_ > fmha_problem.v_head_dim_) {
+    if (fmha_fwd_append_kv_problem.mode_ == FmhaMode::Batch) {
+        if (tile_desc.s_block_ > fmha_fwd_append_kv_problem.q_seq_len_ || 
+            tile_desc.sk_block_ > fmha_fwd_append_kv_problem.kv_seq_len_ ||
+            tile_desc.d_block_ > fmha_fwd_append_kv_problem.qk_head_dim_ || 
+            tile_desc.dv_block_ > fmha_fwd_append_kv_problem.v_head_dim_) {
             VLOG(3) << "Invalid FMHA append KV tile: tile dimensions exceed problem dimensions";
             return false;
         }
@@ -41,7 +41,7 @@ bool FmhaFwdAppendKVEmitter::IsValidInstance(const FmhaFwdAppendKVCodeGen& insta
 } 
 
 std::vector<FmhaFwdAppendKVCodeGen> FmhaFwdAppendKVEmitter::HeuristicFilter(const std::vector<FmhaFwdAppendKVCodeGen>& instances, 
-                                                                           const FmhaProblem& fmha_problem)
+                                                                           const FmhaFwdAppendKVProblem& fmha_fwd_append_kv_problem)
 {
     if (instances.empty()) {
         return {};
@@ -61,8 +61,8 @@ std::vector<FmhaFwdAppendKVCodeGen> FmhaFwdAppendKVEmitter::HeuristicFilter(cons
         score += std::log2(std::max<int64_t>(1, total_block_size)) * 0.3;
         
         // 2. Problem size fitness
-        int64_t seq_len = fmha_problem.max_seqlen_q_;
-        int64_t head_dim = fmha_problem.hdim_q_;
+        int64_t seq_len = fmha_fwd_append_kv_problem.max_seqlen_q_;
+        int64_t head_dim = fmha_fwd_append_kv_problem.hdim_q_;
         
         // Prefer tile sizes that divide evenly into problem dimensions
         if (seq_len % tile_desc.s_block_ == 0) score += 0.25;
@@ -99,7 +99,7 @@ std::vector<FmhaFwdAppendKVCodeGen> FmhaFwdAppendKVEmitter::HeuristicFilter(cons
 }
 
 // Generate all possible FmhaFwdAppendKVCodeGen instances from a FmhaFwdAppendKVConfig
-std::vector<FmhaFwdAppendKVCodeGen> FmhaFwdAppendKVEmitter::CreateInstanceForConfig(const FmhaFwdAppendKVConfig& config, const FmhaProblem& fmha_problem) {
+std::vector<FmhaFwdAppendKVCodeGen> FmhaFwdAppendKVEmitter::CreateInstanceForConfig(const FmhaFwdAppendKVConfig& config, const FmhaFwdAppendKVProblem& fmha_fwd_append_kv_problem) {
     std::vector<FmhaFwdAppendKVCodeGen> result;
 
     std::vector<std::vector<int64_t>> all_lists = {
@@ -136,7 +136,7 @@ std::vector<FmhaFwdAppendKVCodeGen> FmhaFwdAppendKVEmitter::CreateInstanceForCon
 
         // Construct FmhaFwdAppendKVCodeGen
         FmhaFwdAppendKVCodeGen fmha;
-        fmha.problem_ = fmha_problem;
+        fmha.problem_ = fmha_fwd_append_kv_problem;
         // tile_desc
         fmha.tile_desc_.s_block_ = s_block;
         fmha.tile_desc_.sk_block_ = sk_block;
@@ -157,7 +157,7 @@ std::vector<FmhaFwdAppendKVCodeGen> FmhaFwdAppendKVEmitter::CreateInstanceForCon
     return result;
 }
 
-void FmhaFwdAppendKVEmitter::GenerateInstances(FmhaProblem& fmha_problem)
+void FmhaFwdAppendKVEmitter::GenerateInstances(FmhaFwdAppendKVProblem& fmha_fwd_append_kv_problem)
 {
     // Validate tuning mode
     FC_ENFORCE_EQ(FLAGS_FC_TUNING_MODE >= 0 && FLAGS_FC_TUNING_MODE <= 2, true,
@@ -176,7 +176,7 @@ void FmhaFwdAppendKVEmitter::GenerateInstances(FmhaProblem& fmha_problem)
             if (std::filesystem::exists(backup_path)) {
                 auto backup_configs = LoadConfigJson<std::vector<FmhaFwdAppendKVConfig>>(backup_path);
                 for (const auto& config : backup_configs) {
-                    auto backup_instances = CreateInstanceForConfig(config, fmha_problem);
+                    auto backup_instances = CreateInstanceForConfig(config, fmha_fwd_append_kv_problem);
                     all_instances.insert(all_instances.end(), backup_instances.begin(), backup_instances.end());
                 }
                 VLOG(2) << "Loaded " << backup_configs.size() << " FMHA append KV backup configurations";
@@ -192,7 +192,7 @@ void FmhaFwdAppendKVEmitter::GenerateInstances(FmhaProblem& fmha_problem)
             std::filesystem::path default_path = base_json_path / "default_config.json";
             if (std::filesystem::exists(default_path)) {
                 auto default_config = LoadConfigJson<FmhaFwdAppendKVConfig>(default_path);
-                auto default_instances = CreateInstanceForConfig(default_config, fmha_problem);
+                auto default_instances = CreateInstanceForConfig(default_config, fmha_fwd_append_kv_problem);
                 all_instances.insert(all_instances.end(), default_instances.begin(), default_instances.end());
                 VLOG(2) << "Loaded FMHA append KV default configuration with " << default_instances.size() << " instances";
             }
@@ -207,7 +207,7 @@ void FmhaFwdAppendKVEmitter::GenerateInstances(FmhaProblem& fmha_problem)
             std::filesystem::path user_path = base_json_path / "user_config.json";
             if (std::filesystem::exists(user_path)) {
                 auto user_config = LoadConfigJson<FmhaFwdAppendKVConfig>(user_path);
-                auto user_instances = CreateInstanceForConfig(user_config, fmha_problem);
+                auto user_instances = CreateInstanceForConfig(user_config, fmha_fwd_append_kv_problem);
                 all_instances.insert(all_instances.end(), user_instances.begin(), user_instances.end());
                 VLOG(2) << "Loaded FMHA append KV user configuration with " << user_instances.size() << " instances";
             }
@@ -221,7 +221,7 @@ void FmhaFwdAppendKVEmitter::GenerateInstances(FmhaProblem& fmha_problem)
     
     switch (FLAGS_FC_TUNING_MODE) {
         case 0: {  // Heuristic mode: filter + random selection for fast execution
-            auto filtered_instances = HeuristicFilter(all_instances, fmha_problem);
+            auto filtered_instances = HeuristicFilter(all_instances, fmha_fwd_append_kv_problem);
             if (!filtered_instances.empty()) {
                 // Randomly select one optimal configuration for fast execution
                 std::random_device rd;
@@ -239,7 +239,7 @@ void FmhaFwdAppendKVEmitter::GenerateInstances(FmhaProblem& fmha_problem)
             break;
         }
         case 2: {  // Hybrid mode: heuristic filtering + broader search
-            auto filtered_instances = HeuristicFilter(all_instances, fmha_problem);
+            auto filtered_instances = HeuristicFilter(all_instances, fmha_fwd_append_kv_problem);
             final_instances = filtered_instances.empty() ? all_instances : filtered_instances;
             VLOG(1) << "FMHA append KV hybrid mode: using " << final_instances.size() 
                     << " instances (filtered from " << all_instances.size() << ")";
@@ -257,7 +257,7 @@ void FmhaFwdAppendKVEmitter::GenerateInstances(FmhaProblem& fmha_problem)
     }
 
     VLOG(1) << "Generated " << num_instances_ << " valid FMHA append KV instances for " 
-            << GetFmhaKindName(fmha_problem.kind_) << " (mode " << FLAGS_FC_TUNING_MODE << ")";
+            << GetFmhaKindName(fmha_fwd_append_kv_problem.kind_) << " (mode " << FLAGS_FC_TUNING_MODE << ")";
 }
 
 void FmhaFwdAppendKVEmitter::ClearInstances()

@@ -82,12 +82,6 @@ public:
     std::string GetPaddingConfigName();
 
     /**
-     * @brief Generate pipeline configuration name
-     * @return String identifier for pipeline configuration
-     */
-    std::string GetPipelineConfigName();
-
-    /**
      * @brief Generate a unique instance name for this configuration
      * @return String identifier combining operation type and parameters
      */
@@ -99,7 +93,7 @@ public:
      */
     std::string Emit();
 
-    FmhaProblem problem_;
+    FmhaFwdSplitKVProblem problem_;
 
     // ====================== Tiling Configuration ======================
 

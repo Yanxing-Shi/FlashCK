@@ -65,7 +65,7 @@ public:
      * - Hardware resource limitations (registers, shared memory)
      * - Mathematical correctness for attention computation
      */
-    bool IsValidTile(const FmhaFwdTileDesc& tile_desc, const FmhaProblem& fmha_fwd_problem);
+    bool IsValidTile(const FmhaFwdTileDesc& tile_desc, const FmhaFwdProblem& fmha_fwd_problem);
 
     /**
      * @brief Validates generated code instance
@@ -80,7 +80,7 @@ public:
      * @param fmha_fwd_problem Problem specification
      * @return Vector of generated kernel instances
      */
-    std::vector<FmhaFwdCodeGen> CreateInstanceForConfig(const FmhaFwdConfig& config, const FmhaProblem& fmha_fwd_problem);
+    std::vector<FmhaFwdCodeGen> CreateInstanceForConfig(const FmhaFwdConfig& config, const FmhaFwdProblem& fmha_fwd_problem);
 
     /**
      * @brief Apply intelligent filtering to reduce search space
@@ -95,7 +95,7 @@ public:
      * - Uses performance models to predict efficiency
      */
     std::vector<FmhaFwdCodeGen> HeuristicFilter(const std::vector<FmhaFwdCodeGen>& instances, 
-                                               const FmhaProblem& fmha_fwd_problem);
+                                               const FmhaFwdProblem& fmha_fwd_problem);
 
     /**
      * @brief Main instance generation entry point supporting multiple configuration sources
@@ -111,7 +111,7 @@ public:
      * - Default configs: Parameter ranges for exploration and tuning
      * - User configs: Custom parameter ranges for specific use cases
      */
-    void GenerateInstances(FmhaProblem& fmha_fwd_problem);
+    void GenerateInstances(FmhaFwdProblem& fmha_fwd_problem);
 
     /**
      * @brief Gets the total number of generated instances across all configurations

@@ -4,7 +4,7 @@
 #include "lightinfer/core/module/kernels/kernel.h"
 #include "lightinfer/core/module/kernels/kernel_registry.h"
 
-#include "lightinfer/core/module/kernels/fmha_kernels/fmha_common_jinja.h"
+#include "lightinfer/core/module/kernels/attention_kernels/fmha_common_jinja.h"
 
 
 namespace flashck {

@@ -6,7 +6,7 @@
 #include <vector>
 
 #include "core/profiling/attention/fmha_library.h"
-#include "core/profiling/attention/fmha_problem.h"
+#include "core/profiling/attention/fmha_fwd_split_kv_problem.h"
 #include "core/profiling/attention/fmha_fwd_split_kv/fmha_fwd_split_kv_codegen.h"
 #include "core/utils/json_config.h"
 
@@ -62,7 +62,7 @@ public:
     /**
      * @brief Validates tile configuration against problem constraints for split-KV operations
      * @param tile_desc Tile descriptor containing block/warp/thread-level parameters for split-KV
-     * @param fmha_problem Problem specification including dimensions and data types
+     * @param fmha_fwd_split_kv_problem Problem specification including dimensions and data types
      * @return true if tile configuration is valid for split-KV operations, false otherwise
      * 
      * Split-KV Validation includes:
@@ -72,7 +72,7 @@ public:
      * - K-V splitting constraints and memory alignment requirements
      * - Load balancing considerations for variable split sizes
      */
-    bool IsValidTile(const FmhaFwdSplitKVTileDesc& tile_desc, const FmhaProblem& fmha_problem);
+    bool IsValidTile(const FmhaFwdSplitKVTileDesc& tile_desc, const FmhaFwdSplitKVProblem& fmha_fwd_split_kv_problem);
 
     /**
      * @brief Validates generated split-KV code instance
@@ -84,15 +84,15 @@ public:
     /**
      * @brief Creates split-KV kernel instances from configuration
      * @param config Configuration with parameter ranges or single values for split-KV
-     * @param fmha_problem Problem specification
+     * @param fmha_fwd_split_kv_problem Problem specification
      * @return Vector of generated split-KV kernel instances
      */
-    std::vector<FmhaFwdSplitKVCodeGen> CreateInstanceForConfig(const FmhaFwdSplitKVConfig& config, const FmhaProblem& fmha_problem);
+    std::vector<FmhaFwdSplitKVCodeGen> CreateInstanceForConfig(const FmhaFwdSplitKVConfig& config, const FmhaFwdSplitKVProblem& fmha_fwd_split_kv_problem);
 
     /**
      * @brief Apply intelligent filtering to reduce search space for split-KV operations
      * @param instances All generated split-KV instances to filter
-     * @param fmha_problem Problem specification for context-aware filtering
+     * @param fmha_fwd_split_kv_problem Problem specification for context-aware filtering
      * @return Filtered subset of instances with better performance characteristics for split-KV
      * 
      * Split-KV Heuristic Strategy:
@@ -103,11 +103,11 @@ public:
      * - Optimizes for inter-kernel communication overhead minimization
      */
     std::vector<FmhaFwdSplitKVCodeGen> HeuristicFilter(const std::vector<FmhaFwdSplitKVCodeGen>& instances, 
-                                                      const FmhaProblem& fmha_problem);
+                                                      const FmhaFwdSplitKVProblem& fmha_fwd_split_kv_problem);
 
     /**
      * @brief Main instance generation entry point for split-KV operations
-     * @param fmha_problem The FMHA problem configuration to solve with split-KV approach
+     * @param fmha_fwd_split_kv_problem The FMHA problem configuration to solve with split-KV approach
      * 
      * Split-KV Execution Strategy (controlled by FC_TUNING_MODE):
      * - Mode 0 (Heuristic): Apply split-KV specific filtering → select optimal subset → random sampling
@@ -119,7 +119,7 @@ public:
      * - Default configs: Parameter ranges optimized for split-KV operations
      * - User configs: Custom split-KV parameter ranges for specific use cases
      */
-    void GenerateInstances(FmhaProblem& fmha_problem);
+    void GenerateInstances(FmhaFwdSplitKVProblem& fmha_fwd_split_kv_problem);
 
     /**
      * @brief Gets the total number of generated split-KV instances across all configurations
@@ -132,12 +132,12 @@ public:
 
     /**
      * @brief Get profiling instance map for the given FMHA kind with split-KV operations
-     * @param fmha_problem The FMHA problem configuration
+     * @param fmha_fwd_split_kv_problem The FMHA problem configuration
      * @return Reference to the split-KV instance map for the specific FMHA kind
      */
-    std::map<std::string, FmhaFwdSplitKVCodeGen>& GetInstanceMap(FmhaProblem fmha_problem)
+    std::map<std::string, FmhaFwdSplitKVCodeGen>& GetInstanceMap(FmhaFwdSplitKVProblem fmha_fwd_split_kv_problem)
     {
-        GenerateInstances(fmha_problem);
+        GenerateInstances(fmha_fwd_split_kv_problem);
         return instance_map_;
     }
 

@@ -357,86 +357,86 @@ struct FmhaFwdSplitKVCombineConfig {
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdSplitKVCombineConfig, tile_shape, padding, launch)
 
 // ========== FMHA batch prefill Structs ==========
-struct FmhaBatchPrefillBlockConfig {
+struct FmhaFwdBatchPrefillBlockConfig {
     IntEnumConfigParam m0, n0, k0, n1, k1, k0_max;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaBatchPrefillBlockConfig, m0, n0, k0, n1, k1, k0_max)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdBatchPrefillBlockConfig, m0, n0, k0, n1, k1, k0_max)
 
-struct FmhaBatchPrefillWarpConfig {
+struct FmhaFwdBatchPrefillWarpConfig {
     IntEnumConfigParam m0, n0, k0, m1, n1, k1;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaBatchPrefillWarpConfig, m0, n0, k0, m1, n1, k1)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdBatchPrefillWarpConfig, m0, n0, k0, m1, n1, k1)
 
-struct FmhaBatchPrefillWarpTileConfig {
+struct FmhaFwdBatchPrefillWarpTileConfig {
     IntEnumConfigParam m0, n0, k0, m1, n1, k1;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaBatchPrefillWarpTileConfig, m0, n0, k0, m1, n1, k1)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdBatchPrefillWarpTileConfig, m0, n0, k0, m1, n1, k1)
 
-struct FmhaBatchPrefillPaddingConfig {
+struct FmhaFwdBatchPrefillPaddingConfig {
     BoolEnumConfigParam s, sk, d, dv;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaBatchPrefillPaddingConfig, s, sk, d, dv)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdBatchPrefillPaddingConfig, s, sk, d, dv)
 
-struct FmhaBatchPrefillLaunchConfig {
+struct FmhaFwdBatchPrefillLaunchConfig {
     IntEnumConfigParam min_block_per_cu;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaBatchPrefillLaunchConfig, min_block_per_cu)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdBatchPrefillLaunchConfig, min_block_per_cu)
 
-struct FmhaBatchPrefillTileConfig {
-    FmhaBatchPrefillBlockConfig block_tile;
-    FmhaBatchPrefillWarpConfig block_warps;
-    FmhaBatchPrefillWarpTileConfig warp_tile;
+struct FmhaFwdBatchPrefillTileConfig {
+    FmhaFwdBatchPrefillBlockConfig block_tile;
+    FmhaFwdBatchPrefillWarpConfig block_warps;
+    FmhaFwdBatchPrefillWarpTileConfig warp_tile;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaBatchPrefillTileConfig, block_tile, block_warps, warp_tile)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdBatchPrefillTileConfig, block_tile, block_warps, warp_tile)
 
-struct FmhaBatchPrefillConfig {
-    FmhaBatchPrefillTileConfig tile_shape;
-    FmhaBatchPrefillPaddingConfig padding;
-    FmhaBatchPrefillLaunchConfig launch;
+struct FmhaFwdBatchPrefillConfig {
+    FmhaFwdBatchPrefillTileConfig tile_shape;
+    FmhaFwdBatchPrefillPaddingConfig padding;
+    FmhaFwdBatchPrefillLaunchConfig launch;
     StrEnumConfigParam pipeline;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaBatchPrefillConfig, tile_shape, padding, launch, pipeline)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdBatchPrefillConfig, tile_shape, padding, launch, pipeline)
 
 // ========== FMHA Structs ==========
-struct FmhaPagedKVPrefillBlockConfig {
+struct FmhaFwdPagedKVPrefillBlockConfig {
     IntEnumConfigParam m0, n0, k0, n1, k1, k0_max;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaPagedKVPrefillBlockConfig, m0, n0, k0, n1, k1, k0_max)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdPagedKVPrefillBlockConfig, m0, n0, k0, n1, k1, k0_max)
 
-struct FmhaPagedKVPrefillWarpConfig {
+struct FmhaFwdPagedKVPrefillWarpConfig {
     IntEnumConfigParam m0, n0, k0, m1, n1, k1;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaPagedKVPrefillWarpConfig, m0, n0, k0, m1, n1, k1)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdPagedKVPrefillWarpConfig, m0, n0, k0, m1, n1, k1)
 
-struct FmhaPagedKVPrefillWarpTileConfig {
+struct FmhaFwdPagedKVPrefillWarpTileConfig {
     IntEnumConfigParam m0, n0, k0, m1, n1, k1;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaPagedKVPrefillWarpTileConfig, m0, n0, k0, m1, n1, k1)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdPagedKVPrefillWarpTileConfig, m0, n0, k0, m1, n1, k1)
 
-struct FmhaPagedKVPrefillPaddingConfig {
+struct FmhaFwdPagedKVPrefillPaddingConfig {
     BoolEnumConfigParam s, sk, d, dv;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaPagedKVPrefillPaddingConfig, s, sk, d, dv)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdPagedKVPrefillPaddingConfig, s, sk, d, dv)
 
-struct FmhaPagedKVPrefillLaunchConfig {
+struct FmhaFwdPagedKVPrefillLaunchConfig {
     IntEnumConfigParam min_block_per_cu;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaPagedKVPrefillLaunchConfig, min_block_per_cu)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdPagedKVPrefillLaunchConfig, min_block_per_cu)
 
-struct FmhaPagedKVPrefillTileConfig {
-    FmhaPagedKVPrefillBlockConfig block_tile;
-    FmhaPagedKVPrefillWarpConfig block_warps;
-    FmhaPagedKVPrefillWarpTileConfig warp_tile;
+struct FmhaFwdPagedKVPrefillTileConfig {
+    FmhaFwdPagedKVPrefillBlockConfig block_tile;
+    FmhaFwdPagedKVPrefillWarpConfig block_warps;
+    FmhaFwdPagedKVPrefillWarpTileConfig warp_tile;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaPagedKVPrefillTileConfig, block_tile, block_warps, warp_tile)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdPagedKVPrefillTileConfig, block_tile, block_warps, warp_tile)
 
-struct FmhaPagedKVPrefillConfig {
-    FmhaPagedKVPrefillTileConfig tile_shape;
-    FmhaPagedKVPrefillPaddingConfig padding;
-    FmhaPagedKVPrefillLaunchConfig launch;
+struct FmhaFwdPagedKVPrefillConfig {
+    FmhaFwdPagedKVPrefillTileConfig tile_shape;
+    FmhaFwdPagedKVPrefillPaddingConfig padding;
+    FmhaFwdPagedKVPrefillLaunchConfig launch;
     StrEnumConfigParam pipeline;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaPagedKVPrefillConfig, tile_shape, padding, launch, pipeline)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdPagedKVPrefillConfig, tile_shape, padding, launch, pipeline)
 
 // ========== Norm Structs ==========
 struct NormTileConfig {

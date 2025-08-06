@@ -54,10 +54,10 @@ User config files follow the same format as default configs but allow custom par
 #include "core/utils/json_config.h"
 
 // Load single config (default/user)
-auto config = LoadConfigJson<FmhaBatchPrefillConfig>("path/to/default_config.json");
+auto config = LoadConfigJson<FmhaFwdBatchPrefillConfig>("path/to/default_config.json");
 
 // Load array of configs (backup)
-auto backup_configs = LoadConfigJson<std::vector<FmhaBatchPrefillConfig>>("path/to/backup_config.json");
+auto backup_configs = LoadConfigJson<std::vector<FmhaFwdBatchPrefillConfig>>("path/to/backup_config.json");
 
 // Use CartesianProduct for parameter sweeping
 std::vector<std::vector<int64_t>> param_lists = {
@@ -98,9 +98,9 @@ Control which configuration files are loaded:
 
 ## Supported Config Types
 
-- `FmhaBatchPrefillConfig` - Batch prefill FMHA
+- `FmhaFwdBatchPrefillConfig` - Batch prefill FMHA
 - `FmhaFwdConfig` - Forward FMHA  
-- `FmhaPagedKVPrefillConfig` - Paged KV prefill FMHA
+- `FmhaFwdPagedKVPrefillConfig` - Paged KV prefill FMHA
 - `FmhaFwdSplitKVConfig` - Split KV forward FMHA
 - `FmhaFwdSplitKVCombineConfig` - Split KV combine FMHA
 - `GemmConfig` - GEMM operations

@@ -45,12 +45,6 @@ public:
     FmhaFwdSplitKVCombineCodeGen() = default;
 
     /**
-     * @brief Generate pipeline configuration name
-     * @return String identifier for pipeline configuration
-     */
-    std::string GetPipelineConfigName();
-
-    /**
      * @brief Generate a unique instance name for this configuration
      * @return String identifier combining operation type and parameters
      */
@@ -62,9 +56,7 @@ public:
      */
     std::string Emit();
 
-    FmhaProblem problem_;
-
-    int64_t log_max_splits_;
+    FmhaFwdSplitKVCombineProblem problem_;
 
     FmhaFwdSplitKVCombineTileDesc tile_desc_;
 

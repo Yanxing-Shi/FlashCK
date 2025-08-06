@@ -19,7 +19,7 @@ void demonstrateBackupConfig(const std::string& config_name, const std::string& 
             // Each backup config should have exactly one value per parameter
             // This makes them suitable for direct use without parameter sweeping
             
-            if constexpr (std::is_same_v<ConfigType, FmhaBatchPrefillConfig>) {
+            if constexpr (std::is_same_v<ConfigType, FmhaFwdBatchPrefillConfig>) {
                 const auto& config = backup_configs[i];
                 std::cout << "  Block size: " << config.tile_shape.block_tile.m0.GetAllValues()[0] 
                          << "x" << config.tile_shape.block_tile.n0.GetAllValues()[0] 
@@ -72,9 +72,9 @@ int main() {
     std::cout << "per parameter, making them ready for direct instantiation." << std::endl;
     
     // Test different config types
-    demonstrateBackupConfig<FmhaBatchPrefillConfig>(
+    demonstrateBackupConfig<FmhaFwdBatchPrefillConfig>(
         "FMHA Batch Prefill", 
-        "configs/attention/fmha_batch_prefill/backup_config.json"
+        "configs/attention/fmha_fwd_batch_prefill/backup_config.json"
     );
     
     demonstrateBackupConfig<FmhaFwdConfig>(
@@ -89,7 +89,7 @@ int main() {
     
     std::cout << "\n=== Usage Example ===" << std::endl;
     std::cout << "// Load backup configs in your application:" << std::endl;
-    std::cout << "auto backup_configs = LoadBackupConfigJson<FmhaBatchPrefillConfig>(path);" << std::endl;
+    std::cout << "auto backup_configs = LoadBackupConfigJson<FmhaFwdBatchPrefillConfig>(path);" << std::endl;
     std::cout << "for (const auto& config : backup_configs) {" << std::endl;
     std::cout << "    // Each config has single values, ready to use directly" << std::endl;
     std::cout << "    int m0 = config.tile_shape.block_tile.m0.GetAllValues()[0];" << std::endl;

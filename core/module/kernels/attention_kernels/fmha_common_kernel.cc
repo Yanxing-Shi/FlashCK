@@ -1,4 +1,4 @@
-#include "core/module/kernels/fmha_kernels/fmha_common_kernel.h"
+#include "core/module/kernels/attention_kernels/fmha_common_kernel.h"
 
 /// @brief Global configuration flags for tuning parameters
 FC_DECLARE_string(FC_HOME_PATH);                 ///< Base path for storing generated files

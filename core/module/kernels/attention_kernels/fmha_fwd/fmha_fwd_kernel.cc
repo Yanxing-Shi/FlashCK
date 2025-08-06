@@ -1,4 +1,4 @@
-#include "core/module/kernels/fmha_kernels/fmha_fwd/fmha_fwd_kernel.h"
+#include "core/module/kernels/attention_kernels/fmha_fwd/fmha_fwd_kernel.h"
 
 
 namespace flashck {

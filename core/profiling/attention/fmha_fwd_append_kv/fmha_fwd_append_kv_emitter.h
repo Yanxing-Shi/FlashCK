@@ -7,7 +7,7 @@
 #include <vector>
 
 #include "core/profiling/attention/fmha_library.h"
-#include "core/profiling/attention/fmha_problem.h"
+#include "core/profiling/attention/fmha_fwd_append_kv_problem.h"
 #include "core/profiling/attention/fmha_fwd_append_kv/fmha_fwd_append_kv_codegen.h"
 
 namespace flashck {
@@ -47,7 +47,7 @@ namespace flashck {
  * auto* emitter = FmhaFwdAppendKVEmitter::GetInstance();
  * 
  * // Generate instances for problem
- * FmhaProblem problem = {...};
+ * FmhaFwdAppendKVProblem problem = {...};
  * emitter->GenerateInstances(problem);
  * 
  * // Get generated instances
@@ -82,10 +82,10 @@ public:
     /**
      * @brief Validate tile descriptor against problem constraints and hardware limitations
      * @param tile_desc Tile descriptor to validate
-     * @param fmha_problem Problem specification for validation context
+     * @param fmha_fwd_append_kv_problem Problem specification for validation context
      * @return true if tile descriptor is valid, false otherwise
      */
-    bool IsValidTile(const FmhaFwdAppendKVTileDesc& tile_desc, const FmhaProblem& fmha_problem);
+    bool IsValidTile(const FmhaFwdAppendKVTileDesc& tile_desc, const FmhaFwdAppendKVProblem& fmha_fwd_append_kv_problem);
 
     /**
      * @brief Validate complete instance configuration
@@ -97,19 +97,19 @@ public:
     /**
      * @brief Apply intelligent heuristic filtering to reduce search space
      * @param instances Vector of instances to filter
-     * @param fmha_problem Problem context for filtering decisions
+     * @param fmha_fwd_append_kv_problem Problem context for filtering decisions
      * @return Filtered vector of high-quality instances
      */
     std::vector<FmhaFwdAppendKVCodeGen> HeuristicFilter(const std::vector<FmhaFwdAppendKVCodeGen>& instances, 
-                                                        const FmhaProblem& fmha_problem);
+                                                        const FmhaFwdAppendKVProblem& fmha_fwd_append_kv_problem);
 
     /**
      * @brief Create instances from configuration specification
      * @param config Configuration with parameter ranges or fixed values
-     * @param fmha_problem Problem specification for context
+     * @param fmha_fwd_append_kv_problem Problem specification for context
      * @return Vector of generated instances
      */
-    std::vector<FmhaFwdAppendKVCodeGen> CreateInstanceForConfig(const FmhaFwdAppendKVConfig& config, const FmhaProblem& fmha_problem);
+    std::vector<FmhaFwdAppendKVCodeGen> CreateInstanceForConfig(const FmhaFwdAppendKVConfig& config, const FmhaFwdAppendKVProblem& fmha_fwd_append_kv_problem);
 
     /**
      * @brief Generate optimized FMHA instances using multi-source configuration and intelligent filtering
@@ -124,9 +124,9 @@ public:
      * 1 = Autotuning: Use all valid instances for comprehensive search
      * 2 = Hybrid: Apply heuristic filtering but keep broader candidate set
      * 
-     * @param fmha_problem The FMHA problem configuration and constraints
+     * @param fmha_fwd_append_kv_problem The FMHA problem configuration and constraints
      */
-    void GenerateInstances(FmhaProblem& fmha_problem);
+    void GenerateInstances(FmhaFwdAppendKVProblem& fmha_fwd_append_kv_problem);
 
     /**
      * @brief Get total number of generated valid instances
@@ -139,12 +139,12 @@ public:
 
     /**
      * @brief Get profiling instance map for the given FMHA kind
-     * @param fmha_problem The FMHA problem configuration
+     * @param fmha_fwd_append_kv_problem The FMHA problem configuration
      * @return Reference to the instance map for the specific FMHA kind
      */
-    std::map<std::string, FmhaFwdAppendKVCodeGen>& GetInstanceMap(FmhaProblem fmha_problem)
+    std::map<std::string, FmhaFwdAppendKVCodeGen>& GetInstanceMap(FmhaFwdAppendKVProblem fmha_fwd_append_kv_problem)
     {
-        GenerateInstances(fmha_problem);
+        GenerateInstances(fmha_fwd_append_kv_problem);
         return instance_map_;
     }
 

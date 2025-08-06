@@ -12,7 +12,7 @@ FC_DECLARE_string(FC_CONFIG_JSON_PATH);   // Base path for config files
 
 namespace flashck {
 
-bool FmhaFwdSplitKVEmitter::IsValidTile(const FmhaFwdSplitKVTileDesc& tile_desc, const FmhaProblem& fmha_problem)
+bool FmhaFwdSplitKVEmitter::IsValidTile(const FmhaFwdSplitKVTileDesc& tile_desc, const FmhaFwdSplitKVProblem& fmha_fwd_split_kv_problem)
 {
     // Validate all tile parameters are positive for split-KV operations
     if (tile_desc.m0_block_ <= 0 || tile_desc.n0_block_ <= 0 || tile_desc.k0_block_ <= 0 || 
@@ -54,11 +54,11 @@ bool FmhaFwdSplitKVEmitter::IsValidTile(const FmhaFwdSplitKVTileDesc& tile_desc,
     }
 
     // Validate against problem dimensions for Batch mode with split-KV considerations
-    if (fmha_problem.mode_ == FmhaMode::Batch) {
-        if (tile_desc.m0_block_ > fmha_problem.q_seq_len_ || 
-            tile_desc.n0_block_ > fmha_problem.kv_seq_len_ ||
-            tile_desc.n1_block_ > fmha_problem.v_head_dim_ || 
-            tile_desc.k0_max_block_ > fmha_problem.qk_head_dim_) {
+    if (fmha_fwd_split_kv_problem.mode_ == FmhaMode::Batch) {
+        if (tile_desc.m0_block_ > fmha_fwd_split_kv_problem.q_seq_len_ || 
+            tile_desc.n0_block_ > fmha_fwd_split_kv_problem.kv_seq_len_ ||
+            tile_desc.n1_block_ > fmha_fwd_split_kv_problem.v_head_dim_ || 
+            tile_desc.k0_max_block_ > fmha_fwd_split_kv_problem.qk_head_dim_) {
             VLOG(3) << "Invalid FMHA split-KV tile: dimensions exceed problem dimensions";
             return false;
         }
@@ -74,7 +74,7 @@ bool FmhaFwdSplitKVEmitter::IsValidInstance(const FmhaFwdSplitKVCodeGen& instanc
 
 std::vector<FmhaFwdSplitKVCodeGen> FmhaFwdSplitKVEmitter::HeuristicFilter(
     const std::vector<FmhaFwdSplitKVCodeGen>& instances,
-    const FmhaProblem& fmha_problem)
+    const FmhaFwdSplitKVProblem& fmha_fwd_split_kv_problem)
 {
     if (instances.empty()) {
         return {};
@@ -90,7 +90,7 @@ std::vector<FmhaFwdSplitKVCodeGen> FmhaFwdSplitKVEmitter::HeuristicFilter(
     constexpr int64_t preferred_kv_block_size = 256;
     
     // Heuristic 3: Optimize for split-KV memory access patterns
-    const int64_t kv_seq_len = fmha_problem.kv_seq_len_;
+    const int64_t kv_seq_len = fmha_fwd_split_kv_problem.kv_seq_len_;
     const int64_t optimal_split_size = kv_seq_len / preferred_split_factor;
     
     for (const auto& instance : instances) {
@@ -122,7 +122,7 @@ std::vector<FmhaFwdSplitKVCodeGen> FmhaFwdSplitKVEmitter::HeuristicFilter(
         }
         
         // Filter 5: Avoid excessive head dimension splitting in split-KV
-        if (tile.k0_block_ < fmha_problem.qk_head_dim_ / 8) {
+        if (tile.k0_block_ < fmha_fwd_split_kv_problem.qk_head_dim_ / 8) {
             continue;
         }
         
@@ -144,7 +144,7 @@ std::vector<FmhaFwdSplitKVCodeGen> FmhaFwdSplitKVEmitter::HeuristicFilter(
 }
 
 std::vector<FmhaFwdSplitKVCodeGen> FmhaFwdSplitKVEmitter::CreateInstanceForConfig(
-    const FmhaFwdSplitKVConfig& config, const FmhaProblem& fmha_problem) 
+    const FmhaFwdSplitKVConfig& config, const FmhaFwdSplitKVProblem& fmha_fwd_split_kv_problem) 
 {
     std::vector<FmhaFwdSplitKVCodeGen> result;
 
@@ -302,7 +302,7 @@ std::vector<FmhaFwdSplitKVCodeGen> FmhaFwdSplitKVEmitter::CreateInstanceForConfi
 
         // Construct FmhaFwdSplitKVCodeGen instance
         FmhaFwdSplitKVCodeGen instance;
-        instance.problem_ = fmha_problem;
+        instance.problem_ = fmha_fwd_split_kv_problem;
         
         // Set tile descriptor
         instance.tile_desc_.m0_block_ = m0_block;
@@ -351,7 +351,7 @@ std::vector<FmhaFwdSplitKVCodeGen> FmhaFwdSplitKVEmitter::CreateInstanceForConfi
     return result;
 }
 
-void FmhaFwdSplitKVEmitter::GenerateInstances(FmhaProblem& fmha_problem)
+void FmhaFwdSplitKVEmitter::GenerateInstances(FmhaFwdSplitKVProblem& fmha_fwd_split_kv_problem)
 {
     // Validate tuning mode
     FC_ENFORCE_EQ(FLAGS_FC_TUNING_MODE >= 0 && FLAGS_FC_TUNING_MODE <= 2, true,
@@ -370,7 +370,7 @@ void FmhaFwdSplitKVEmitter::GenerateInstances(FmhaProblem& fmha_problem)
         try {
             auto backup_configs = LoadConfigJson<std::vector<FmhaFwdSplitKVConfig>>(json_path);
             for (const auto& config : backup_configs) {
-                auto instances = CreateInstanceForConfig(config, fmha_problem);
+                auto instances = CreateInstanceForConfig(config, fmha_fwd_split_kv_problem);
                 all_instances.insert(all_instances.end(), instances.begin(), instances.end());
             }
             VLOG(2) << "Loaded " << backup_configs.size() << " split-KV backup configurations";
@@ -384,7 +384,7 @@ void FmhaFwdSplitKVEmitter::GenerateInstances(FmhaProblem& fmha_problem)
         std::filesystem::path json_path = base_json_path / "default_config.json";
         try {
             auto default_config = LoadConfigJson<FmhaFwdSplitKVConfig>(json_path);
-            auto instances = CreateInstanceForConfig(default_config, fmha_problem);
+            auto instances = CreateInstanceForConfig(default_config, fmha_fwd_split_kv_problem);
             all_instances.insert(all_instances.end(), instances.begin(), instances.end());
             VLOG(2) << "Loaded split-KV default configuration with " << instances.size() << " instances";
         } catch (const std::exception& e) {
@@ -397,7 +397,7 @@ void FmhaFwdSplitKVEmitter::GenerateInstances(FmhaProblem& fmha_problem)
         std::filesystem::path json_path = base_json_path / "user_config.json";
         try {
             auto user_config = LoadConfigJson<FmhaFwdSplitKVConfig>(json_path);
-            auto instances = CreateInstanceForConfig(user_config, fmha_problem);
+            auto instances = CreateInstanceForConfig(user_config, fmha_fwd_split_kv_problem);
             all_instances.insert(all_instances.end(), instances.begin(), instances.end());
             VLOG(2) << "Loaded split-KV user configuration with " << instances.size() << " instances";
         } catch (const std::exception& e) {
@@ -427,7 +427,7 @@ void FmhaFwdSplitKVEmitter::GenerateInstances(FmhaProblem& fmha_problem)
     switch (FLAGS_FC_TUNING_MODE) {
         case 0: {
             // Heuristic mode: filter + random selection
-            final_instances = HeuristicFilter(valid_instances, fmha_problem);
+            final_instances = HeuristicFilter(valid_instances, fmha_fwd_split_kv_problem);
             if (!final_instances.empty()) {
                 // Randomly select one instance for fast execution
                 std::uniform_int_distribution<> dist(0, final_instances.size() - 1);
@@ -445,7 +445,7 @@ void FmhaFwdSplitKVEmitter::GenerateInstances(FmhaProblem& fmha_problem)
         }
         case 2: {
             // Hybrid mode: combine heuristic filtering + all instances
-            auto heuristic_instances = HeuristicFilter(valid_instances, fmha_problem);
+            auto heuristic_instances = HeuristicFilter(valid_instances, fmha_fwd_split_kv_problem);
             final_instances = heuristic_instances;
             final_instances.insert(final_instances.end(), valid_instances.begin(), valid_instances.end());
             
