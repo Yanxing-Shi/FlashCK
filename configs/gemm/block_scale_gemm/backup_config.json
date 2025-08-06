@@ -17,6 +17,9 @@
       "k": { "values": [16] }
     }
   },
+  "persistent":{
+      "values": [false]
+  },
   "pipeline": {
     "version": { "values": ["mem"] },
     "scheduler": { "values": ["interwave"] },

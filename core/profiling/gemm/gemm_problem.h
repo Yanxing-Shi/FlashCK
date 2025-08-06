@@ -52,9 +52,9 @@ public:
         oss << "\"b_layout\": \"" << GetLayoutTypeName(b_layout_) << "\", ";
         oss << "\"c_layout\": \"" << GetLayoutTypeName(c_layout_) << "\", ";
         oss << "\"ds_layouts\": [";
-        for (size_t i = 0; i < ds_layouts_.size(); ++i) {
+        for (size_t i = 0; i < ds_layout_.size(); ++i) {
             if (i > 0) oss << ", ";
-            oss << "\"" << GetLayoutTypeName(ds_layouts_[i]) << "\"";
+            oss << "\"" << GetLayoutTypeName(ds_layout_[i]) << "\"";
         }
         oss << "], ";
         oss << "\"a_permute\": " << (a_permute_ ? "true" : "false") << ", ";
@@ -81,7 +81,11 @@ public:
 
         return oss.str();
     }
-          
+    
+    std::string GetNameImpl(){
+        return Sprintf("{gemm_kind}_{elementwise_kind}_{a_dtype}{b_dtype}{c_dtype}{ds_dtype}"
+                        "{a_layout}{b_layout}{c_layout}{ds_layout}_"
+    }
 
     // ====================== Problem Configuration ======================
 
@@ -101,7 +105,7 @@ public:
     LayoutType a_layout_;           ///< Tensor a layout
     LayoutType b_layout_;           ///< Tensor b layout
     LayoutType c_layout_;           ///< Tensor c layout
-    std::vector<LayoutType> ds_layouts_;  ///< Tensor ds layouts (Special for GemmMultiD)
+    std::vector<LayoutType> ds_layout_;  ///< Tensor ds layouts (Special for GemmMultiD)
 
     // Other configurations
     bool a_permute_ = false;  ///< Whether to permute tensor a

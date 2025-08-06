@@ -6,7 +6,7 @@
 #include <vector>
 
 #include "core/profiling/norm/norm_library.h"
-#include "core/profiling/norm/norm_problem.h"
+#include "core/profiling/norm/layer_norm_problem.h"
 #include "core/profiling/norm/layer_norm/layer_norm_codegen.h"
 #include "core/utils/json_config.h"
 
@@ -57,7 +57,7 @@ public:
     /**
      * @brief Validates tile configuration against problem constraints
      * @param tile_desc Tile descriptor containing thread-level parameters
-     * @param norm_problem Problem specification including dimensions and data types
+     * @param layer_norm_problem Problem specification including dimensions and data types
      * @return true if tile configuration is valid, false otherwise
      * 
      * Validation includes:
@@ -66,7 +66,7 @@ public:
      * - Thread block size limitations
      * - Vector size compatibility with data types
      */
-    bool IsValidTile(const LayerNormTileDesc& tile_desc, const NormProblem& norm_problem);
+    bool IsValidTile(const LayerNormTileDesc& tile_desc, const LayerNormProblem& layer_norm_problem);
 
     /**
      * @brief Validates generated code instance
@@ -78,15 +78,15 @@ public:
     /**
      * @brief Creates kernel instances from configuration
      * @param config Configuration with parameter ranges or single values
-     * @param norm_problem Problem specification
+     * @param layer_norm_problem Problem specification
      * @return Vector of generated kernel instances
      */
-    std::vector<LayerNormCodeGen> CreateInstanceForConfig(const NormConfig& config, const NormProblem& norm_problem);
+    std::vector<LayerNormCodeGen> CreateInstanceForConfig(const NormConfig& config, const LayerNormProblem& layer_norm_problem);
 
     /**
      * @brief Apply intelligent filtering to reduce search space
      * @param instances All generated instances to filter
-     * @param norm_problem Problem specification for context-aware filtering
+     * @param layer_norm_problem Problem specification for context-aware filtering
      * @return Filtered subset of instances with better performance characteristics
      * 
      * Heuristic Strategy:
@@ -96,11 +96,11 @@ public:
      * - Prefers vector sizes that align with data types
      */
     std::vector<LayerNormCodeGen> HeuristicFilter(const std::vector<LayerNormCodeGen>& instances, 
-                                            const NormProblem& norm_problem);
+                                            const LayerNormProblem& layer_norm_problem);
 
     /**
      * @brief Main instance generation entry point supporting multiple configuration sources
-     * @param norm_problem The Layer Normalization problem configuration to solve
+     * @param layer_norm_problem The Layer Normalization problem configuration to solve
      * 
      * Execution Strategy (controlled by FC_TUNING_MODE):
      * - Mode 0 (Heuristic): Apply filtering → select optimal subset → random sampling for fast execution
@@ -112,7 +112,7 @@ public:
      * - Default configs: Parameter ranges for exploration and tuning
      * - User configs: Custom parameter ranges for specific use cases
      */
-    void GenerateInstances(NormProblem& norm_problem);
+    void GenerateInstances(LayerNormProblem& layer_norm_problem);
 
     /**
      * @brief Gets the total number of generated instances across all configurations
@@ -125,12 +125,12 @@ public:
 
     /**
      * @brief Get profiling instance map for the given Layer Normalization kind
-     * @param norm_problem The normalization problem configuration
+     * @param layer_norm_problem The normalization problem configuration
      * @return Reference to the instance map for the specific operation kind
      */
-    std::map<std::string, LayerNormCodeGen>& GetInstanceMap(NormProblem norm_problem)
+    std::map<std::string, LayerNormCodeGen>& GetInstanceMap(LayerNormProblem layer_norm_problem)
     {
-        GenerateInstances(norm_problem);
+        GenerateInstances(layer_norm_problem);
         return instance_map_;
     }
 

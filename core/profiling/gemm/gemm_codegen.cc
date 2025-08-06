@@ -50,14 +50,11 @@ std::string GemmTileDesc::Emit()
 
 std::string GemmCodeGen::GetInstanceName()
 {
-    return Sprintf("{kind_name}_{elementwise_kind}_{a_dtype}_{b_dtype}_{c_dtype}_"
-                   "{tile_desc}_{pipeline}_{epilogue}_{scheduler}_{min_block_per_cu}_"
+    return Sprintf("{problem_name}_{tile_desc}_{padding}_{pipeline}_{epilogue}_{scheduler}_{min_block_per_cu}_"
                    "{num_wave_groups}_{tile_partitioner_group_num}_{tile_partitioner_m01}",
                    fmt::arg("kind_name", GetGemmKindShortName(problem_.kind_)),
                    fmt::arg("elementwise_kind", GetElementwiseKindShortName(problem_.elementwise_kind_)),
-                   fmt::arg("a_dtype", DataTypeToString(problem_.a_dtype_)),
-                   fmt::arg("b_dtype", DataTypeToString(problem_.b_dtype_)),
-                   fmt::arg("c_dtype", DataTypeToString(problem_.c_dtype_)),
+                   fmt::arg("problem_name", problem_.GetName()),
                    fmt::arg("tile_desc", tile_desc_.GetInstanceName()),
                    fmt::arg("pipeline", GetPipelineVersionEnumShortName(pipeline_version_)),
                    fmt::arg("epilogue", GetEpilogueEnumShortName(pipeline_epilogue_)),
@@ -143,9 +140,9 @@ using {{name}} = {{kernel}}<TilePartitioner_{{idx}}, GemmPipeline_{{idx}}, GemmE
                                 {"num_wave_groups", num_wave_groups_},
                                 {"use_double_smem_buffer", pipeline_version_ == PipelineVersionEnum::Compute_V4? true:false},
                                 {"c_permute", problem_.c_permute_},
-                                {"use_structured_sparsity", problem_.use_structured_sparsity_},
-                                {"persistent", problem_.is_persistent_},
-                                {"preshuffle", problem_.is_preshuffle_},
+                                {"use_structured_sparsity", use_structured_sparsity_},
+                                {"persistent", is_persistent_},
+                                {"preshuffle", is_preshuffle_},
                                 {"kernel", GetGemmKindTag(problem_.kind_)},
                                 {"base_pipeline", GetPipelineVersionEnumBaseTag(pipeline_version_)},
                                 {"main_pipeline", GetPipelineVersionEnumMainTag(pipeline_version_)},

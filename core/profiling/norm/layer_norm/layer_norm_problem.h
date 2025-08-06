@@ -46,6 +46,19 @@ public:
         return oss.str();
     }
 
+    std::string GetNameImpl(){
+        return Sprintf("{x_dtype}_{y_dtype}_{smooth_scale_dtype}_{y_scale_dtype}_{is_add_bias}_{fused_add}_{fused_quant}",
+                       fmt::arg("x_dtype", DataTypeToString(x_dtype_)),
+                       fmt::arg("y_dtype", DataTypeToString(y_dtype_)),
+                       fmt::arg("smooth_scale_dtype", DataTypeToString(smooth_scale_dtype_)),
+                       fmt::arg("y_scale_dtype", DataTypeToString(y_scale_dtype_)),
+                       fmt::arg("is_add_bias", GetNormBiasShortName(is_add_bias_)),
+                       fmt::arg("fused_add", GetFusedAddShortName(fused_add_)),
+                       fmt::arg("fused_quant", GetFusedQuantShortName(fused_quant_)));
+    }
+
+    
+
     // ====================== Problem Configuration ======================
 
     // Data type specifications

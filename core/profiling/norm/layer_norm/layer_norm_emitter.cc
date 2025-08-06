@@ -12,7 +12,7 @@ FC_DECLARE_string(FC_CONFIG_JSON_PATH);   // Base path for config files
 
 namespace flashck {
 
-bool LayerNormEmitter::IsValidTile(const LayerNormTileDesc& tile_desc, const NormProblem& norm_problem)
+bool LayerNormEmitter::IsValidTile(const LayerNormTileDesc& tile_desc, const LayerNormProblem& layer_norm_problem)
 {
     // Validate all tile parameters are positive
     if (tile_desc.m_repeat_ <= 0 || tile_desc.n_repeat_ <= 0 || 
@@ -30,7 +30,7 @@ bool LayerNormEmitter::IsValidTile(const LayerNormTileDesc& tile_desc, const Nor
     }
 
     // Validate vector size alignment with data types
-    const int data_type_size = SizeOf(norm_problem.x_dtype_);
+    const int data_type_size = SizeOf(layer_norm_problem.x_dtype_);
     if (tile_desc.n_vector_ % (4 / data_type_size) != 0) {
         VLOG(3) << "Invalid Layer Normalization tile: vector size " << tile_desc.n_vector_
                 << " not aligned with data type size " << data_type_size;
@@ -49,9 +49,9 @@ bool LayerNormEmitter::IsValidTile(const LayerNormTileDesc& tile_desc, const Nor
     const int64_t total_m_coverage = tile_desc.m_thread_per_block_ * tile_desc.m_repeat_;
     const int64_t total_n_coverage = tile_desc.n_thread_per_block_ * tile_desc.n_repeat_ * tile_desc.n_vector_;
 
-    if (total_m_coverage > norm_problem.m_ || total_n_coverage > norm_problem.n_) {
+    if (total_m_coverage > layer_norm_problem.m_ || total_n_coverage > layer_norm_problem.n_) {
         VLOG(3) << "Invalid Layer Normalization tile: coverage (" << total_m_coverage << "," << total_n_coverage 
-                << ") exceeds problem dims (" << norm_problem.m_ << "," << norm_problem.n_ << ")";
+                << ") exceeds problem dims (" << layer_norm_problem.m_ << "," << layer_norm_problem.n_ << ")";
         return false;
     }
 
@@ -65,7 +65,7 @@ bool LayerNormEmitter::IsValidInstance(const LayerNormCodeGen& instance)
 
 std::vector<LayerNormCodeGen> LayerNormEmitter::HeuristicFilter(
     const std::vector<LayerNormCodeGen>& instances,
-    const NormProblem& norm_problem)
+    const LayerNormProblem& layer_norm_problem)
 {
     if (instances.empty()) {
         return {};
@@ -102,7 +102,7 @@ std::vector<LayerNormCodeGen> LayerNormEmitter::HeuristicFilter(
         
         // 4. Feature dimension coverage (efficient reduction)
         const int64_t n_coverage_per_block = tile_desc.n_thread_per_block_ * tile_desc.n_repeat_ * tile_desc.n_vector_;
-        if (norm_problem.n_ % n_coverage_per_block == 0) {
+        if (layer_norm_problem.n_ % n_coverage_per_block == 0) {
             score += 0.1;  // Perfect feature dimension fit
         }
         
@@ -128,7 +128,7 @@ std::vector<LayerNormCodeGen> LayerNormEmitter::HeuristicFilter(
 }
 
 std::vector<LayerNormCodeGen> LayerNormEmitter::CreateInstanceForConfig(
-    const NormConfig& config, const NormProblem& norm_problem) 
+    const NormConfig& config, const LayerNormProblem& layer_norm_problem) 
 {
     std::vector<LayerNormCodeGen> result;
 
@@ -174,7 +174,7 @@ std::vector<LayerNormCodeGen> LayerNormEmitter::CreateInstanceForConfig(
 
         // Construct LayerNormCodeGen for Layer Normalization
         LayerNormCodeGen instance;
-        instance.problem_ = norm_problem;
+        instance.problem_ = layer_norm_problem;
         instance.tile_desc_ = LayerNormTileDesc{m_repeat, n_repeat, m_thread_per_block, 
                                                n_thread_per_block, n_vector};
         instance.is_pad_n_ = is_pad_n;
@@ -185,7 +185,7 @@ std::vector<LayerNormCodeGen> LayerNormEmitter::CreateInstanceForConfig(
     return result;
 }
 
-void LayerNormEmitter::GenerateInstances(NormProblem& norm_problem)
+void LayerNormEmitter::GenerateInstances(LayerNormProblem& layer_norm_problem)
 {
     // Validate tuning mode
     FC_ENFORCE_EQ(FLAGS_FC_TUNING_MODE >= 0 && FLAGS_FC_TUNING_MODE <= 2, true,
@@ -195,7 +195,7 @@ void LayerNormEmitter::GenerateInstances(NormProblem& norm_problem)
     std::vector<LayerNormCodeGen> all_instances;
 
     // Configuration loading based on enabled flags
-    auto base_json_path = std::filesystem::path(FLAGS_FC_CONFIG_JSON_PATH) / "layer_norm";
+    auto base_json_path = std::filesystem::path(FLAGS_FC_CONFIG_JSON_PATH) / "norm" / "layer_norm";
 
     // Load backup configurations (pre-validated single configs)
     if (FLAGS_FC_ENABLE_BACKUP_JSON) {
@@ -204,7 +204,7 @@ void LayerNormEmitter::GenerateInstances(NormProblem& norm_problem)
             if (std::filesystem::exists(backup_path)) {
                 auto backup_configs = LoadConfigJson<std::vector<NormConfig>>(backup_path);
                 for (const auto& config : backup_configs) {
-                    auto backup_instances = CreateInstanceForConfig(config, norm_problem);
+                    auto backup_instances = CreateInstanceForConfig(config, layer_norm_problem);
                     all_instances.insert(all_instances.end(), backup_instances.begin(), backup_instances.end());
                 }
                 VLOG(2) << "Loaded " << backup_configs.size() << " Layer Normalization backup configurations";
@@ -220,7 +220,7 @@ void LayerNormEmitter::GenerateInstances(NormProblem& norm_problem)
             std::filesystem::path default_path = base_json_path / "default_config.json";
             if (std::filesystem::exists(default_path)) {
                 auto default_config = LoadConfigJson<NormConfig>(default_path);
-                auto default_instances = CreateInstanceForConfig(default_config, norm_problem);
+                auto default_instances = CreateInstanceForConfig(default_config, layer_norm_problem);
                 all_instances.insert(all_instances.end(), default_instances.begin(), default_instances.end());
                 VLOG(2) << "Loaded Layer Normalization default configuration with " << default_instances.size() << " instances";
             }
@@ -235,7 +235,7 @@ void LayerNormEmitter::GenerateInstances(NormProblem& norm_problem)
             std::filesystem::path user_path = base_json_path / "user_config.json";
             if (std::filesystem::exists(user_path)) {
                 auto user_config = LoadConfigJson<NormConfig>(user_path);
-                auto user_instances = CreateInstanceForConfig(user_config, norm_problem);
+                auto user_instances = CreateInstanceForConfig(user_config, layer_norm_problem);
                 all_instances.insert(all_instances.end(), user_instances.begin(), user_instances.end());
                 VLOG(2) << "Loaded Layer Normalization user configuration with " << user_instances.size() << " instances";
             }
@@ -249,7 +249,7 @@ void LayerNormEmitter::GenerateInstances(NormProblem& norm_problem)
     
     switch (FLAGS_FC_TUNING_MODE) {
         case 0: {  // Heuristic mode: filter + random selection for fast execution
-            auto filtered_instances = HeuristicFilter(all_instances, norm_problem);
+            auto filtered_instances = HeuristicFilter(all_instances, layer_norm_problem);
             if (!filtered_instances.empty()) {
                 // Randomly select one optimal configuration for fast execution
                 std::random_device rd;
@@ -267,7 +267,7 @@ void LayerNormEmitter::GenerateInstances(NormProblem& norm_problem)
             break;
         }
         case 2: {  // Hybrid mode: heuristic filtering + broader search
-            auto filtered_instances = HeuristicFilter(all_instances, norm_problem);
+            auto filtered_instances = HeuristicFilter(all_instances, layer_norm_problem);
             final_instances = filtered_instances.empty() ? all_instances : filtered_instances;
             VLOG(1) << "Layer Normalization hybrid mode: using " << final_instances.size() 
                     << " instances (filtered from " << all_instances.size() << ")";

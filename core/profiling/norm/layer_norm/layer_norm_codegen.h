@@ -62,7 +62,7 @@ public:
 
     // ====================== Operation Configuration ======================
 
-    NormProblem problem_;
+    LayerNormProblem problem_;
 
     // Tiling strategy
     LayerNormTileDesc tile_desc_;  ///< Tile configuration for this operation

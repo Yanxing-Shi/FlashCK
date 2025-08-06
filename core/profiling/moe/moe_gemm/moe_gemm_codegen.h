@@ -177,7 +177,7 @@ public:
 
     // ====================== Core Operation Configuration ======================
     
-    MoeProblem problem_;  ///< Complete MoE problem specification (routing, dimensions, types)
+    MoeGemmProblem problem_;  ///< Complete MoE problem specification (routing, dimensions, types)
 
     // Dual-stage hierarchical tiling strategy
     MoeGemmTileDesc tile_desc_;   ///< Complete tile configuration for optimal MoE performance

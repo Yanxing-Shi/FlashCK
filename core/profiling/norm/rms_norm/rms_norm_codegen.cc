@@ -73,18 +73,15 @@ std::string RmsNormTileDesc::Emit()
 
     return TEMPLATE_CHECK(tile_desc, tile_desc_value_map, "RmsNormTileDesc::Emit");
 }
+
 std::string RmsNormCodeGen::GetInstanceName() 
 {
-    return Sprintf("rms_norm_{x_dtype}_{y_dtype}_{smooth_scale_dtype}_{y_scale_dtype}_"
-                   "{tile_desc}_{is_add_bias}_{fused_add}_{fused_quant}",
-                   fmt::arg("x_dtype", DataTypeToString(problem_.x_dtype_)),
-                   fmt::arg("y_dtype", DataTypeToString(problem_.y_dtype_)),
-                   fmt::arg("smooth_scale_dtype", DataTypeToString(problem_.smooth_scale_dtype_)),
-                   fmt::arg("y_scale_dtype", DataTypeToString(problem_.y_scale_dtype_)),
+    return Sprintf("rms_norm_{problem_name}_{tile_desc}_{padding}_{pipeline}",
+                   fmt::arg("problem_name", problem_.GetName()),
                    fmt::arg("tile_desc", tile_desc_.GetInstanceName()),
-                   fmt::arg("is_add_bias", GetNormBiasShortName(problem_.is_add_bias_)),
-                   fmt::arg("fused_add", GetFusedAddShortName(problem_.fused_add_)),
-                   fmt::arg("fused_quant", GetFusedQuantShortName(problem_.fused_quant_)));
+                   fmt::arg("padding", is_pad_n ? true : false),
+                   fmt::arg("pipeline", is_two_pass ? true : false),
+                   );
 }
 
 std::string RmsNormCodeGen::Emit() 

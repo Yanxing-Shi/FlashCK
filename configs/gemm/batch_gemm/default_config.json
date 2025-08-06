@@ -1,7 +1,7 @@
 {
   "tile_shape": {
     "block_tile": {
-      "m": { "values": [128, 256] },
+      "m": { "values": [128] },
       "n": { "values": [128] },
       "k": { "values": [128] }
     },
@@ -11,15 +11,24 @@
       "k": { "values": [1] }
     },
     "warp_tile": {
-      "m": { "values": [16, 32] },
-      "n": { "values": [16, 32] },
-      "k": { "values": [16, 32] }
+      "m": { "values": [16] },
+      "n": { "values": [16] },
+      "k": { "values": [16] }
     }
   },
+  "persistent":{
+      "values": [false]
+  },
+  "preshuffle":{
+      "values": [false]
+  },
+  "use_sparsity":{
+      "values": [false]
+  },
   "pipeline": {
-    "version": { "values": ["mem, compv3"] },
-    "scheduler": { "values": ["interwave, interwave"] },
-    "epilogue": { "values": ["cshuffle, default"] }
+    "version": { "values": ["mem"] },
+    "scheduler": { "values": ["interwave"] },
+    "epilogue": { "values": ["cshuffle"] }
   },
   "padding": {
     "m": { "values": [false] },
