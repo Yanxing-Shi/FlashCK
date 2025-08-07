@@ -13,8 +13,5 @@
   "launch": {
     "max_thread_per_block": { "values": [1024] },
     "min_block_per_cu": { "values": [1] }
-  },
-  "pipeline": {
-    "values": ["QRKSVS"]
   }
 }

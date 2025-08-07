@@ -35,7 +35,7 @@
     }
   },
   "strategy":{
-    "version": { "values": ["mem"] },
+    "pipeline": { "values": ["mem"] },
     "scheduler": { "values": ["interwave"] },
     "epilogue": { "values": ["cshuffle"] }
   },

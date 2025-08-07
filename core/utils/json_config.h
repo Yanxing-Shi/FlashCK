@@ -190,29 +190,38 @@ struct GemmPaddingConfig {
 };
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(GemmPaddingConfig, m, n, k)
 
-struct GemmLaunchConfig {
-    IntEnumConfigParam min_block_per_cu;
+struct GemmTraitConfig {
+    GemmPaddingConfig padding;
+    IntEnumConfigParam num_wave_groups;
+    BoolEnumConfigParam persistent;
+    BoolEnumConfigParam preshuffle;
+    BoolEnumConfigParam use_sparsity;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(GemmLaunchConfig, min_block_per_cu)
+
+struct GemmStrategyConfig{
+    StrEnumConfigParam pipeline, scheduler, epilogue;
+};
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(GemmStrategyConfig, pipeline, scheduler, epilogue)
 
 struct GemmPartitionConfig {
-    IntEnumConfigParam num_wave_groups, tile_partitioner_group_num, tile_partitioner_m01;
+    IntEnumConfigParam tile_partitioner_group_num, tile_partitioner_m01;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(GemmPartitionConfig, num_wave_groups, tile_partitioner_group_num, tile_partitioner_m01)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(GemmPartitionConfig, tile_partitioner_group_num, tile_partitioner_m01)
 
-struct GemmPipelineConfig{
-    StrEnumConfigParam version, scheduler, epilogue;
+struct GemmLaunchConfig {
+    IntEnumConfigParam max_thread_per_block;
+    IntEnumConfigParam min_block_per_cu;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(GemmPipelineConfig, version, scheduler, epilogue)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(GemmLaunchConfig, max_thread_per_block, min_block_per_cu)
 
 struct GemmConfig {
     GemmTileConfig tile_shape;
-    GemmPaddingConfig padding;
-    GemmLaunchConfig launch;
+    GemmTraitConfig trait;
+    GemmStrategyConfig strategy;
     GemmPartitionConfig partition;
-    GemmPipelineConfig pipeline;
+    GemmLaunchConfig launch;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(GemmConfig, tile_shape, padding, launch, partition, pipeline)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(GemmConfig, tile_shape, trait, strategy, partition, launch)
 
 // ========== FMHA Fwd Structs ==========
 struct FmhaFwdBlockConfig {
@@ -230,16 +239,6 @@ struct FmhaFwdWarpTileConfig {
 };
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdWarpTileConfig, m0, n0, k0, m1, n1, k1)
 
-struct FmhaFwdPaddingConfig {
-    BoolEnumConfigParam s, sk, d, dv;
-};
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdPaddingConfig, s, sk, d, dv)
-
-struct FmhaFwdLaunchConfig {
-    IntEnumConfigParam min_block_per_cu;
-};
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdLaunchConfig, min_block_per_cu)
-
 struct FmhaFwdTileConfig {
     FmhaFwdBlockConfig block_tile;
     FmhaFwdWarpConfig block_warps;
@@ -247,14 +246,35 @@ struct FmhaFwdTileConfig {
 };
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdTileConfig, block_tile, block_warps, warp_tile)
 
-struct FmhaFwdConfig {
-    FmhaFwdTileConfig tile_shape;
+struct FmhaFwdPaddingConfig {
+    BoolEnumConfigParam s, sk, d, dv;
+};
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdPaddingConfig, s, sk, d, dv)
+
+struct FmhaFwdtraitConfig {
     FmhaFwdPaddingConfig padding;
-    FmhaFwdLaunchConfig launch;
     BoolEnumConfigParam skip_min_q_seq_len;
+};
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdtraitConfig, padding, skip_min_q_seq_len)
+
+struct FmhaFwdStrategyConfig {
     StrEnumConfigParam pipeline;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdConfig, tile_shape, padding, launch, skip_min_q_seq_len, pipeline)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdStrategyConfig, pipeline)
+
+struct FmhaFwdLaunchConfig {
+    IntEnumConfigParam max_thread_per_block;
+    IntEnumConfigParam min_block_per_cu;
+};
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdLaunchConfig, max_thread_per_block, min_block_per_cu)
+
+struct FmhaFwdConfig {
+    FmhaFwdTileConfig tile_shape;
+    FmhaFwdTraitConfig trait;
+    FmhaFwdStrategyConfig strategy;
+    FmhaFwdLaunchConfig launch;
+};
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdConfig, tile_shape, trait, strategy, launch)
 
 // ========== FMHA Fwd append kv Structs ==========
 struct FmhaFwdAppendKVBlockConfig {
@@ -272,20 +292,25 @@ struct FmhaFwdAppendKVPaddingConfig {
 };
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdAppendKVPaddingConfig, s, sk, d, dv)
 
+struct FmhaFwdAppendKVtraitConfig {
+    FmhaFwdAppendKVPaddingConfig padding;
+};
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdAppendKVtraitConfig, padding)
+
 struct FmhaFwdAppendKVLaunchConfig {
+    IntEnumConfigParam max_thread_per_block;
     IntEnumConfigParam min_block_per_cu;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdAppendKVLaunchConfig, min_block_per_cu)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdAppendKVLaunchConfig, max_thread_per_block, min_block_per_cu)
 
 struct FmhaFwdAppendKVConfig {
     FmhaFwdAppendKVTileConfig tile_shape;
-    FmhaFwdAppendKVPaddingConfig padding;
+    FmhaFwdAppendKVtraitConfig trait;
     FmhaFwdAppendKVLaunchConfig launch;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdAppendKVConfig, tile_shape, padding, launch)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdAppendKVConfig, tile_shape, trait, launch)
 
 // ========== FMHA Fwd split kv Structs ==========
-
 struct FmhaFwdSplitKVBlockConfig {
     IntEnumConfigParam m0, n0, k0, n1, k1, k0_max;
 };
@@ -312,21 +337,31 @@ struct FmhaFwdSplitKVPaddingConfig {
 };
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdSplitKVPaddingConfig, s, sk, d, dv)
 
+struct FmhaFwdSplitKVTraitConfig {
+    FmhaFwdSplitKVPaddingConfig padding;
+    BoolEnumConfigParam has_uneven_splits;
+    BoolEnumConfigParam merge_groups_num_head_q_seq_len;
+};
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdSplitKVTraitConfig, padding, has_uneven_splits, merge_groups_num_head_q_seq_len)
+
+struct FmhaFwdSplitKVStrategyConfig {
+    StrEnumConfigParam pipeline;
+    IntEnumConfigParam num_splits;
+};
+
 struct FmhaFwdSplitKVLaunchConfig {
+    IntEnumConfigParam max_thread_per_block;
     IntEnumConfigParam min_block_per_cu;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdSplitKVLaunchConfig, min_block_per_cu)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdSplitKVLaunchConfig, max_thread_per_block, min_block_per_cu)
 
 struct FmhaFwdSplitKVConfig {
     FmhaFwdSplitKVTileConfig tile_shape;
-    FmhaFwdSplitKVPaddingConfig padding;
-    IntEnumConfigParam num_splits;
-    BoolEnumConfigParam has_uneven_splits;
-    BoolEnumConfigParam merge_groups_num_head_q_seq_len;
+    FmhaFwdSplitKVTraitConfig trait;
+    FmhaFwdSplitKVStrategyConfig strategy;
     FmhaFwdSplitKVLaunchConfig launch;
-    StrEnumConfigParam pipeline;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdSplitKVConfig, tile_shape, padding, num_splits, launch, has_uneven_splits, merge_groups_num_head_q_seq_len, pipeline)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdSplitKVConfig, tile_shape, trait, strategy, launch)
 
 // ========== FMHA Fwd split kv combine Structs ==========
 struct FmhaFwdSplitKVCombineBlockConfig {
@@ -344,17 +379,23 @@ struct FmhaFwdSplitKVCombinePaddingConfig {
 };
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdSplitKVCombinePaddingConfig, s, dv)
 
+struct FmhaFwdSplitKVCombineTraitConfig {
+    FmhaFwdSplitKVCombinePaddingConfig padding;
+};
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdSplitKVCombineTraitConfig, padding)
+
 struct FmhaFwdSplitKVCombineLaunchConfig {
+    IntEnumConfigParam max_thread_per_block;
     IntEnumConfigParam min_block_per_cu;
 };
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdSplitKVCombineLaunchConfig, min_block_per_cu)
 
 struct FmhaFwdSplitKVCombineConfig {
     FmhaFwdSplitKVCombineTileConfig tile_shape;
-    FmhaFwdSplitKVCombinePaddingConfig padding;
+    FmhaFwdSplitKVCombineTraitConfig trait;
     FmhaFwdSplitKVCombineLaunchConfig launch;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdSplitKVCombineConfig, tile_shape, padding, launch)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdSplitKVCombineConfig, tile_shape, trait, launch)
 
 // ========== FMHA batch prefill Structs ==========
 struct FmhaFwdBatchPrefillBlockConfig {
@@ -372,16 +413,6 @@ struct FmhaFwdBatchPrefillWarpTileConfig {
 };
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdBatchPrefillWarpTileConfig, m0, n0, k0, m1, n1, k1)
 
-struct FmhaFwdBatchPrefillPaddingConfig {
-    BoolEnumConfigParam s, sk, d, dv;
-};
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdBatchPrefillPaddingConfig, s, sk, d, dv)
-
-struct FmhaFwdBatchPrefillLaunchConfig {
-    IntEnumConfigParam min_block_per_cu;
-};
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdBatchPrefillLaunchConfig, min_block_per_cu)
-
 struct FmhaFwdBatchPrefillTileConfig {
     FmhaFwdBatchPrefillBlockConfig block_tile;
     FmhaFwdBatchPrefillWarpConfig block_warps;
@@ -389,15 +420,37 @@ struct FmhaFwdBatchPrefillTileConfig {
 };
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdBatchPrefillTileConfig, block_tile, block_warps, warp_tile)
 
-struct FmhaFwdBatchPrefillConfig {
-    FmhaFwdBatchPrefillTileConfig tile_shape;
+struct FmhaFwdBatchPrefillPaddingConfig {
+    BoolEnumConfigParam s, sk, d, dv;
+};
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdBatchPrefillPaddingConfig, s, sk, d, dv)
+
+struct FmhaFwdBatchPrefillTraitConfig {
     FmhaFwdBatchPrefillPaddingConfig padding;
-    FmhaFwdBatchPrefillLaunchConfig launch;
+    BoolEnumConfigParam skip_min_q_seq_len;
+};
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdBatchPrefillTraitConfig, padding, skip_min_q_seq_len)
+struct FmhaFwdBatchPrefillStrategyConfig {
     StrEnumConfigParam pipeline;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdBatchPrefillConfig, tile_shape, padding, launch, pipeline)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdBatchPrefillStrategyConfig, pipeline)
 
-// ========== FMHA Structs ==========
+struct FmhaFwdBatchPrefillLaunchConfig {
+    IntEnumConfigParam max_thread_per_block;
+    IntEnumConfigParam min_block_per_cu;
+};
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdBatchPrefillLaunchConfig, min_block_per_cu)
+
+
+struct FmhaFwdBatchPrefillConfig {
+    FmhaFwdBatchPrefillTileConfig tile_shape;
+    FmhaFwdBatchPrefillTraitConfig trait;
+    FmhaFwdBatchPrefillStrategyConfig strategy;
+    FmhaFwdBatchPrefillLaunchConfig launch;
+};
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdBatchPrefillConfig, tile_shape, trait, strategy, launch)
+
+// ========== FMHA paged kv prefill Structs ==========
 struct FmhaFwdPagedKVPrefillBlockConfig {
     IntEnumConfigParam m0, n0, k0, n1, k1, k0_max;
 };
@@ -413,16 +466,6 @@ struct FmhaFwdPagedKVPrefillWarpTileConfig {
 };
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdPagedKVPrefillWarpTileConfig, m0, n0, k0, m1, n1, k1)
 
-struct FmhaFwdPagedKVPrefillPaddingConfig {
-    BoolEnumConfigParam s, sk, d, dv;
-};
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdPagedKVPrefillPaddingConfig, s, sk, d, dv)
-
-struct FmhaFwdPagedKVPrefillLaunchConfig {
-    IntEnumConfigParam min_block_per_cu;
-};
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdPagedKVPrefillLaunchConfig, min_block_per_cu)
-
 struct FmhaFwdPagedKVPrefillTileConfig {
     FmhaFwdPagedKVPrefillBlockConfig block_tile;
     FmhaFwdPagedKVPrefillWarpConfig block_warps;
@@ -430,13 +473,37 @@ struct FmhaFwdPagedKVPrefillTileConfig {
 };
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdPagedKVPrefillTileConfig, block_tile, block_warps, warp_tile)
 
-struct FmhaFwdPagedKVPrefillConfig {
-    FmhaFwdPagedKVPrefillTileConfig tile_shape;
+struct FmhaFwdPagedKVPrefillPaddingConfig {
+    BoolEnumConfigParam s, sk, d, dv;
+};
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdPagedKVPrefillPaddingConfig, s, sk, d, dv)
+
+struct FmhaFwdPagedKVPrefillTraitConfig {
     FmhaFwdPagedKVPrefillPaddingConfig padding;
-    FmhaFwdPagedKVPrefillLaunchConfig launch;
+    BoolEnumConfigParam skip_min_q_seq_len;
+};
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdPagedKVPrefillTraitConfig, padding, skip_min_q_seq_len)
+
+struct FmhaFwdPagedKVPrefillStrategyConfig {
     StrEnumConfigParam pipeline;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdPagedKVPrefillConfig, tile_shape, padding, launch, pipeline)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdPagedKVPrefillStrategyConfig, pipeline)
+
+
+struct FmhaFwdPagedKVPrefillLaunchConfig {
+    IntEnumConfigParam max_thread_per_block;
+    IntEnumConfigParam min_block_per_cu;
+};
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdPagedKVPrefillLaunchConfig, max_thread_per_block, min_block_per_cu)
+
+
+struct FmhaFwdPagedKVPrefillConfig {
+    FmhaFwdPagedKVPrefillTileConfig tile_shape;
+    FmhaFwdPagedKVPrefillTraitConfig trait;
+    FmhaFwdPagedKVPrefillStrategyConfig strategy;
+    FmhaFwdPagedKVPrefillLaunchConfig launch;
+};
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdPagedKVPrefillConfig, tile_shape, trait, strategy, launch)
 
 // ========== Norm Structs ==========
 struct NormTileConfig {
@@ -449,39 +516,43 @@ struct NormPaddingConfig {
 };
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(NormPaddingConfig, n)
 
-struct NormPipelineConfig {
+struct NormTraitConfig {
+    NormPaddingConfig padding;
     BoolEnumConfigParam is_two_pass;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(NormPipelineConfig, is_two_pass)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(NormTraitConfig, padding, is_two_pass)
 
 struct NormLaunchConfig {
+    IntEnumConfigParam max_thread_per_block;
     IntEnumConfigParam min_block_per_cu;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(NormLaunchConfig, min_block_per_cu)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(NormLaunchConfig, max_thread_per_block, min_block_per_cu)
 
 struct NormConfig {
     NormTileConfig tile_shape;
-    NormPaddingConfig padding;
-    NormPipelineConfig pipeline;
+    NormTraitConfig trait;
     NormLaunchConfig launch;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(NormConfig, tile_shape, padding, pipeline, launch)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(NormConfig, tile_shape, trait, launch)
 
 // ========== Moe Structs ==========
 struct MoeGemmBlockConfig {
-    IntEnumConfigParam m, n, k;
+    IntEnumConfigParam token;
+    IntEnumConfigParam intermediate;
+    IntEnumConfigParam hidden;
+    IntEnumConfigParam down;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MoeGemmBlockConfig, m, n, k)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MoeGemmBlockConfig, token, intermediate, hidden, down)
 
 struct MoeGemmWarpConfig {
-    IntEnumConfigParam m, n, k;
+    IntEnumConfigParam m0, n0, k0, m1, n1, k1;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MoeGemmWarpConfig, m, n, k)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MoeGemmWarpConfig, m0, n0, k0, m1, n1, k1)
 
 struct MoeGemmWarpTileConfig {
-    IntEnumConfigParam m, n, k;
+    IntEnumConfigParam m0, n0, k0, m1, n1, k1;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MoeGemmWarpTileConfig, m, n, k)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MoeGemmWarpTileConfig, m0, n0, k0, m1, n1, k1)
 
 struct MoeGemmTileConfig {
     MoeGemmBlockConfig block_tile;
@@ -490,30 +561,29 @@ struct MoeGemmTileConfig {
 };
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MoeGemmTileConfig, block_tile, block_warps, warp_tile)
 
-struct MoeGemmPipelineConfig {
-    BoolEnumConfigParam interleave;
-};
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MoeGemmPipelineConfig, interleave)
-
 struct MoeGemmPaddingConfig {
     BoolEnumConfigParam hidden_size;
     BoolEnumConfigParam intermediate_size;
 };
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MoeGemmPaddingConfig, hidden_size, intermediate_size)
 
+struct MoeGemmTraitConfig {
+    BoolEnumConfigParam interleave;
+};
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MoeGemmTraitConfig, interleave)
 
 struct MoeLaunchConfig {
+    IntEnumConfigParam max_thread_per_block;
     IntEnumConfigParam min_block_per_cu;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MoeLaunchConfig, min_block_per_cu)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MoeLaunchConfig, max_thread_per_block, min_block_per_cu)
 
 struct MoeGemmConfig {
     MoeGemmTileConfig tile_shape;
-    MoeGemmPaddingConfig padding;
-    MoeGemmPipelineConfig pipeline;
+    MoeGemmTraitConfig trait;
     MoeLaunchConfig launch;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MoeGemmConfig, tile_shape, padding, pipeline, launch);
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MoeGemmConfig, tile_shape, trait, launch);
 
 struct MoeSmoothQuantTileConfig {
     IntEnumConfigParam m_repeat, n_repeat, m_thread_per_block, n_thread_per_block, n_vector;
@@ -525,18 +595,24 @@ struct MoeSmoothQuantPaddingConfig {
 };
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MoeSmoothQuantPaddingConfig, n)
 
-struct MoeSmoothQuantPipelineConfig {
+struct MoeSmoothQuantTraitConfig {
+    MoeSmoothQuantPaddingConfig padding;
+};
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MoeSmoothQuantTraitConfig, padding)
+
+
+struct MoeSmoothQuantStrategyConfig {
     BoolEnumConfigParam is_two_pass;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MoeSmoothQuantPipelineConfig, is_two_pass)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MoeSmoothQuantStrategyConfig, is_two_pass)
 
 struct MoeSmoothQuantConfig {
     MoeSmoothQuantTileConfig tile_shape;
-    MoeSmoothQuantPaddingConfig padding;
-    MoeSmoothQuantPipelineConfig pipeline;
+    MoeSmoothQuantTraitConfig trait;
+    MoeSmoothQuantStrategyConfig strategy;
     MoeLaunchConfig launch;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MoeSmoothQuantConfig, tile_shape, padding, pipeline, launch)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MoeSmoothQuantConfig, tile_shape, trait, strategy, launch)
 
 struct MoeSortingConfig {
     IntEnumConfigParam internal_load_unroll;
