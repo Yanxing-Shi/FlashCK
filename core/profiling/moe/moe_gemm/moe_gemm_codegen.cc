@@ -88,7 +88,7 @@ std::string MoeGemmCodeGen::Emit()
     using moe_traits_{{idx}} = ck_tile::FusedMoeGemmTraits<
         {{is_only_gate}},        // Gate-only computation flag
         {{use_smooth_quant}},    // Smooth quantization support
-        1                        // Atomic operations mode
+        1,     // Atomic operations mode, 0-no atomic, 1-atomic-pk-f16/bf16, 2-atomic-f32
         FusedMoeGemmWeightPermuteEnum::b_nr_kr_waveflatten, // Weight permutation strategy
         {{is_pad_hidden_size}}, // Hidden size padding flag
         {{is_pad_intermediate_size}}, // Intermediate size padding flag
@@ -136,7 +136,6 @@ std::string MoeGemmCodeGen::Emit()
         {"is_pad_hidden_size", is_pad_hidden_size_},
         {"is_pad_intermediate_size", is_pad_intermediate_size_},
         {"is_interleave", is_interleave_},
-        {"min_block_per_cu", min_block_per_cu_},
         {"shape", tile_desc_.Emit()},
         {"activation", GetActivationTag(problem_.activation_)},
         {"is_only_gate", false},  // Configurable based on MoE architecture

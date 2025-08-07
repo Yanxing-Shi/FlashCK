@@ -1,76 +1,50 @@
-[
-  {
-    "tile_shape": {
-      "block_tile": {
-        "m": { "values": [128] },
-        "n": { "values": [128] },
-        "k": { "values": [128] }
-      },
-      "block_warps": {
-        "m": { "values": [4] },
-        "n": { "values": [1] },
-        "k": { "values": [1] }
-      },
-      "warp_tile": {
-        "m": { "values": [16] },
-        "n": { "values": [16] },
-        "k": { "values": [16] }
-      }
+
+{
+  "tile_shape": {
+    "block_tile": {
+      "m": { "values": [128] },
+      "n": { "values": [128] },
+      "k": { "values": [128] }
     },
-    "padding": {
-      "m": { "values": [false] },
-      "n": { "values": [false] },
-      "k": { "values": [false] }
+    "block_warps": {
+      "m": { "values": [4] },
+      "n": { "values": [1] },
+      "k": { "values": [1] }
     },
-    "launch": {
-      "min_block_per_cu": { "values": [1] }
-    },
-    "partition": {
-      "num_wave_groups": { "values": [1] },
-      "tile_partitioner_group_num": { "values": [8] },
-      "tile_partitioner_m01": { "values": [4] }
-    },
-    "pipeline": {
-      "version": { "values": ["mem"] },
-      "scheduler": { "values": ["interwave"] },
-      "epilogue": { "values": ["cshuffle"] }
+    "warp_tile": {
+      "m": { "values": [16] },
+      "n": { "values": [16] },
+      "k": { "values": [16] }
     }
   },
-  {
-    "tile_shape": {
-      "block_tile": {
-        "m": { "values": [256] },
-        "n": { "values": [256] },
-        "k": { "values": [256] }
-      },
-      "block_warps": {
-        "m": { "values": [8] },
-        "n": { "values": [2] },
-        "k": { "values": [2] }
-      },
-      "warp_tile": {
-        "m": { "values": [32] },
-        "n": { "values": [32] },
-        "k": { "values": [32] }
-      }
-    },
+  "trait": {
     "padding": {
       "m": { "values": [false] },
       "n": { "values": [false] },
       "k": { "values": [false] }
     },
-    "launch": {
-      "min_block_per_cu": { "values": [1] }
+    "num_wave_groups": { "values": [1] },
+    "persistent":{
+      "values": [false]
     },
-    "partition": {
-      "num_wave_groups": { "values": [1] },
-      "tile_partitioner_group_num": { "values": [4] },
-      "tile_partitioner_m01": { "values": [2] }
+    "preshuffle":{
+        "values": [false]
     },
-    "pipeline": {
-      "version": { "values": ["compv3"] },
-      "scheduler": { "values": ["interwave"] },
-      "epilogue": { "values": ["default"] }
+    "use_sparsity":{
+        "values": [false]
     }
+  },
+  "strategy":{
+    "version": { "values": ["mem"] },
+    "scheduler": { "values": ["interwave"] },
+    "epilogue": { "values": ["cshuffle"] }
+  },
+  "partition": {
+    "tile_partitioner_group_num": { "values": [8] },
+    "tile_partitioner_m01": { "values": [4] }
+  },
+  "launch": {
+    "max_thread_per_block": { "values": [1024] },
+    "min_block_per_cu": { "values": [1] }
   }
-]
+}

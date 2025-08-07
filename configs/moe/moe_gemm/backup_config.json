@@ -1,5 +1,5 @@
-[
-    {
+
+{
   "tile_shape": {
     "block_tile": {
       "token": { "values": [128] },
@@ -24,15 +24,15 @@
       "k1": { "values": [16] }
     }
   },
-  "padding":{
-    "hidden_size": { "values": [false] },
-    "intermediate_size": { "values": [false] }
-  },
-  "pipeline": {
+  "trait": {
+    "padding":{
+      "hidden_size": { "values": [false] },
+      "intermediate_size": { "values": [false] }
+    },
     "interleave": { "values": [true] }
   },
   "launch": {
+    "max_thread_per_block": { "values": [1024] },
     "min_block_per_cu": { "values": [1] }
   }
 }
-]

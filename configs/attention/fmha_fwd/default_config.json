@@ -25,19 +25,24 @@
       "k1": { "values": [16] }
     }
   },
-  "padding": {
-    "s": { "values": [true, false] },
-    "sk": { "values": [true, false] },
-    "d": { "values": [true, false] },
-    "dv": { "values": [true, false] }
+  "trait":{
+    "padding": {
+      "s": { "values": [true, false] },
+      "sk": { "values": [true, false] },
+      "d": { "values": [true, false] },
+      "dv": { "values": [true, false] }
+    },
+    "skip_min_q_seq_len":{
+      "values": [true, false]
+    }
+  },
+  "strategy":{
+    "pipeline": {
+      "values": ["QRKSVS"]
+    }
   },
   "launch": {
-    "min_block_per_cu": { "values": [1] }
-  },
-  "skip_min_q_seq_len":{
-    "values": [true, false]
-  },
-  "pipeline": {
-    "values": ["QRKSVS"]
+    "max_thread_per_block": { "values": [1024] },
+    "min_block_per_cu": { "values": [-1] }
   }
 }

@@ -33,6 +33,8 @@ public:
 
     int min_block_per_cu_;
 
+    int64_t expert_tile_;
+
 };
 
 }  // namespace flashck

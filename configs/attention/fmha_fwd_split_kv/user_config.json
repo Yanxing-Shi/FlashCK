@@ -25,27 +25,32 @@
       "k1": { "values": [16] }
     }
   },
-  "padding": {
-    "s": { "values": [true, false] },
-    "sk": { "values": [true, false] },
-    "d": { "values": [true, false] },
-    "dv": { "values": [true, false] }
+  "trait":{
+    "padding": {
+      "s": { "values": [true, false] },
+      "sk": { "values": [true, false] },
+      "d": { "values": [true, false] },
+      "dv": { "values": [true, false] }
+    },
+    "has_uneven_splits": {
+      "values": [true, false]
+    },
+    "merge_groups_num_head_q_seq_len": {
+      "values": [true, false]
+    }
   },
-  "num_splits":{
-    "max": 64,
-    "min": 1,
-    "step":1
-  },
-  "has_uneven_splits": {
-    "values": [true, false]
-  },
-  "merge_groups_num_head_q_seq_len": {
-    "values": [true, false]
+  "strategy": {
+    "pipeline": {
+      "values": ["QRKSVS"]
+    },
+    "num_splits":{
+      "max": 64,
+      "min": 1,
+      "step":1
+    }
   },
   "launch": {
+    "max_thread_per_block": { "values": [1024] },
     "min_block_per_cu": { "values": [1] }
-  },
-  "pipeline": {
-    "values": ["QRKSVS"]
   }
 }

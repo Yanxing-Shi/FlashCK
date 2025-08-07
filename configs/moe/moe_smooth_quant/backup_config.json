@@ -1,4 +1,4 @@
-[{
+{
   "tile_shape": {
     "m_repeat": { "values": [128] },
     "n_repeat": { "values": [32] },
@@ -6,14 +6,16 @@
     "n_thread_per_block": { "values": [4] },
     "n_vector": { "values": [4] }
   },
-  "padding":{
-    "n": { "values": [true, false] }
+  "tarit": {
+    "padding":{
+      "n": { "values": [true, false] }
+    }
   },
-  "pipeline": {
+  "strategy": {
     "is_two_pass": { "values": [true, false] }
   },
   "launch": {
+    "max_thread_per_block": { "values": [1024] },
     "min_block_per_cu": { "values": [1] }
   }
 }
-]

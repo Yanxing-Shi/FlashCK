@@ -21,9 +21,9 @@ std::string TopKSoftmaxCodeGen::GetInstanceName()
 std::string TopKSoftmaxCodeGen::Emit()
 {
     std::string tpl = R"(
-using ts_problem_{{idx}} = ck_tile::TopkSoftmaxWarpPerRowProblem<{{input_dtype}}, {{weight_dtype}}, {{index_dtype}}, {{num_experts}}>;
-using ts_pipeline_{{idx}} = ck_tile::TopkSoftmaxWarpPerRowPipeline<ts_problem_{{idx}}>;
-using {{name}} = ck_tile::TopkSoftmaxKernel<ts_pipeline_{{idx}}>;
+using problem_{{idx}} = ck_tile::TopkSoftmaxWarpPerRowProblem<{{input_dtype}}, {{weight_dtype}}, {{index_dtype}}, {{expert_tile}}, {{issues_per_col}}, {{bytes_per_issue}}, {{launch_type}}, {{block_size}}>;
+using pipeline_{{idx}} = ck_tile::TopkSoftmaxWarpPerRowPipeline<problem_{{idx}}>;
+using {{name}} = ck_tile::TopkSoftmaxKernel<pipeline_{{idx}}>;
 
 )";
     static int  idx = 0;
@@ -33,12 +33,11 @@ using {{name}} = ck_tile::TopkSoftmaxKernel<ts_pipeline_{{idx}}>;
                                 {"input_dtype", DataTypeToString(problem_.input_dtype_)},
                                 {"weight_dtype", DataTypeToString(problem_.weight_dtype_)},
                                 {"index_dtype", DataTypeToString(problem_.index_dtype_)},
-                                {"num_experts", problem_.num_experts_},
+                                {"expert_tile", expert_tile_},
                                 {"issues_per_col", issues_per_col_},
                                 {"bytes_per_issue", bytes_per_issue_},
                                 {"launch_type", launch_type_},
-                                {"block_size", block_size_},
-                                {"min_block_per_cu", min_block_per_cu_}};
+                                {"block_size", block_size_}};
 
 
     return TEMPLATE_CHECK(tpl, value_map, "TopKSoftmaxCodeGen::Emit");

@@ -1,7 +1,8 @@
+
 {
   "tile_shape": {
     "block_tile": {
-      "m": { "values": [128, 256] },
+      "m": { "values": [128] },
       "n": { "values": [128] },
       "k": { "values": [128] }
     },
@@ -11,27 +12,39 @@
       "k": { "values": [1] }
     },
     "warp_tile": {
-      "m": { "values": [16, 32] },
-      "n": { "values": [16, 32] },
-      "k": { "values": [16, 32] }
+      "m": { "values": [16] },
+      "n": { "values": [16] },
+      "k": { "values": [16] }
     }
   },
-  "pipeline": {
-    "version": { "values": ["mem, compv3"] },
-    "scheduler": { "values": ["interwave, interwave"] },
-    "epilogue": { "values": ["cshuffle, default"] }
+  "trait": {
+    "padding": {
+      "m": { "values": [false] },
+      "n": { "values": [false] },
+      "k": { "values": [false] }
+    },
+    "num_wave_groups": { "values": [1] },
+    "persistent":{
+      "values": [false]
+    },
+    "preshuffle":{
+        "values": [false]
+    },
+    "use_sparsity":{
+        "values": [false]
+    }
   },
-  "padding": {
-    "m": { "values": [false] },
-    "n": { "values": [false] },
-    "k": { "values": [false] }
-  },
-  "launch": {
-    "max_block_per_cu": { "values": [8] }
+  "strategy":{
+    "version": { "values": ["mem"] },
+    "scheduler": { "values": ["interwave"] },
+    "epilogue": { "values": ["cshuffle"] }
   },
   "partition": {
-    "num_wave_groups": { "values": [1] },
     "tile_partitioner_group_num": { "values": [8] },
     "tile_partitioner_m01": { "values": [4] }
+  },
+  "launch": {
+    "max_thread_per_block": { "values": [1024] },
+    "min_block_per_cu": { "values": [1] }
   }
 }

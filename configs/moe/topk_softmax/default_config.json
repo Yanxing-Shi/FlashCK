@@ -12,6 +12,7 @@
         "values": [32,64,128,256]
   },
   "launch": {
+    "max_thread_per_block": { "values": [256] },
     "min_block_per_cu": { "values": [1] }
   }
 }
