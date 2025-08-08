@@ -1,4 +1,4 @@
-#include "core/profiling/attention/fmha_batch_prefill/fmha_batch_prefill_emitter.h"
+#include "core/profiling/attention/fmha_fwd_batch_prefill/fmha_fwd_batch_prefill_emitter.h"
 
 #include <algorithm>
 #include <filesystem>
@@ -199,33 +199,37 @@ std::vector<FmhaFwdBatchPrefillCodeGen> FmhaFwdBatchPrefillEmitter::CreateInstan
         
         // Padding configuration (4 parameters, bool->int64_t)
         [&]{ std::vector<int64_t> v; 
-             for (auto x : config.padding.s.GetAllValues()) v.push_back(static_cast<int64_t>(x)); 
+             for (auto x : config.trait.padding.s.GetAllValues()) v.push_back(static_cast<int64_t>(x)); 
              return v; }(),
         [&]{ std::vector<int64_t> v; 
-             for (auto x : config.padding.sk.GetAllValues()) v.push_back(static_cast<int64_t>(x)); 
+             for (auto x : config.trait.padding.sk.GetAllValues()) v.push_back(static_cast<int64_t>(x)); 
              return v; }(),
         [&]{ std::vector<int64_t> v; 
-             for (auto x : config.padding.d.GetAllValues()) v.push_back(static_cast<int64_t>(x)); 
+             for (auto x : config.trait.padding.d.GetAllValues()) v.push_back(static_cast<int64_t>(x)); 
              return v; }(),
         [&]{ std::vector<int64_t> v; 
-             for (auto x : config.padding.dv.GetAllValues()) v.push_back(static_cast<int64_t>(x)); 
+             for (auto x : config.trait.padding.dv.GetAllValues()) v.push_back(static_cast<int64_t>(x)); 
              return v; }(),
         
         // Skip minimum query sequence length (1 parameters, bool->int64_t)
         [&]{ std::vector<int64_t> v; 
-             for (auto x : config.skip_min_q_seq_len.GetAllValues()) v.push_back(static_cast<int64_t>(x)); 
+             for (auto x : config.trait.skip_min_q_seq_len.GetAllValues()) v.push_back(static_cast<int64_t>(x)); 
              return v; }(),
 
-        // Launch configuration (1 parameter)
+        // Pipeline configuration (1 parameter, string->enum->int64_t)
+        [&]{ std::vector<int64_t> v; 
+             for (const auto& x : config.strategy.pipeline.GetAllValues()) 
+                 v.push_back(static_cast<int64_t>(GetBlockFmhaPipelineEnumFromString(x))); 
+             return v; }(),
+
+        // Launch configuration (2 parameter)
+        [&]{ std::vector<int64_t> v; 
+             for (auto x : config.launch.max_thread_per_block.GetAllValues()) v.push_back(static_cast<int64_t>(x)); 
+             return v; }(),
         [&]{ std::vector<int64_t> v; 
              for (auto x : config.launch.min_block_per_cu.GetAllValues()) v.push_back(static_cast<int64_t>(x)); 
              return v; }(),
-        
-        // Pipeline configuration (1 parameter, string->enum->int64_t)
-        [&]{ std::vector<int64_t> v; 
-             for (const auto& x : config.pipeline.GetAllValues()) 
-                 v.push_back(static_cast<int64_t>(StrToBlockFmhaPipelineEnum(x))); 
-             return v; }(),
+    
     };
 
     // Generate all parameter combinations using CartesianProduct
@@ -263,13 +267,14 @@ std::vector<FmhaFwdBatchPrefillCodeGen> FmhaFwdBatchPrefillEmitter::CreateInstan
         bool is_pad_v_head_dim = static_cast<bool>(param_values[idx++]);
 
         // Skip minimum query sequence length
-        bool skip_min_q_seq_len_ = static_cast<bool>(param_values[idx++]);
+        bool is_skip_min_q_seq_len = static_cast<bool>(param_values[idx++]);
         
-        // Extract launch parameters
-        int64_t min_block_per_cu = param_values[idx++];
-        
-        // Extract pipeline parameters
+        // Extract strategy parameters
         BlockFmhaPipelineEnum pipeline = static_cast<BlockFmhaPipelineEnum>(param_values[idx++]);
+
+        // Extract launch parameters
+        int64_t max_thread_per_block = param_values[idx++];
+        int64_t min_block_per_cu = param_values[idx++];
 
         // Construct FmhaFwdBatchPrefillCodeGen instance
         FmhaFwdBatchPrefillCodeGen instance;
@@ -301,15 +306,16 @@ std::vector<FmhaFwdBatchPrefillCodeGen> FmhaFwdBatchPrefillEmitter::CreateInstan
         instance.is_pad_qk_head_dim_ = is_pad_qk_head_dim;
         instance.is_pad_v_head_dim_ = is_pad_v_head_dim;
         
+        // Set skip min q seq len
+        instance.is_skip_min_q_seq_len_ = is_skip_min_q_seq_len;
+
+        // Set strategy configuration
+        instance.pipeline_ = pipeline;
+
         // Set launch configuration
+        instance.max_thread_per_block_ = max_thread_per_block;
         instance.min_block_per_cu_ = min_block_per_cu;
 
-        // Set skip min q seq len
-        instance.skip_min_q_seq_len_ = skip_min_q_seq_len_;
-        
-        // Set pipeline configuration
-        instance.pipeline_ = pipeline;
-        
         result.push_back(instance);
     });
 
@@ -413,11 +419,11 @@ void FmhaFwdBatchPrefillEmitter::GenerateInstances(FmhaFwdBatchPrefillProblem& f
             
             // Remove duplicates
             std::sort(final_instances.begin(), final_instances.end(), 
-                     [](const auto& a, const auto& b) {
+                     [](auto& a, auto& b) {
                          return a.GetInstanceName() < b.GetInstanceName();
                      });
             final_instances.erase(std::unique(final_instances.begin(), final_instances.end(),
-                                            [](const auto& a, const auto& b) {
+                                            []( auto& a, auto& b) {
                                                 return a.GetInstanceName() == b.GetInstanceName();
                                             }), final_instances.end());
             
@@ -435,7 +441,7 @@ void FmhaFwdBatchPrefillEmitter::GenerateInstances(FmhaFwdBatchPrefillProblem& f
     // Store instances in the map
     int64_t generated_count = 0;
 
-    for (const auto& instance : final_instances) {
+    for (auto& instance : final_instances) {
         try {
             std::string instance_name = instance.GetInstanceName();
             

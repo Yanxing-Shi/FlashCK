@@ -57,23 +57,27 @@ std::string FmhaFwdTileDesc::Emit()
     return TEMPLATE_CHECK(tpl, value_map, "FmhaFwdTileDesc::Emit");
 }
 
-std::string FmhaFwdCodeGen::GetPaddingConfigName() 
+std::string FmhaFwdCodeGen::GetInstanceName() 
 {
-    return Sprintf("{is_pad_q_seq_len}{is_pad_kv_seq_len}{is_pad_qk_head_dim}{is_pad_v_head_dim}",
+    auto trait = Sprintf("{is_pad_q_seq_len}{is_pad_kv_seq_len}{is_pad_qk_head_dim}{is_pad_v_head_dim}_{is_skip_min_q_seqlen}",
                    fmt::arg("is_pad_q_seq_len", is_pad_q_seq_len_ ? "s" : ""),
                    fmt::arg("is_pad_kv_seq_len", is_pad_kv_seq_len_ ? "sk" : ""),
                    fmt::arg("is_pad_qk_head_dim", is_pad_qk_head_dim_ ? "d" : ""),
-                   fmt::arg("is_pad_v_head_dim", is_pad_v_head_dim_ ? "dv" : ""));
-}
+                   fmt::arg("is_pad_v_head_dim", is_pad_v_head_dim_ ? "dv" : ""),
+                   fmt::arg("is_skip_min_q_seqlen", is_skip_min_q_seq_len_ ? "s" : ""));
+    
+    
 
-std::string FmhaFwdCodeGen::GetInstanceName() 
-{
-    return Sprintf("fmha_fwd_{problem_name}_{tile_desc}_{padding}_{min_block_per_cu}_{pipeline}",
+    auto launch = Sprintf("{max_thread_per_block}_{min_block_per_cu}",
+                    fmt::arg("max_thread_per_block", max_thread_per_block_),
+                    fmt::arg("min_block_per_cu", min_block_per_cu_));
+
+    return Sprintf("fmha_fwd_{problem_name}_{tile_shape}_{trait}_{strategy}_{launch}",
                    fmt::arg("problem_name", problem_.GetName()),
-                   fmt::arg("tile_desc", tile_desc_.GetInstanceName()),
-                   fmt::arg("padding", GetPaddingConfigName()),
-                   fmt::arg("min_block_per_cu", min_block_per_cu_),
-                   fmt::arg("pipeline", GetFwdPipelineShortName(pipeline_)));
+                   fmt::arg("tile_shape", tile_desc_.GetInstanceName()),
+                   fmt::arg("trait", trait),
+                   fmt::arg("strategy", GetFwdPipelineShortName(pipeline_)),
+                   fmt::arg("launch", launch));
 }
 
 std::string FmhaFwdCodeGen::Emit() 
@@ -127,7 +131,7 @@ using {{name}}  =
         {"is_pad_v_head_dim", is_pad_v_head_dim_},
         {"attention_bias", GetBiasClassTag(problem_.bias_enum_)},
         {"is_store_lse", false},
-        {"skip_min_q_seq_len", is_skip_min_q_seqlen_},
+        {"skip_min_q_seq_len", is_skip_min_q_seq_len_},
         {"is_static_quant", problem_.is_static_quant_},
         {"block_per_cu", std::to_string(min_block_per_cu_)},
         {"pipeline", GetFwdPipelineClassTag(pipeline_)}};

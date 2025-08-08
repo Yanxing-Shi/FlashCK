@@ -24,12 +24,12 @@ void demonstrateBackupConfig(const std::string& config_name, const std::string& 
                 std::cout << "  Block size: " << config.tile_shape.block_tile.m0.GetAllValues()[0] 
                          << "x" << config.tile_shape.block_tile.n0.GetAllValues()[0] 
                          << "x" << config.tile_shape.block_tile.k0.GetAllValues()[0] << std::endl;
-                std::cout << "  Pipeline: " << config.pipeline.GetAllValues()[0] << std::endl;
+                std::cout << "  Pipeline: " << config.strategy.pipeline.GetAllValues()[0] << std::endl;
                 
                 // Verify single values
                 assert(config.tile_shape.block_tile.m0.GetAllValues().size() == 1);
                 assert(config.tile_shape.block_tile.n0.GetAllValues().size() == 1);
-                assert(config.pipeline.GetAllValues().size() == 1);
+                assert(config.strategy.pipeline.GetAllValues().size() == 1);
             }
             
             if constexpr (std::is_same_v<ConfigType, FmhaFwdConfig>) {
@@ -37,12 +37,12 @@ void demonstrateBackupConfig(const std::string& config_name, const std::string& 
                 std::cout << "  Block size: " << config.tile_shape.block_tile.m0.GetAllValues()[0] 
                          << "x" << config.tile_shape.block_tile.n0.GetAllValues()[0] 
                          << "x" << config.tile_shape.block_tile.k0.GetAllValues()[0] << std::endl;
-                std::cout << "  Pipeline: " << config.pipeline.GetAllValues()[0] << std::endl;
+                std::cout << "  Pipeline: " << config.strategy.pipeline.GetAllValues()[0] << std::endl;
                 
                 // Verify single values
                 assert(config.tile_shape.block_tile.m0.GetAllValues().size() == 1);
                 assert(config.tile_shape.block_tile.n0.GetAllValues().size() == 1);
-                assert(config.pipeline.GetAllValues().size() == 1);
+                assert(config.strategy.pipeline.GetAllValues().size() == 1);
             }
             
             if constexpr (std::is_same_v<ConfigType, GemmConfig>) {
@@ -50,12 +50,12 @@ void demonstrateBackupConfig(const std::string& config_name, const std::string& 
                 std::cout << "  Block size: " << config.tile_shape.block_tile.m.GetAllValues()[0] 
                          << "x" << config.tile_shape.block_tile.n.GetAllValues()[0] 
                          << "x" << config.tile_shape.block_tile.k.GetAllValues()[0] << std::endl;
-                std::cout << "  Pipeline: " << config.pipeline.version.GetAllValues()[0] << std::endl;
+                std::cout << "  Pipeline: " << config.strategy.pipeline.version.GetAllValues()[0] << std::endl;
                 
                 // Verify single values
                 assert(config.tile_shape.block_tile.m.GetAllValues().size() == 1);
                 assert(config.tile_shape.block_tile.n.GetAllValues().size() == 1);
-                assert(config.pipeline.version.GetAllValues().size() == 1);
+                assert(config.strategy.pipeline.version.GetAllValues().size() == 1);
             }
         }
         

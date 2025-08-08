@@ -12,56 +12,16 @@ FC_DECLARE_string(FC_CONFIG_JSON_PATH);   // Base path for config files
 
 namespace flashck {
 
-bool FmhaFwdSplitKVCombineEmitter::IsValidTile(const FmhaFwdSplitKVCombineTileDesc& tile_desc, const FmhaProblem& fmha_problem)
+bool FmhaFwdSplitKVCombineEmitter::IsValidTile(const FmhaFwdSplitKVCombineTileDesc& tile_desc, const FmhaFwdSplitKVCombineProblem& fmha_fwd_split_kv_combine_problem)
 {
-    // Validate all tile parameters are positive for split-KV combine operations
-    if (tile_desc.m0_block_ <= 0 || tile_desc.n0_block_ <= 0 || tile_desc.k0_block_ <= 0 || 
-        tile_desc.k0_max_block_ <= 0 || tile_desc.n1_block_ <= 0 || tile_desc.k1_block_ <= 0 ||
-        tile_desc.m0_warp_ <= 0 || tile_desc.n0_warp_ <= 0 || tile_desc.k0_warp_ < 0 ||
-        tile_desc.m1_warp_ <= 0 || tile_desc.n1_warp_ <= 0 || tile_desc.k1_warp_ < 0 ||
-        tile_desc.m0_warp_tile_ <= 0 || tile_desc.n0_warp_tile_ <= 0 || tile_desc.k0_warp_tile_ <= 0 ||
-        tile_desc.m1_warp_tile_ <= 0 || tile_desc.n1_warp_tile_ <= 0 || tile_desc.k1_warp_tile_ <= 0) {
-        VLOG(3) << "Invalid FMHA split-KV combine tile: negative or zero values not allowed";
+    // Validate block tile dimensions
+    if (tile_desc.n1_block_ <= 0) {
         return false;
     }
-
-    // Validate k0_block_ <= k0_max_block_ for split-KV combine constraints
-    if (tile_desc.k0_block_ > tile_desc.k0_max_block_) {
-        VLOG(3) << "Invalid FMHA split-KV combine tile: k0_block_ > k0_max_block_";
+    
+    // Check if n1_block aligns with v_head_dim
+    if (fmha_fwd_split_kv_combine_problem.v_head_dim_ % tile_desc.n1_block_ != 0) {
         return false;
-    }
-
-    // Validate warp*warp_tile <= block sizes for split-KV combine operations
-    if (tile_desc.m0_warp_ * tile_desc.m0_warp_tile_ > tile_desc.m0_block_ ||
-        tile_desc.n0_warp_ * tile_desc.n0_warp_tile_ > tile_desc.n0_block_ ||
-        tile_desc.k0_warp_ * tile_desc.k0_warp_tile_ > tile_desc.k0_block_ ||
-        tile_desc.m1_warp_ * tile_desc.m1_warp_tile_ > tile_desc.m0_block_ ||
-        tile_desc.n1_warp_ * tile_desc.n1_warp_tile_ > tile_desc.n1_block_ ||
-        tile_desc.k1_warp_ * tile_desc.k1_warp_tile_ > tile_desc.k1_block_) {
-        VLOG(3) << "Invalid FMHA split-KV combine tile: warp*warp_tile exceeds block size";
-        return false;
-    }
-
-    // Validate block sizes are divisible by warp*warp_tile for split-KV combine
-    if ((tile_desc.m0_block_ % (tile_desc.m0_warp_ * tile_desc.m0_warp_tile_) != 0) ||
-        (tile_desc.n0_block_ % (tile_desc.n0_warp_ * tile_desc.n0_warp_tile_) != 0) ||
-        (tile_desc.k0_block_ % (std::max<int64_t>(1, tile_desc.k0_warp_ * tile_desc.k0_warp_tile_)) != 0) ||
-        (tile_desc.m0_block_ % (tile_desc.m1_warp_ * tile_desc.m1_warp_tile_) != 0) ||
-        (tile_desc.n1_block_ % (tile_desc.n1_warp_ * tile_desc.n1_warp_tile_) != 0) ||
-        (tile_desc.k1_block_ % (std::max<int64_t>(1, tile_desc.k1_warp_ * tile_desc.k1_warp_tile_)) != 0)) {
-        VLOG(3) << "Invalid FMHA split-KV combine tile: block size not divisible by warp*warp_tile";
-        return false;
-    }
-
-    // Validate against problem dimensions for Batch mode with split-KV combine considerations
-    if (fmha_problem.mode_ == FmhaMode::Batch) {
-        if (tile_desc.m0_block_ > fmha_problem.q_seq_len_ || 
-            tile_desc.n0_block_ > fmha_problem.kv_seq_len_ ||
-            tile_desc.n1_block_ > fmha_problem.v_head_dim_ || 
-            tile_desc.k0_max_block_ > fmha_problem.qk_head_dim_) {
-            VLOG(3) << "Invalid FMHA split-KV combine tile: dimensions exceed problem dimensions";
-            return false;
-        }
     }
 
     return true;
@@ -74,7 +34,7 @@ bool FmhaFwdSplitKVCombineEmitter::IsValidInstance(const FmhaFwdSplitKVCombineCo
 
 std::vector<FmhaFwdSplitKVCombineCodeGen> FmhaFwdSplitKVCombineEmitter::HeuristicFilter(
     const std::vector<FmhaFwdSplitKVCombineCodeGen>& instances,
-    const FmhaProblem& fmha_problem)
+    const FmhaFwdSplitKVCombineProblem& fmha_fwd_split_kv_combine_problem)
 {
     if (instances.empty()) {
         return {};
@@ -82,88 +42,53 @@ std::vector<FmhaFwdSplitKVCombineCodeGen> FmhaFwdSplitKVCombineEmitter::Heuristi
 
     std::vector<FmhaFwdSplitKVCombineCodeGen> filtered;
     
-    // Split-KV combine specific heuristics for efficient result aggregation
-    // Heuristic 1: Optimize for result combination bandwidth
-    constexpr int64_t preferred_combine_block_size = 512;
-    
-    // Heuristic 2: Minimize reduction synchronization overhead
-    constexpr int64_t max_optimal_warps = 8;
-    
-    // Heuristic 3: Balance memory access for combine operations
-    const int64_t q_seq_len = fmha_problem.q_seq_len_;
-    const int64_t optimal_reduction_granularity = std::max<int64_t>(32, q_seq_len / 16);
-    
+    // Apply heuristic filters for split-kv combine operation
     for (const auto& instance : instances) {
-        const auto& tile = instance.tile_desc_;
+        bool is_good = true;
         
-        // Filter 1: Skip configurations with poor combine efficiency
-        if (tile.m0_block_ < 32 || tile.n1_block_ < 16) {
-            continue;
+        // Filter 1: Prefer block sizes that are multiples of warp size (32)
+        if (instance.tile_desc_.n1_block_ % 32 != 0) {
+            is_good = false;
         }
         
-        // Filter 2: Prefer configurations optimized for result aggregation
-        int64_t combine_efficiency_score = 0;
-        
-        // Good aggregation granularity for combine operations
-        if (tile.m0_block_ <= optimal_reduction_granularity * 2 && 
-            tile.m0_block_ >= optimal_reduction_granularity / 2) {
-            combine_efficiency_score += 2; 
+        // Filter 2: For small v_head_dim, prefer smaller block sizes
+        if (fmha_fwd_split_kv_combine_problem.v_head_dim_ <= 64 && instance.tile_desc_.n1_block_ > 64) {
+            is_good = false;
         }
         
-        // Memory coalescing friendly for combine operations
-        if (tile.n1_block_ % 32 == 0) {
-            combine_efficiency_score += 1; 
+        // Filter 3: For large v_head_dim, prefer larger block sizes for better efficiency
+        if (fmha_fwd_split_kv_combine_problem.v_head_dim_ >= 128 && instance.tile_desc_.n1_block_ < 64) {
+            is_good = false;
         }
         
-        // Optimal reduction patterns
-        if (tile.m0_block_ >= 64 && tile.n1_block_ >= 64) {
-            combine_efficiency_score += 1;
+        // Filter 4: Prefer power-of-2 block sizes for memory alignment
+        int n1 = instance.tile_desc_.n1_block_;
+        if ((n1 & (n1 - 1)) != 0) {
+            is_good = false;
         }
         
-        // Filter 3: Ensure reasonable warp utilization for combine operations
-        int64_t total_warps = tile.m0_warp_ * tile.n0_warp_ * std::max<int64_t>(1, tile.k0_warp_);
-        if (total_warps > max_optimal_warps || total_warps < 1) {
-            continue;
+        // Filter 5: Thread block size should be reasonable
+        if (instance.max_thread_per_block_ < 64 || instance.max_thread_per_block_ > 1024) {
+            is_good = false;
         }
         
-        // Filter 4: Split-KV combine specific memory access optimization
-        int64_t combine_working_set = tile.m0_block_ * tile.n1_block_;
-        if (combine_working_set < 512) {
-            continue; // Too small for efficient combine operations
-        }
-        
-        // Filter 5: Avoid excessive fragmentation in combine operations
-        if (tile.m0_warp_tile_ > tile.m0_block_ / 4 || 
-            tile.n1_warp_tile_ > tile.n1_block_ / 4) {
-            continue;
-        }
-        
-        // Filter 6: Prefer block sizes that facilitate efficient reduction
-        bool good_reduction_size = (tile.m0_block_ % 64 == 0) || 
-                                  (tile.m0_block_ >= preferred_combine_block_size);
-        if (!good_reduction_size && combine_efficiency_score < 2) {
-            continue;
-        }
-        
-        // Only keep instances that pass split-KV combine specific criteria
-        if (combine_efficiency_score >= 1) {
+        if (is_good) {
             filtered.push_back(instance);
         }
     }
     
-    // If filtering is too aggressive, return a subset with relaxed criteria
+    // If no instances pass the heuristic, return the original instances
     if (filtered.empty()) {
-        VLOG(2) << "Split-KV combine heuristic filter too aggressive, returning subset of original instances";
-        const size_t subset_size = std::min<size_t>(instances.size(), 10);
-        filtered.assign(instances.begin(), instances.begin() + subset_size);
+        VLOG(2) << "No instances passed heuristic filter, returning all instances";
+        return instances;
     }
     
-    VLOG(2) << "Split-KV combine heuristic filter: " << instances.size() << " -> " << filtered.size() << " instances";
+    VLOG(2) << "Heuristic filter: " << instances.size() << " -> " << filtered.size() << " instances";
     return filtered;
 }
 
 std::vector<FmhaFwdSplitKVCombineCodeGen> FmhaFwdSplitKVCombineEmitter::CreateInstanceForConfig(
-    const FmhaFwdSplitKVCombineConfig& config, const FmhaProblem& fmha_problem) 
+    const FmhaFwdSplitKVCombineConfig& config, const FmhaFwdSplitKVCombineProblem& fmha_fwd_split_kv_combine_problem) 
 {
     std::vector<FmhaFwdSplitKVCombineCodeGen> result;
 
@@ -176,13 +101,16 @@ std::vector<FmhaFwdSplitKVCombineCodeGen> FmhaFwdSplitKVCombineEmitter::CreateIn
         
         // Padding configuration (2 parameters, bool->int64_t)
         [&]{ std::vector<int64_t> v; 
-             for (auto x : config.padding.s.GetAllValues()) v.push_back(static_cast<int64_t>(x)); 
+             for (auto x : config.trait.padding.s.GetAllValues()) v.push_back(static_cast<int64_t>(x)); 
              return v; }(),
         [&]{ std::vector<int64_t> v; 
-             for (auto x : config.padding.dv.GetAllValues()) v.push_back(static_cast<int64_t>(x)); 
+             for (auto x : config.trait.padding.dv.GetAllValues()) v.push_back(static_cast<int64_t>(x)); 
              return v; }(),
         
-        // Launch configuration (1 parameter)
+        // Launch configuration (2 parameter)
+        [&]{ std::vector<int64_t> v; 
+             for (auto x : config.launch.max_thread_per_block.GetAllValues()) v.push_back(static_cast<int64_t>(x)); 
+             return v; }(),
         [&]{ std::vector<int64_t> v; 
              for (auto x : config.launch.min_block_per_cu.GetAllValues()) v.push_back(static_cast<int64_t>(x)); 
              return v; }(),
@@ -200,11 +128,12 @@ std::vector<FmhaFwdSplitKVCombineCodeGen> FmhaFwdSplitKVCombineEmitter::CreateIn
         bool is_pad_v_head_dim = static_cast<bool>(param_values[idx++]);
         
         // Extract launch parameters
+        int64_t max_thread_per_block = param_values[idx++];
         int64_t min_block_per_cu = param_values[idx++];
 
         // Construct FmhaFwdSplitKVCombineCodeGen instance
         FmhaFwdSplitKVCombineCodeGen instance;
-        instance.problem_ = fmha_problem;
+        instance.problem_ = fmha_fwd_split_kv_combine_problem;
         
         // Set tile descriptor (only n1 for combine operation)
         instance.tile_desc_.n1_block_ = n1_block;
@@ -214,6 +143,7 @@ std::vector<FmhaFwdSplitKVCombineCodeGen> FmhaFwdSplitKVCombineEmitter::CreateIn
         instance.is_pad_v_head_dim_ = is_pad_v_head_dim;
         
         // Set launch configuration
+        instance.max_thread_per_block_ = max_thread_per_block;
         instance.min_block_per_cu_ = min_block_per_cu;
         
         result.push_back(instance);
@@ -222,7 +152,7 @@ std::vector<FmhaFwdSplitKVCombineCodeGen> FmhaFwdSplitKVCombineEmitter::CreateIn
     return result;
 }
 
-void FmhaFwdSplitKVCombineEmitter::GenerateInstances(FmhaProblem& fmha_problem)
+void FmhaFwdSplitKVCombineEmitter::GenerateInstances(FmhaFwdSplitKVCombineProblem& fmha_fwd_split_kv_combine_problem)
 {
     // Validate tuning mode
     FC_ENFORCE_EQ(FLAGS_FC_TUNING_MODE >= 0 && FLAGS_FC_TUNING_MODE <= 2, true,
@@ -232,7 +162,7 @@ void FmhaFwdSplitKVCombineEmitter::GenerateInstances(FmhaProblem& fmha_problem)
     VLOG(1) << "Generating FMHA split-KV combine instances for mode: " << FLAGS_FC_TUNING_MODE;
 
     // Load configurations from JSON files
-    auto base_json_path = std::filesystem::path(FLAGS_FC_CONFIG_JSON_PATH) / GetFmhaKindName(fmha_problem.kind_);
+    auto base_json_path = std::filesystem::path(FLAGS_FC_CONFIG_JSON_PATH) / "attention" / "fmha_fwd_split_kv_combine";
     std::vector<FmhaFwdSplitKVCombineCodeGen> all_instances;
     
     // Load backup configurations (pre-validated, single-value configs)
@@ -241,7 +171,7 @@ void FmhaFwdSplitKVCombineEmitter::GenerateInstances(FmhaProblem& fmha_problem)
         try {
             auto backup_configs = LoadConfigJson<std::vector<FmhaFwdSplitKVCombineConfig>>(json_path);
             for (const auto& config : backup_configs) {
-                auto instances = CreateInstanceForConfig(config, fmha_problem);
+                auto instances = CreateInstanceForConfig(config, fmha_fwd_split_kv_combine_problem);
                 all_instances.insert(all_instances.end(), instances.begin(), instances.end());
             }
             VLOG(2) << "Loaded " << backup_configs.size() << " split-KV combine backup configurations";
@@ -255,7 +185,7 @@ void FmhaFwdSplitKVCombineEmitter::GenerateInstances(FmhaProblem& fmha_problem)
         std::filesystem::path json_path = base_json_path / "default_config.json";
         try {
             auto default_config = LoadConfigJson<FmhaFwdSplitKVCombineConfig>(json_path);
-            auto instances = CreateInstanceForConfig(default_config, fmha_problem);
+            auto instances = CreateInstanceForConfig(default_config, fmha_fwd_split_kv_combine_problem);
             all_instances.insert(all_instances.end(), instances.begin(), instances.end());
             VLOG(2) << "Loaded split-KV combine default configuration with " << instances.size() << " instances";
         } catch (const std::exception& e) {
@@ -268,7 +198,7 @@ void FmhaFwdSplitKVCombineEmitter::GenerateInstances(FmhaProblem& fmha_problem)
         std::filesystem::path json_path = base_json_path / "user_config.json";
         try {
             auto user_config = LoadConfigJson<FmhaFwdSplitKVCombineConfig>(json_path);
-            auto instances = CreateInstanceForConfig(user_config, fmha_problem);
+            auto instances = CreateInstanceForConfig(user_config, fmha_fwd_split_kv_combine_problem);
             all_instances.insert(all_instances.end(), instances.begin(), instances.end());
             VLOG(2) << "Loaded split-KV combine user configuration with " << instances.size() << " instances";
         } catch (const std::exception& e) {
@@ -298,7 +228,7 @@ void FmhaFwdSplitKVCombineEmitter::GenerateInstances(FmhaProblem& fmha_problem)
     switch (FLAGS_FC_TUNING_MODE) {
         case 0: {
             // Heuristic mode: filter + random selection
-            final_instances = HeuristicFilter(valid_instances, fmha_problem);
+            final_instances = HeuristicFilter(valid_instances, fmha_fwd_split_kv_combine_problem);
             if (!final_instances.empty()) {
                 // Randomly select one instance for fast execution
                 std::uniform_int_distribution<> dist(0, final_instances.size() - 1);
@@ -316,17 +246,17 @@ void FmhaFwdSplitKVCombineEmitter::GenerateInstances(FmhaProblem& fmha_problem)
         }
         case 2: {
             // Hybrid mode: combine heuristic filtering + all instances
-            auto heuristic_instances = HeuristicFilter(valid_instances, fmha_problem);
+            auto heuristic_instances = HeuristicFilter(valid_instances, fmha_fwd_split_kv_combine_problem);
             final_instances = heuristic_instances;
             final_instances.insert(final_instances.end(), valid_instances.begin(), valid_instances.end());
             
             // Remove duplicates
             std::sort(final_instances.begin(), final_instances.end(), 
-                     [](const auto& a, const auto& b) {
+                     []( auto& a,  auto& b) {
                          return a.GetInstanceName() < b.GetInstanceName();
                      });
             final_instances.erase(std::unique(final_instances.begin(), final_instances.end(),
-                                            [](const auto& a, const auto& b) {
+                                            []( auto& a,  auto& b) {
                                                 return a.GetInstanceName() == b.GetInstanceName();
                                             }), final_instances.end());
             
@@ -344,7 +274,7 @@ void FmhaFwdSplitKVCombineEmitter::GenerateInstances(FmhaProblem& fmha_problem)
     // Store instances in the map
     int64_t generated_count = 0;
 
-    for (const auto& instance : final_instances) {
+    for (auto& instance : final_instances) {
         try {
             std::string instance_name = instance.GetInstanceName();
             

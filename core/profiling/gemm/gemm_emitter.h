@@ -7,7 +7,6 @@
 
 #include "core/profiling/gemm/gemm_codegen.h"
 #include "core/profiling/gemm/gemm_problem.h"
-#include "core/utils/json_config.h"
 
 namespace flashck {
 
@@ -17,11 +16,11 @@ static const std::vector<std::tuple<int, int, int>> g_tile_gemm_allowed_warp_com
 };
 
 // Set of unsupported combinations: (pipeline, epilogue, scheduler)
-const std::set<std::tuple<PipelineVersionEnum, EpilogueEnum, PipelineSchedulerEnum>> g_tile_gemm_unsupported_combinations = {
-    {GetPipelineVersionEnumFromString("compv3"), GetEpilogueEnumFromString("cshuffle"), GetPipelineSchedulerEnumFromString("interwave")},
-    {GetPipelineVersionEnumFromString("compv3"), GetEpilogueEnumFromString("default"),  GetPipelineSchedulerEnumFromString("interwave")},
-    {GetPipelineVersionEnumFromString("compv4"), GetEpilogueEnumFromString("cshuffle"), GetPipelineSchedulerEnumFromString("interwave")},
-    {GetPipelineVersionEnumFromString("compv4"), GetEpilogueEnumFromString("default"),  GetPipelineSchedulerEnumFromString("interwave")}
+const std::set<std::tuple<PipelineEnum, EpilogueEnum, SchedulerEnum>> g_tile_gemm_unsupported_combinations = {
+    {GetPipelineEnumFromString("compv3"), GetEpilogueEnumFromString("cshuffle"), GetSchedulerEnumFromString("interwave")},
+    {GetPipelineEnumFromString("compv3"), GetEpilogueEnumFromString("default"),  GetSchedulerEnumFromString("interwave")},
+    {GetPipelineEnumFromString("compv4"), GetEpilogueEnumFromString("cshuffle"), GetSchedulerEnumFromString("interwave")},
+    {GetPipelineEnumFromString("compv4"), GetEpilogueEnumFromString("default"),  GetSchedulerEnumFromString("interwave")}
 };
 
 // Architecture and data type specific warp tile combinations for hardware optimization
@@ -127,7 +126,7 @@ public:
      * @param scheduler Pipeline scheduler (interwave, intrawave, etc.)
      * @return true if combination is supported by hardware and library
      */
-    bool IsValidCombination(const PipelineVersionEnum& pipeline, const EpilogueEnum& epilogue, const PipelineSchedulerEnum& scheduler);
+    bool IsValidCombination(const PipelineEnum& pipeline, const EpilogueEnum& epilogue, const SchedulerEnum& scheduler);
 
     /**
      * @brief Validates generated code instance
@@ -161,7 +160,7 @@ public:
     std::map<std::string, GemmCodeGen>& GetInstanceMap(GemmProblem gemm_problem)
     {
         GenerateInstances(gemm_problem);
-        return instance_map_[gemm_problem.kind_];
+        return instance_map_;
     }
 
     /**

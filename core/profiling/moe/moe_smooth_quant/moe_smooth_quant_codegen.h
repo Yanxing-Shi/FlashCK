@@ -1,7 +1,7 @@
 #pragma once
 
 #include "core/profiling/moe/moe_library.h"
-#include "core/profiling/moe/moe_problem.h"
+#include "core/profiling/moe/moe_smooth_quant/moe_smooth_quant_problem.h"
 
 #include "core/utils/common.h"
 
@@ -44,15 +44,20 @@ public:
     std::string Emit();
 
     // ====================== Operation Configuration ======================
-    MoeProblem problem_;
+    MoeSmoothQuantProblem problem_;
 
+    // ====================== Tile Configuration ======================
     MoeSmoothQuantTileDesc tile_desc_;
 
+    // ====================== Trait Configuration ======================
     bool is_pad_n_;
 
+    // ====================== Strategy Configuration ======================
     bool is_two_pass_;
 
-    int min_block_per_cu_;
+    // ====================== Launch Configuration ======================
+    int64_t max_thread_per_block_;
+    int64_t min_block_per_cu_;
 
 };
 

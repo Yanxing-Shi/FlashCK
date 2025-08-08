@@ -21,17 +21,6 @@ bool FmhaFwdAppendKVEmitter::IsValidTile(const FmhaFwdAppendKVTileDesc& tile_des
         return false;
     }
 
-    // Validate against problem dimensions for Batch mode
-    if (fmha_fwd_append_kv_problem.mode_ == FmhaMode::Batch) {
-        if (tile_desc.s_block_ > fmha_fwd_append_kv_problem.q_seq_len_ || 
-            tile_desc.sk_block_ > fmha_fwd_append_kv_problem.kv_seq_len_ ||
-            tile_desc.d_block_ > fmha_fwd_append_kv_problem.qk_head_dim_ || 
-            tile_desc.dv_block_ > fmha_fwd_append_kv_problem.v_head_dim_) {
-            VLOG(3) << "Invalid FMHA append KV tile: tile dimensions exceed problem dimensions";
-            return false;
-        }
-    }
-
     return true;
 }
 
@@ -61,8 +50,8 @@ std::vector<FmhaFwdAppendKVCodeGen> FmhaFwdAppendKVEmitter::HeuristicFilter(cons
         score += std::log2(std::max<int64_t>(1, total_block_size)) * 0.3;
         
         // 2. Problem size fitness
-        int64_t seq_len = fmha_fwd_append_kv_problem.max_seqlen_q_;
-        int64_t head_dim = fmha_fwd_append_kv_problem.hdim_q_;
+        int64_t seq_len = fmha_fwd_append_kv_problem.q_seq_len_;
+        int64_t head_dim = fmha_fwd_append_kv_problem.qk_head_dim_;
         
         // Prefer tile sizes that divide evenly into problem dimensions
         if (seq_len % tile_desc.s_block_ == 0) score += 0.25;
@@ -109,11 +98,12 @@ std::vector<FmhaFwdAppendKVCodeGen> FmhaFwdAppendKVEmitter::CreateInstanceForCon
         [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.block_tile.d.GetAllValues()) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
         [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.block_tile.dv.GetAllValues()) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
         // PaddingConfig (convert bool to int64_t)
-        [&]{ std::vector<int64_t> v; for (auto x : config.padding.s.GetAllValues()) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.padding.sk.GetAllValues()) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.padding.d.GetAllValues()) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.padding.dv.GetAllValues()) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.trait.padding.s.GetAllValues()) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.trait.padding.sk.GetAllValues()) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.trait.padding.d.GetAllValues()) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.trait.padding.dv.GetAllValues()) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
         // LaunchConfig
+        [&]{ std::vector<int64_t> v; for (auto x : config.launch.max_thread_per_block.GetAllValues()) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
         [&]{ std::vector<int64_t> v; for (auto x : config.launch.min_block_per_cu.GetAllValues()) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
     };
 
@@ -132,6 +122,7 @@ std::vector<FmhaFwdAppendKVCodeGen> FmhaFwdAppendKVEmitter::CreateInstanceForCon
         bool is_pad_v_head_dim = static_cast<bool>(vals[idx++]);
 
         // launch config
+        int64_t max_thread_per_block = vals[idx++];
         int64_t min_block_per_cu = vals[idx++];
 
         // Construct FmhaFwdAppendKVCodeGen
@@ -150,6 +141,7 @@ std::vector<FmhaFwdAppendKVCodeGen> FmhaFwdAppendKVEmitter::CreateInstanceForCon
         fmha.is_pad_v_head_dim_ = is_pad_v_head_dim;
 
         // Launch
+        fmha.max_thread_per_block_ = max_thread_per_block;
         fmha.min_block_per_cu_ = min_block_per_cu;
         result.push_back(fmha);
     });
@@ -249,15 +241,15 @@ void FmhaFwdAppendKVEmitter::GenerateInstances(FmhaFwdAppendKVProblem& fmha_fwd_
 
     // Validate and store instances
     num_instances_ = 0;
-    for (const auto& instance : final_instances) {
+    for (auto& instance : final_instances) {
         if (IsValidInstance(instance)) {
             instance_map_[instance.GetInstanceName()] = instance;
             ++num_instances_;
         }
     }
 
-    VLOG(1) << "Generated " << num_instances_ << " valid FMHA append KV instances for " 
-            << GetFmhaKindName(fmha_fwd_append_kv_problem.kind_) << " (mode " << FLAGS_FC_TUNING_MODE << ")";
+    VLOG(1) << "Generated " << num_instances_ << " valid FMHA append KV instances " 
+            << " (mode " << FLAGS_FC_TUNING_MODE << ")";
 }
 
 void FmhaFwdAppendKVEmitter::ClearInstances()

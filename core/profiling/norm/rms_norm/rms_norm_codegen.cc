@@ -76,11 +76,19 @@ std::string RmsNormTileDesc::Emit()
 
 std::string RmsNormCodeGen::GetInstanceName() 
 {
-    return Sprintf("rms_norm_{problem_name}_{tile_desc}_{padding}_{pipeline}",
+    auto trait = Sprintf("{is_pad_n}{is_two_pass}",
+                   fmt::arg("is_pad_n", is_pad_n_ ? "p" : ""),
+                   fmt::arg("is_two_pass", is_two_pass_ ? "t" : ""));
+    
+    auto launch = Sprintf("{max_thread_per_block}_{min_block_per_cu}",
+                   fmt::arg("max_thread_per_block", max_thread_per_block_),
+                   fmt::arg("min_block_per_cu", min_block_per_cu_));
+
+    return Sprintf("rms_norm_{problem_name}_{tile_shape}_{trait}_{launch}",
                    fmt::arg("problem_name", problem_.GetName()),
-                   fmt::arg("tile_desc", tile_desc_.GetInstanceName()),
-                   fmt::arg("padding", is_pad_n ? true : false),
-                   fmt::arg("pipeline", is_two_pass ? true : false),
+                   fmt::arg("tile_shape", tile_desc_.GetInstanceName()),
+                   fmt::arg("trait", trait),
+                   fmt::arg("launch", launch)
                    );
 }
 

@@ -197,6 +197,7 @@ struct GemmTraitConfig {
     BoolEnumConfigParam preshuffle;
     BoolEnumConfigParam use_sparsity;
 };
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(GemmTraitConfig, padding, num_wave_groups, persistent, preshuffle, use_sparsity)
 
 struct GemmStrategyConfig{
     StrEnumConfigParam pipeline, scheduler, epilogue;
@@ -251,11 +252,11 @@ struct FmhaFwdPaddingConfig {
 };
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdPaddingConfig, s, sk, d, dv)
 
-struct FmhaFwdtraitConfig {
+struct FmhaFwdTraitConfig {
     FmhaFwdPaddingConfig padding;
     BoolEnumConfigParam skip_min_q_seq_len;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdtraitConfig, padding, skip_min_q_seq_len)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdTraitConfig, padding, skip_min_q_seq_len)
 
 struct FmhaFwdStrategyConfig {
     StrEnumConfigParam pipeline;
@@ -348,6 +349,7 @@ struct FmhaFwdSplitKVStrategyConfig {
     StrEnumConfigParam pipeline;
     IntEnumConfigParam num_splits;
 };
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(FmhaFwdSplitKVStrategyConfig, pipeline, num_splits)
 
 struct FmhaFwdSplitKVLaunchConfig {
     IntEnumConfigParam max_thread_per_block;
@@ -568,9 +570,10 @@ struct MoeGemmPaddingConfig {
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MoeGemmPaddingConfig, hidden_size, intermediate_size)
 
 struct MoeGemmTraitConfig {
+    MoeGemmPaddingConfig padding;
     BoolEnumConfigParam interleave;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MoeGemmTraitConfig, interleave)
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MoeGemmTraitConfig, padding, interleave)
 
 struct MoeLaunchConfig {
     IntEnumConfigParam max_thread_per_block;
@@ -600,7 +603,6 @@ struct MoeSmoothQuantTraitConfig {
 };
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MoeSmoothQuantTraitConfig, padding)
 
-
 struct MoeSmoothQuantStrategyConfig {
     BoolEnumConfigParam is_two_pass;
 };
@@ -614,21 +616,51 @@ struct MoeSmoothQuantConfig {
 };
 NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MoeSmoothQuantConfig, tile_shape, trait, strategy, launch)
 
-struct MoeSortingConfig {
-    IntEnumConfigParam internal_load_unroll;
+struct MoeSortingTraitConfig {
+    IntEnumConfigParam load_unroll;
     IntEnumConfigParam expert_tile;
+};
+
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MoeSortingTraitConfig, load_unroll, expert_tile) 
+
+struct MoeSortingConfig {
+    MoeSortingTraitConfig trait;
     MoeLaunchConfig launch;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MoeSortingConfig, internal_load_unroll, expert_tile, launch);
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MoeSortingConfig, trait, launch);
 
-struct TopKSoftmaxConfig {
+struct MoeSortingExTraitConfig
+{
+    IntEnumConfigParam sub_token_tile;
+    BoolEnumConfigParam sub_token_one_shot;
+    BoolEnumConfigParam local_expert_masking;
+    BoolEnumConfigParam local_token;
+    BoolEnumConfigParam skip_expert_with_zero_token;
+    IntEnumConfigParam expert_tile;
+};
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MoeSortingExTraitConfig, sub_token_tile, sub_token_one_shot, local_expert_masking, local_token, skip_expert_with_zero_token, expert_tile);
+
+struct MoeSortingExConfig
+{
+    MoeSortingExTraitConfig trait;
+    MoeLaunchConfig launch;
+};
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(MoeSortingExConfig, trait, launch);
+
+struct TopKSoftmaxTraitConfig {
     IntEnumConfigParam issues_per_col;
     IntEnumConfigParam launch_type;
     IntEnumConfigParam bytes_per_issue;
     IntEnumConfigParam block_size;
+    
+};
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(TopKSoftmaxTraitConfig, issues_per_col, launch_type, bytes_per_issue, block_size);
+
+struct TopKSoftmaxConfig {
+    TopKSoftmaxTraitConfig trait;
     MoeLaunchConfig launch;
 };
-NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(TopKSoftmaxConfig, issues_per_col, launch_type, bytes_per_issue, block_size, launch);
+NLOHMANN_DEFINE_TYPE_NON_INTRUSIVE(TopKSoftmaxConfig, trait, launch);
 
 // ========== Config Loader ==========
 // Generic loader for config (single or array)

@@ -4,18 +4,20 @@ namespace flashck {
 
 std::string TopKSoftmaxCodeGen::GetInstanceName()
 {
-    return Sprintf("topk_softmax_{input_dtype}_{weight_dtype}_{index_dtype}_"
-                   "{num_experts}_{issues_per_col}_{bytes_per_issue}_{launch_type}_{block_size}_{min_block_per_cu}",
-                   fmt::arg("input_dtype", DataTypeToString(problem_.input_dtype_)),
-                   fmt::arg("weight_dtype", DataTypeToString(problem_.weight_dtype_)),
-                   fmt::arg("index_dtype", DataTypeToString(problem_.index_dtype_)),
-                   fmt::arg("num_experts", problem_.num_experts_),
+    auto trait = Sprintf("{issues_per_col}_{bytes_per_issue}_{launch_type}_{block_size}",
                    fmt::arg("issues_per_col", issues_per_col_),
                    fmt::arg("bytes_per_issue", bytes_per_issue_),
                    fmt::arg("launch_type", launch_type_),
-                   fmt::arg("block_size", block_size_),
-                   fmt::arg("min_block_per_cu", min_block_per_cu_)
-                );
+                   fmt::arg("block_size", block_size_));
+    
+    auto  launch = Sprintf("{max_thread_per_block}_{min_block_per_cu}",
+                   fmt::arg("max_thread_per_block", max_thread_per_block_),
+                   fmt::arg("min_block_per_cu", min_block_per_cu_));
+
+    return Sprintf("topk_softmax_{problem}_{trait}_{launch}",
+                   fmt::arg("problem", problem_.GetName()),
+                   fmt::arg("trait", trait),
+                   fmt::arg("launch", launch));
 }
 
 std::string TopKSoftmaxCodeGen::Emit()

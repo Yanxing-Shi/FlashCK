@@ -13,23 +13,23 @@ std::string FmhaFwdAppendKVTileDesc::GetInstanceName()
                    fmt::arg("dv_block", dv_block_));
 }
 
-std::string FmhaFwdAppendKVCodeGen::GetPaddingConfigName() 
-{
-    return Sprintf("{is_pad_q_seq_len}{is_pad_kv_seq_len}{is_pad_qk_head_dim}{is_pad_v_head_dim}",
+std::string FmhaFwdAppendKVCodeGen::GetInstanceName() 
+{   
+    auto trait = Sprintf("{is_pad_q_seq_len}{is_pad_kv_seq_len}{is_pad_qk_head_dim}{is_pad_v_head_dim}",
                    fmt::arg("is_pad_q_seq_len", is_pad_q_seq_len_ ? "s" : ""),
                    fmt::arg("is_pad_kv_seq_len", is_pad_kv_seq_len_ ? "sk" : ""),
                    fmt::arg("is_pad_qk_head_dim", is_pad_qk_head_dim_ ? "d" : ""),
                    fmt::arg("is_pad_v_head_dim", is_pad_v_head_dim_ ? "dv" : ""));
-}
 
-
-std::string FmhaFwdAppendKVCodeGen::GetInstanceName() 
-{
-    return Sprintf("fmha_fwd_appendkv_{problem}_{tile_desc}_{padding}_{min_block_per_cu}",
-                   fmt::arg("problem", problem_.GetName()),
-                   fmt::arg("tile_desc", tile_desc_.GetInstanceName()),
-                   fmt::arg("padding", GetPaddingConfigName()),
+    auto launch = Sprintf("{max_thread_per_block}_{min_block_per_cu}",
+                   fmt::arg("max_thread_per_block", max_thread_per_block_),
                    fmt::arg("min_block_per_cu", min_block_per_cu_));
+
+    return Sprintf("fmha_fwd_appendkv_{problem}_{tile_shape}_{trait}_{launch}",
+                   fmt::arg("problem", problem_.GetName()),
+                   fmt::arg("tile_shape", tile_desc_.GetInstanceName()),
+                   fmt::arg("trait", trait),
+                   fmt::arg("launch", launch));
 }
 
 std::string FmhaFwdAppendKVCodeGen::Emit() 

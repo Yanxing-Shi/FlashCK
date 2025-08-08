@@ -76,19 +76,16 @@ std::string MoeSmoothQuantTileDesc::Emit()
 
 
 std::string MoeSmoothQuantCodeGen::GetInstanceName()
-{
-    return Sprintf("moe_smooth_quant_{x_dtype}_{smooth_scale_dtype}_{compute_dtype}_"
-                   "{y_scale_dtype}_{q_y_dtype}_{tile}_{pad_n}_{two_pass}_{min_block_per_cu}",
-                   fmt::arg("x_dtype", DataTypeToString(problem_.x_dtype_)),
-                   fmt::arg("smooth_scale_dtype", DataTypeToString(problem_.smooth_scale_dtype_)),
-                   fmt::arg("compute_dtype", DataTypeToString(problem_.compute_dtype_)),
-                   fmt::arg("y_scale_dtype", DataTypeToString(problem_.y_scale_dtype_)),
-                   fmt::arg("q_y_dtype", DataTypeToString(problem_.q_y_dtype_)),
-                   fmt::arg("tile", tile_desc_.GetInstanceName()),
-                   fmt::arg("pad_n", is_pad_n_),
-                   fmt::arg("two_pass", is_two_pass_),
-                   fmt::arg("min_block_per_cu", min_block_per_cu_)
-                );
+{   
+    auto launch = Sprintf("{max_thread_per_block}_{min_block_per_cu}",
+                   fmt::arg("max_thread_per_block", max_thread_per_block_),
+                   fmt::arg("min_block_per_cu", min_block_per_cu_));
+
+    return Sprintf("moe_smooth_quant_{problem_name}_{trait}_{strategy}_{launch}",
+                   fmt::arg("problem_name", problem_.GetName()),
+                   fmt::arg("trait", is_pad_n_ ? "pad" : "no_pad"),
+                   fmt::arg("strategy", is_two_pass_ ? "two_pass" : "one_pass"),
+                   fmt::arg("launch", launch));
 }
 
 std::string MoeSmoothQuantCodeGen::Emit()

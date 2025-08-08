@@ -6,10 +6,7 @@
 #include <vector>
 
 #include "core/profiling/attention/fmha_library.h"
-#include "core/profiling/attention/fmha_problem.h"
-
 #include "core/profiling/attention/fmha_fwd_split_kv_combine/fmha_fwd_split_kv_combine_codegen.h"
-#include "core/profiling/json_config.h"
 
 FC_DECLARE_int32(FC_TUNING_MODE);         // 0: heuristic, 1: autotuning, 2: hybrid
 FC_DECLARE_bool(FC_ENABLE_BACKUP_JSON);  // Enable backup_config.json loading
@@ -103,10 +100,10 @@ public:
      * - Applies split KV combine-specific constraints
      * 
      * @param tile_desc Tile descriptor to validate
-     * @param fmha_problem Problem specification for validation context
+     * @param fmha_fwd_split_kv_combine_problem Problem specification for validation context
      * @return true if tile descriptor is valid, false otherwise
      */
-    bool IsValidTile(const FmhaFwdSplitKVCombineTileDesc& tile_desc, const FmhaProblem& fmha_problem);
+    bool IsValidTile(const FmhaFwdSplitKVCombineTileDesc& tile_desc, const FmhaFwdSplitKVCombineProblem& fmha_fwd_split_kv_combine_problem);
 
     /**
      * @brief Validate complete instance configuration
@@ -132,11 +129,11 @@ public:
      * - Ensure optimal block and warp utilization for reduction
      * 
      * @param instances Vector of instances to filter
-     * @param fmha_problem Problem context for filtering decisions
+     * @param fmha_fwd_split_kv_combine_problem Problem context for filtering decisions
      * @return Filtered vector of high-quality instances optimized for split KV combine
      */
     std::vector<FmhaFwdSplitKVCombineCodeGen> HeuristicFilter(const std::vector<FmhaFwdSplitKVCombineCodeGen>& instances, 
-                                                              const FmhaProblem& fmha_problem);
+                                                              const FmhaFwdSplitKVCombineProblem& fmha_fwd_split_kv_combine_problem);
 
     /**
      * @brief Create instances from configuration specification using CartesianProduct
@@ -152,10 +149,10 @@ public:
      * Uses CartesianProduct utility to generate all valid parameter combinations.
      * 
      * @param config Configuration with parameter ranges or fixed values
-     * @param fmha_problem Problem specification for context
+     * @param fmha_fwd_split_kv_combine_problem Problem specification for context
      * @return Vector of generated instances
      */
-    std::vector<FmhaFwdSplitKVCombineCodeGen> CreateInstanceForConfig(const FmhaFwdSplitKVCombineConfig& config, const FmhaProblem& fmha_problem);
+    std::vector<FmhaFwdSplitKVCombineCodeGen> CreateInstanceForConfig(const FmhaFwdSplitKVCombineConfig& config, const FmhaFwdSplitKVCombineProblem& fmha_fwd_split_kv_combine_problem);
 
     /**
      * @brief Generate optimized FMHA split KV combine instances using multi-source configuration and intelligent filtering
@@ -189,9 +186,9 @@ public:
      * - Ensures at least one valid instance exists
      * - Provides detailed logging for debugging
      * 
-     * @param fmha_problem The FMHA problem configuration and constraints
+     * @param fmha_fwd_split_kv_combine_problem The FMHA problem configuration and constraints
      */
-    void GenerateInstances(FmhaProblem& fmha_problem);
+    void GenerateInstances(FmhaFwdSplitKVCombineProblem& fmha_fwd_split_kv_combine_problem);
 
     /**
      * @brief Gets the total number of generated instances across all FMHA kinds
@@ -208,12 +205,12 @@ public:
      * Automatically triggers instance generation if not already done for this kind.
      * Returns reference to allow direct manipulation of the instance map.
      * 
-     * @param fmha_problem The FMHA problem configuration
+     * @param fmha_fwd_split_kv_combine_problem The FMHA problem configuration
      * @return Reference to the instance map for the specific FMHA kind
      */
-    std::map<std::string, FmhaFwdSplitKVCombineCodeGen>& GetInstanceMap(FmhaProblem fmha_problem)
+    std::map<std::string, FmhaFwdSplitKVCombineCodeGen>& GetInstanceMap(FmhaFwdSplitKVCombineProblem fmha_fwd_split_kv_combine_problem)
     {
-        GenerateInstances(fmha_problem);
+        GenerateInstances(fmha_fwd_split_kv_combine_problem);
         return instance_map_;
     }
 

@@ -3,7 +3,7 @@
 #include <string>
 
 #include "core/profiling/attention/fmha_library.h"
-#include "core/profiling/attention/fmha_problem.h"
+#include "core/profiling/attention/fmha_fwd_split_kv_combine/fmha_fwd_split_kv_combine_problem.h"
 
 namespace flashck {
 
@@ -60,14 +60,14 @@ public:
 
     FmhaFwdSplitKVCombineTileDesc tile_desc_;
 
-    // ====================== Padding Configuration ======================
+    // ====================== Trait Configuration ======================
 
     bool is_pad_q_seq_len_  = false;  ///< Enable padding for query sequence length
     bool is_pad_v_head_dim_ = false;  ///< Enable padding for value head dimension
 
-    // ====================== Performance Configuration ======================
-
-    int min_block_per_cu_ = -1;  ///< Override occupancy if not -1 (blocks per compute unit)
+    // ====================== Launch Configuration ======================
+    int64_t max_thread_per_block_;
+    int64_t min_block_per_cu_ = -1;  ///< Override occupancy if not -1 (blocks per compute unit)
 };
 
 }  // namespace flashck

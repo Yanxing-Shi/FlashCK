@@ -1,7 +1,7 @@
 #pragma once
 
 #include "core/profiling/moe/moe_library.h"
-#include "core/profiling/moe/moe_problem.h"
+#include "core/profiling/moe/moe_gemm/moe_gemm_problem.h"
 
 #include "core/utils/common.h"
 
@@ -46,17 +46,15 @@ namespace flashck {
  */
 class MoeGemmTileDesc {
 public:
-    /**
-     * @brief Update block tile dimensions for dual-stage MoE GEMM
-     * @param block_tile Vector containing: [m0_block, n0_block, k0_block, m1_block, n1_block, k1_block]
-     */
-    void UpdateBlockTile(std::vector<int64_t> block_tile){
-        m0_block_ = block_tile[0];
-        n0_block_ = block_tile[1];
-        k0_block_ = block_tile[2];
-        m1_block_ = block_tile[3];
-        n1_block_ = block_tile[4];
-        k1_block_ = block_tile[5];
+    // Default constructor for default initialization
+    MoeGemmTileDesc() = default;
+    
+    MoeGemmTileDesc(int64_t token_block, int64_t intermediate_block, int64_t hidden_block, int64_t down_block, 
+                    int64_t m0_warp, int64_t n0_warp, int64_t k0_warp, int64_t m1_warp, int64_t n1_warp, int64_t k1_warp, 
+                    int64_t m0_warp_tile, int64_t n0_warp_tile, int64_t k0_warp_tile, int64_t m1_warp_tile, int64_t n1_warp_tile, int64_t k1_warp_tile)
+        : m0_block_(token_block), n0_block_(intermediate_block), k0_block_(hidden_block), m1_block_(down_block), n1_block_(token_block), k1_block_(intermediate_block),
+          m0_warp_(m0_warp), n0_warp_(n0_warp), k0_warp_(k0_warp), m1_warp_(m1_warp), n1_warp_(n1_warp), k1_warp_(k1_warp),
+          m0_warp_tile_(m0_warp_tile), n0_warp_tile_(n0_warp_tile), k0_warp_tile_(k0_warp_tile), m1_warp_tile_(m1_warp_tile), n1_warp_tile_(n1_warp_tile), k1_warp_tile_(k1_warp_tile) {
     }
 
     /**
@@ -175,21 +173,20 @@ public:
      */
     std::string Emit();
 
-    // ====================== Core Operation Configuration ======================
     
     MoeGemmProblem problem_;  ///< Complete MoE problem specification (routing, dimensions, types)
 
-    // Dual-stage hierarchical tiling strategy
+   // ====================== Tile Configuration ======================
     MoeGemmTileDesc tile_desc_;   ///< Complete tile configuration for optimal MoE performance
-    
-    bool is_pad_hidden_size_;
-    bool is_pad_intermediate_size_;
 
-    bool is_interleave_;
+    // ====================== Trait Configuration ======================
+    bool is_pad_hidden_size_ = false;
+    bool is_pad_intermediate_size_ = false;
+    bool is_interleave_ = false;
 
     // ====================== Launch Configuration ======================
-    
-    int min_block_per_cu_;        ///< Minimum blocks per compute unit for occupancy control
+    int64_t max_thread_per_block_ = 0;  ///< Maximum threads per block for kernel launch
+    int64_t min_block_per_cu_ = -1;  ///< Minimum blocks per compute unit for occupancy control
 
 };
 

@@ -4,7 +4,7 @@
 
 #include "core/profiling/problem_base.h"
 #include "core/profiling/moe/moe_library.h"
-#include "core/utils/dtype.h"
+#include "core/utils/common.h"
 
 namespace flashck {
 
@@ -19,25 +19,49 @@ public:
     std::string SerializeImpl()
     {
         std::ostringstream oss;
-        oss << "MoeGemm_"
-            << "input_tokens" << input_tokens_ << "_"
-            << "hidden_size" << hidden_size_ << "_"
-            << "intermediate_size" << intermediate_size_ << "_"
-            << "output_hidden_size" << output_hidden_size_ << "_"
-            << "num_experts" << num_experts_ << "_"
-            << "top_k" << top_k_ << "_"
-            << "capacity_factor" << static_cast<int>(capacity_factor_ * 100) << "_"
-            << "input_dtype" << DataTypeToString(input_dtype_) << "_"
-            << "weight_dtype" << DataTypeToString(weight_dtype_) << "_"
-            << "output_dtype" << DataTypeToString(output_dtype_) << "_"
-            << "intermediate_dtype" << DataTypeToString(intermediate_dtype_) << "_"
-            << "index_dtype" << DataTypeToString(index_dtype_) << "_"
-            << "activation" << GetActivationShortName(activation_) << "_"
-            << (use_smooth_quant_ ? "squant" : "nosquant") << "_";
+        oss << "{";
+        oss << "\"input_tokens\": " << input_tokens_ << ",";
+        oss << "\"hidden_size\": " << hidden_size_ << ",";
+        oss << "\"intermediate_size\": " << intermediate_size_ << ",";
+        oss << "\"num_experts\": " << num_experts_ << ",";
+        oss << "\"topk\": " << topk_ << ",";
+        oss << "\"input_dtype\": \"" << DataTypeToString(input_dtype_) << "\",";
+        oss << "\"gate_weight_dtype\": \"" << DataTypeToString(gate_weight_dtype_) << "\",";
+        oss << "\"down_projection_dtype\": \"" << DataTypeToString(down_projection_dtype_) << "\",";
+        oss << "\"acc_dtype\": \"" << DataTypeToString(acc_dtype_) << "\",";
+        oss << "\"output_dtype\": \"" << DataTypeToString(output_dtype_) << "\",";
+        oss << "\"input_scale_dtype\": \"" << DataTypeToString(input_scale_dtype_) << "\",";
+        oss << "\"gate_weight_scale_dtype\": \"" << DataTypeToString(gate_weight_scale_dtype_) << "\",";
+        oss << "\"down_projection_scale_dtype\": \"" << DataTypeToString(down_projection_scale_dtype_) << "\",";
+        oss << "\"output_scale_dtype\": \"" << DataTypeToString(output_scale_dtype_) << "\",";
+        oss << "\"topk_weight_dtype\": \"" << DataTypeToString(topk_weight_dtype_) << "\",";
+        oss << "\"index_dtype\": \"" << DataTypeToString(index_dtype_) << "\",";
+        oss << "\"activation\": \"" << GetActivationShortName(activation_) << "\",";
+        oss << "\"is_only_gate\": " << (is_only_gate_ ? "true" : "false") << ",";
+        oss << "\"use_smooth_quant\": " << (use_smooth_quant_ ? "true" : "false");
+        oss << "}";
         return oss.str();
     }
 
-    // ====================== Stage 0: Token-to-Intermediate Configuration ======================
+    std::string GetNameImpl() 
+    {
+        return Sprintf("{input_dtype}_{gate_weight_dtype}_{down_projection_dtype}_{output_dtype}_{input_scale_dtype}_{gate_weight_scale_dtype}_{down_projection_scale_dtype}"
+                        "_{output_scale_dtype}_{topk_weight_dtype}_{index_dtype}_{activation}_{is_only_gate}_{use_smooth_quant}",
+                       fmt::arg("input_dtype", DataTypeToString(input_dtype_)),
+                       fmt::arg("gate_weight_dtype", DataTypeToString(gate_weight_dtype_)),
+                       fmt::arg("down_projection_dtype", DataTypeToString(down_projection_dtype_)),
+                       fmt::arg("output_dtype", DataTypeToString(output_dtype_)),
+                       fmt::arg("input_scale_dtype", DataTypeToString(input_scale_dtype_)),
+                       fmt::arg("gate_weight_scale_dtype", DataTypeToString(gate_weight_scale_dtype_)),
+                       fmt::arg("down_projection_scale_dtype", DataTypeToString(down_projection_scale_dtype_)),
+                       fmt::arg("output_scale_dtype", DataTypeToString(output_scale_dtype_)),
+                       fmt::arg("topk_weight_dtype", DataTypeToString(topk_weight_dtype_)),
+                       fmt::arg("index_dtype", DataTypeToString(index_dtype_)),
+                       fmt::arg("activation", GetActivationShortName(activation_)),
+                       fmt::arg("is_only_gate", is_only_gate_),
+                       fmt::arg("use_smooth_quant", use_smooth_quant_));
+    }
+
     
     /// @brief Number of input tokens (batch size * sequence length)
     int64_t input_tokens_;
@@ -48,46 +72,35 @@ public:
     /// @brief Intermediate dimension size (typically 4x or 8x hidden size)
     int64_t intermediate_size_;
 
-    // ====================== Stage 1: Intermediate-to-Output Configuration ======================
-    
-    /// @brief Output feature dimension (typically same as input hidden size)
-    int64_t output_hidden_size_;
-
     // ====================== Expert Configuration ======================
     
     /// @brief Total number of experts in the MoE model
     int64_t num_experts_;
     
     /// @brief Number of top experts selected per token
-    int64_t top_k_;
+    int64_t topk_;
     
-    /// @brief Capacity factor for load balancing (1.0 = perfect balance)
-    double capacity_factor_ = 1.25;
-
     // ====================== Data Type Configuration ======================
-    
-    /// @brief Input token data type
-    DataType input_dtype_;
-    
-    /// @brief Expert weight data type
-    DataType weight_dtype_;
-    
-    /// @brief Output data type
-    DataType output_dtype_;
-    
-    /// @brief Intermediate computation data type
-    DataType intermediate_dtype_;
-    
-    /// @brief Expert index data type
-    DataType index_dtype_ = DataType::INT32;
 
-    // ====================== Processing Configuration ======================
+    DataType input_dtype_;
+    DataType gate_weight_dtype_;
+    DataType down_projection_dtype_;
+    DataType acc_dtype_ = DataType::FLOAT32;
+    DataType output_dtype_;
+
+    DataType input_scale_dtype_;
+    DataType gate_weight_scale_dtype_;
+    DataType down_projection_scale_dtype_;
+    DataType output_scale_dtype_;
+
+    DataType topk_weight_dtype_;
+    DataType index_dtype_ = DataType::INT32;
     
-    /// @brief Activation function used between gate and up projections
     ActivationType activation_;
     
-    /// @brief Enable smooth quantization for weights
+    bool is_only_gate_ = false;
     bool use_smooth_quant_ = false;
+    
 
 };
 

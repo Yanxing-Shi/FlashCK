@@ -68,16 +68,20 @@ std::string MoeGemmTileDesc::Emit()
 
 std::string MoeGemmCodeGen::GetInstanceName()
 {
-    // Generate unique instance identifier combining all MoE GEMM configuration aspects
-    return Sprintf("moe_gemm_{input_dtype}_{weight_dtype}_{index_dtype}_{tile}_{is_pad_hidden_size}_{is_pad_intermediate_size}_{is_interleave_}_{activation}_{min_block_per_cu}",
-                   fmt::arg("input_dtype", DataTypeToString(problem_.input_dtype_)),
-                   fmt::arg("weight_dtype", DataTypeToString(problem_.weight_dtype_)),
-                   fmt::arg("index_dtype", DataTypeToString(problem_.index_dtype_)),
-                   fmt::arg("tile", tile_desc_.GetInstanceName()),
-                   fmt::arg("is_pad_hidden_size", is_pad_hidden_size_),
-                   fmt::arg("is_pad_intermediate_size", is_pad_intermediate_size_),
-                   fmt::arg("is_interleave", is_interleave_),
-                   fmt::arg("min_block_per_cu", min_block_per_cu_));
+    auto trait = Sprintf("{is_pad_hidden_size}{is_pad_intermediate_size}{is_interleave}",
+                   fmt::arg("is_pad_hidden_size", is_pad_hidden_size_ ? "h" : ""),
+                   fmt::arg("is_pad_intermediate_size", is_pad_intermediate_size_ ? "i" : ""),
+                   fmt::arg("is_interleave", is_interleave_ ? "i" : ""));
+    
+    auto launch = Sprintf("{max_thread_per_block}_{min_block_per_cu}",
+                     fmt::arg("max_thread_per_block", max_thread_per_block_),
+                        fmt::arg("min_block_per_cu", min_block_per_cu_));   
+
+    return Sprintf("moe_gemm_{problem}_{tile_shape}_{trait}_{launch}",
+                   fmt::arg("problem", problem_.GetName()),
+                   fmt::arg("tile_shape", tile_desc_.GetInstanceName()),
+                   fmt::arg("trait", trait),
+                   fmt::arg("launch", launch));
 }
 
 std::string MoeGemmCodeGen::Emit()
@@ -138,7 +142,7 @@ std::string MoeGemmCodeGen::Emit()
         {"is_interleave", is_interleave_},
         {"shape", tile_desc_.Emit()},
         {"activation", GetActivationTag(problem_.activation_)},
-        {"is_only_gate", false},  // Configurable based on MoE architecture
+        {"is_only_gate", problem_.is_only_gate_},
         {"use_smooth_quant", problem_.use_smooth_quant_}
     };
 

@@ -12,7 +12,7 @@ FC_DECLARE_string(FC_CONFIG_JSON_PATH);   // Base path for config files
 
 namespace flashck {
 
-bool MoeSmoothQuantEmitter::IsValidTile(const MoeSmoothQuantTileDesc& tile_desc, const MoeProblem& moe_problem)
+bool MoeSmoothQuantEmitter::IsValidTile(const MoeSmoothQuantTileDesc& tile_desc, const MoeSmoothQuantProblem& moe_smooth_quant_problem)
 {
     // Validate all tile parameters are positive
     if (tile_desc.m_repeat_ <= 0 || tile_desc.n_repeat_ <= 0 || 
@@ -30,7 +30,7 @@ bool MoeSmoothQuantEmitter::IsValidTile(const MoeSmoothQuantTileDesc& tile_desc,
     }
 
     // Validate vector size alignment with data types
-    const int data_type_size = SizeOf(moe_problem.input_dtype_);
+    const int data_type_size = SizeOf(moe_smooth_quant_problem.input_dtype_);
     if (tile_desc.n_vector_ % (4 / data_type_size) != 0) {
         VLOG(3) << "Invalid MoE smooth quantization tile: vector size " << tile_desc.n_vector_ 
                 << " not aligned with data type size " << data_type_size;
@@ -49,9 +49,9 @@ bool MoeSmoothQuantEmitter::IsValidTile(const MoeSmoothQuantTileDesc& tile_desc,
     const int64_t total_m_coverage = tile_desc.m_thread_per_block_ * tile_desc.m_repeat_;
     const int64_t total_n_coverage = tile_desc.n_thread_per_block_ * tile_desc.n_repeat_ * tile_desc.n_vector_;
     
-    if (total_m_coverage > moe_problem.input_tokens_ || total_n_coverage > moe_problem.hidden_size_) {
+    if (total_m_coverage > moe_smooth_quant_problem.input_tokens_ || total_n_coverage > moe_smooth_quant_problem.hidden_size_) {
         VLOG(3) << "Invalid MoE smooth quantization tile: coverage (" << total_m_coverage << "," << total_n_coverage 
-                << ") exceeds problem dims (" << moe_problem.input_tokens_ << "," << moe_problem.hidden_size_ << ")";
+                << ") exceeds problem dims (" << moe_smooth_quant_problem.input_tokens_ << "," << moe_smooth_quant_problem.hidden_size_ << ")";
         return false;
     }
 
@@ -65,7 +65,7 @@ bool MoeSmoothQuantEmitter::IsValidInstance(const MoeSmoothQuantCodeGen& instanc
 
 std::vector<MoeSmoothQuantCodeGen> MoeSmoothQuantEmitter::HeuristicFilter(
     const std::vector<MoeSmoothQuantCodeGen>& instances,
-    const MoeProblem& moe_problem)
+    const MoeSmoothQuantProblem& moe_smooth_quant_problem)
 {
     if (instances.empty()) {
         return {};
@@ -104,8 +104,8 @@ std::vector<MoeSmoothQuantCodeGen> MoeSmoothQuantEmitter::HeuristicFilter(
         const int64_t total_m_coverage = tile_desc.m_thread_per_block_ * tile_desc.m_repeat_;
         const int64_t total_n_coverage = tile_desc.n_thread_per_block_ * tile_desc.n_repeat_ * tile_desc.n_vector_;
         
-        if (moe_problem.input_tokens_ % total_m_coverage == 0) score += 0.05;
-        if (moe_problem.hidden_size_ % total_n_coverage == 0) score += 0.05;
+        if (moe_smooth_quant_problem.input_tokens_ % total_m_coverage == 0) score += 0.05;
+        if (moe_smooth_quant_problem.hidden_size_ % total_n_coverage == 0) score += 0.05;
         
         scored_instances.emplace_back(score, i);
     }
@@ -129,13 +129,13 @@ std::vector<MoeSmoothQuantCodeGen> MoeSmoothQuantEmitter::HeuristicFilter(
 }
 
 std::vector<MoeSmoothQuantCodeGen> MoeSmoothQuantEmitter::CreateInstanceForConfig(
-    const MoeSmoothQuantConfig& config, const MoeProblem& moe_problem) 
+    const MoeSmoothQuantConfig& config, const MoeSmoothQuantProblem& moe_smooth_quant_problem) 
 {
     std::vector<MoeSmoothQuantCodeGen> result;
 
     // Convert all config parameters to int64_t vectors for CartesianProduct
     std::vector<std::vector<int64_t>> all_param_lists = {
-        // Thread configuration
+        // Tile configuration
         [&]{ std::vector<int64_t> v; 
              for (auto x : config.tile_shape.m_repeat.GetAllValues()) v.push_back(static_cast<int64_t>(x)); 
              return v; }(),
@@ -151,12 +151,17 @@ std::vector<MoeSmoothQuantCodeGen> MoeSmoothQuantEmitter::CreateInstanceForConfi
         [&]{ std::vector<int64_t> v; 
              for (auto x : config.tile_shape.n_vector.GetAllValues()) v.push_back(static_cast<int64_t>(x)); 
              return v; }(),
-        // Processing configuration
+        // Trait configuration
         [&]{ std::vector<int64_t> v; 
-             for (auto x : config.padding.n.GetAllValues()) v.push_back(static_cast<int64_t>(x)); 
+             for (auto x : config.trait.padding.n.GetAllValues()) v.push_back(static_cast<int64_t>(x)); 
              return v; }(),
+        // Strategy configuration
         [&]{ std::vector<int64_t> v; 
-             for (auto x : config.pipeline.is_two_pass.GetAllValues()) v.push_back(static_cast<int64_t>(x)); 
+             for (auto x : config.strategy.is_two_pass.GetAllValues()) v.push_back(static_cast<int64_t>(x)); 
+             return v; }(),
+        // launch configuration
+        [&]{ std::vector<int64_t> v; 
+             for (auto x : config.launch.max_thread_per_block.GetAllValues()) v.push_back(static_cast<int64_t>(x)); 
              return v; }(),
         [&]{ std::vector<int64_t> v; 
              for (auto x : config.launch.min_block_per_cu.GetAllValues()) v.push_back(static_cast<int64_t>(x)); 
@@ -173,18 +178,24 @@ std::vector<MoeSmoothQuantCodeGen> MoeSmoothQuantEmitter::CreateInstanceForConfi
         int64_t n_thread_per_block = vals[idx++];
         int64_t n_vector = vals[idx++];
         
-        // Processing configuration
+        // trait configuration
         bool is_pad_n = static_cast<bool>(vals[idx++]);
+
+        // strategy configuration
         bool is_two_pass = static_cast<bool>(vals[idx++]);
+
+        // launch configuration
+        int64_t max_thread_per_block = vals[idx++];
         int64_t min_block_per_cu = vals[idx++];
 
         // Construct MoeSmoothQuantCodeGen
         MoeSmoothQuantCodeGen instance;
-        instance.problem_ = moe_problem;
+        instance.problem_ = moe_smooth_quant_problem;
         instance.tile_desc_ = MoeSmoothQuantTileDesc{m_repeat, n_repeat, m_thread_per_block, 
                                                     n_thread_per_block, n_vector};
         instance.is_pad_n_ = is_pad_n;
         instance.is_two_pass_ = is_two_pass;
+        instance.max_thread_per_block_ = max_thread_per_block;
         instance.min_block_per_cu_ = min_block_per_cu;
         
         result.push_back(instance);
@@ -193,7 +204,7 @@ std::vector<MoeSmoothQuantCodeGen> MoeSmoothQuantEmitter::CreateInstanceForConfi
     return result;
 }
 
-void MoeSmoothQuantEmitter::GenerateInstances(MoeProblem& moe_problem)
+void MoeSmoothQuantEmitter::GenerateInstances(MoeSmoothQuantProblem& moe_smooth_quant_problem)
 {
     // Validate tuning mode
     FC_ENFORCE_EQ(FLAGS_FC_TUNING_MODE >= 0 && FLAGS_FC_TUNING_MODE <= 2, true,
@@ -203,7 +214,7 @@ void MoeSmoothQuantEmitter::GenerateInstances(MoeProblem& moe_problem)
     std::vector<MoeSmoothQuantCodeGen> all_instances;
 
     // Configuration loading based on enabled flags
-    auto base_json_path = std::filesystem::path(FLAGS_FC_CONFIG_JSON_PATH) / "moe_smooth_quant";
+    auto base_json_path = std::filesystem::path(FLAGS_FC_CONFIG_JSON_PATH) / "moe" / "moe_smooth_quant";
 
     // Load backup configurations (pre-validated single configs)
     if (FLAGS_FC_ENABLE_BACKUP_JSON) {
@@ -212,7 +223,7 @@ void MoeSmoothQuantEmitter::GenerateInstances(MoeProblem& moe_problem)
             if (std::filesystem::exists(backup_path)) {
                 auto backup_configs = LoadConfigJson<std::vector<MoeSmoothQuantConfig>>(backup_path);
                 for (const auto& config : backup_configs) {
-                    auto backup_instances = CreateInstanceForConfig(config, moe_problem);
+                    auto backup_instances = CreateInstanceForConfig(config, moe_smooth_quant_problem);
                     all_instances.insert(all_instances.end(), backup_instances.begin(), backup_instances.end());
                 }
                 VLOG(2) << "Loaded " << backup_configs.size() << " MoE smooth quantization backup configurations";
@@ -228,7 +239,7 @@ void MoeSmoothQuantEmitter::GenerateInstances(MoeProblem& moe_problem)
             std::filesystem::path default_path = base_json_path / "default_config.json";
             if (std::filesystem::exists(default_path)) {
                 auto default_config = LoadConfigJson<MoeSmoothQuantConfig>(default_path);
-                auto default_instances = CreateInstanceForConfig(default_config, moe_problem);
+                auto default_instances = CreateInstanceForConfig(default_config, moe_smooth_quant_problem);
                 all_instances.insert(all_instances.end(), default_instances.begin(), default_instances.end());
                 VLOG(2) << "Loaded MoE smooth quantization default configuration with " << default_instances.size() << " instances";
             }
@@ -243,7 +254,7 @@ void MoeSmoothQuantEmitter::GenerateInstances(MoeProblem& moe_problem)
             std::filesystem::path user_path = base_json_path / "user_config.json";
             if (std::filesystem::exists(user_path)) {
                 auto user_config = LoadConfigJson<MoeSmoothQuantConfig>(user_path);
-                auto user_instances = CreateInstanceForConfig(user_config, moe_problem);
+                auto user_instances = CreateInstanceForConfig(user_config, moe_smooth_quant_problem);
                 all_instances.insert(all_instances.end(), user_instances.begin(), user_instances.end());
                 VLOG(2) << "Loaded MoE smooth quantization user configuration with " << user_instances.size() << " instances";
             }
@@ -257,7 +268,7 @@ void MoeSmoothQuantEmitter::GenerateInstances(MoeProblem& moe_problem)
     
     switch (FLAGS_FC_TUNING_MODE) {
         case 0: {  // Heuristic mode: filter + random selection for fast execution
-            auto filtered_instances = HeuristicFilter(all_instances, moe_problem);
+            auto filtered_instances = HeuristicFilter(all_instances, moe_smooth_quant_problem);
             if (!filtered_instances.empty()) {
                 // Randomly select one optimal configuration for fast execution
                 std::random_device rd;
@@ -275,7 +286,7 @@ void MoeSmoothQuantEmitter::GenerateInstances(MoeProblem& moe_problem)
             break;
         }
         case 2: {  // Hybrid mode: heuristic filtering + broader search
-            auto filtered_instances = HeuristicFilter(all_instances, moe_problem);
+            auto filtered_instances = HeuristicFilter(all_instances, moe_smooth_quant_problem);
             final_instances = filtered_instances.empty() ? all_instances : filtered_instances;
             VLOG(1) << "MoE smooth quantization hybrid mode: using " << final_instances.size() 
                     << " instances (filtered from " << all_instances.size() << ")";
@@ -285,7 +296,7 @@ void MoeSmoothQuantEmitter::GenerateInstances(MoeProblem& moe_problem)
 
     // Validate and store instances
     num_instances_ = 0;
-    for (const auto& instance : final_instances) {
+    for (auto& instance : final_instances) {
         if (IsValidInstance(instance)) {
             instance_map_[instance.GetInstanceName()] = instance;
             ++num_instances_;
@@ -296,10 +307,6 @@ void MoeSmoothQuantEmitter::GenerateInstances(MoeProblem& moe_problem)
             << " (mode " << FLAGS_FC_TUNING_MODE << ")";
 }
 
-int64_t MoeSmoothQuantEmitter::GetNumInstances() const
-{
-    return num_instances_;
-}
 
 void MoeSmoothQuantEmitter::ClearInstances()
 {

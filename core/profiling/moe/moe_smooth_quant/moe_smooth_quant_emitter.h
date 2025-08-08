@@ -6,9 +6,8 @@
 #include <vector>
 
 #include "core/profiling/moe/moe_library.h"
-#include "core/profiling/moe/moe_problem.h"
 #include "core/profiling/moe/moe_smooth_quant/moe_smooth_quant_codegen.h"
-#include "core/utils/json_config.h"
+
 
 namespace flashck {
 
@@ -57,7 +56,7 @@ public:
     /**
      * @brief Validates tile configuration against problem constraints
      * @param tile_desc Tile descriptor containing thread-level parameters
-     * @param moe_problem Problem specification including dimensions and data types
+     * @param moe_smooth_quant_problem Problem specification including dimensions and data types
      * @return true if tile configuration is valid, false otherwise
      * 
      * Validation includes:
@@ -66,7 +65,7 @@ public:
      * - Thread block size limitations
      * - Vector size compatibility with data types
      */
-    bool IsValidTile(const MoeSmoothQuantTileDesc& tile_desc, const MoeProblem& moe_problem);
+    bool IsValidTile(const MoeSmoothQuantTileDesc& tile_desc, const MoeSmoothQuantProblem& moe_smooth_quant_problem);
 
     /**
      * @brief Validates generated code instance
@@ -78,15 +77,15 @@ public:
     /**
      * @brief Creates kernel instances from configuration
      * @param config Configuration with parameter ranges or single values
-     * @param moe_problem Problem specification
+     * @param moe_smooth_quant_problem Problem specification
      * @return Vector of generated kernel instances
      */
-    std::vector<MoeSmoothQuantCodeGen> CreateInstanceForConfig(const MoeSmoothQuantConfig& config, const MoeProblem& moe_problem);
+    std::vector<MoeSmoothQuantCodeGen> CreateInstanceForConfig(const MoeSmoothQuantConfig& config, const MoeSmoothQuantProblem& moe_smooth_quant_problem);
 
     /**
      * @brief Apply intelligent filtering to reduce search space
      * @param instances All generated instances to filter
-     * @param moe_problem Problem specification for context-aware filtering
+     * @param moe_smooth_quant_problem Problem specification for context-aware filtering
      * @return Filtered subset of instances with better performance characteristics
      * 
      * Heuristic Strategy:
@@ -96,11 +95,11 @@ public:
      * - Prefers vector sizes that align with data types
      */
     std::vector<MoeSmoothQuantCodeGen> HeuristicFilter(const std::vector<MoeSmoothQuantCodeGen>& instances, 
-                                                      const MoeProblem& moe_problem);
+                                                      const MoeSmoothQuantProblem& moe_smooth_quant_problem);
 
     /**
      * @brief Main instance generation entry point supporting multiple configuration sources
-     * @param moe_problem The MoE smooth quantization problem configuration to solve
+     * @param moe_smooth_quant_problem The MoE smooth quantization problem configuration to solve
      * 
      * Execution Strategy (controlled by FC_TUNING_MODE):
      * - Mode 0 (Heuristic): Apply filtering → select optimal subset → random sampling for fast execution
@@ -112,7 +111,7 @@ public:
      * - Default configs: Parameter ranges for exploration and tuning
      * - User configs: Custom parameter ranges for specific use cases
      */
-    void GenerateInstances(MoeProblem& moe_problem);
+    void GenerateInstances(MoeSmoothQuantProblem& moe_smooth_quant_problem);
 
     /**
      * @brief Gets the total number of generated instances across all configurations
@@ -125,12 +124,12 @@ public:
 
     /**
      * @brief Get profiling instance map for the given MoE smooth quantization kind
-     * @param moe_problem The MoE problem configuration
+     * @param moe_smooth_quant_problem The MoE problem configuration
      * @return Reference to the instance map for the specific operation kind
      */
-    std::map<std::string, MoeSmoothQuantCodeGen>& GetInstanceMap(MoeProblem moe_problem)
+    std::map<std::string, MoeSmoothQuantCodeGen>& GetInstanceMap(MoeSmoothQuantProblem moe_smooth_quant_problem)
     {
-        GenerateInstances(moe_problem);
+        GenerateInstances(moe_smooth_quant_problem);
         return instance_map_;
     }
 

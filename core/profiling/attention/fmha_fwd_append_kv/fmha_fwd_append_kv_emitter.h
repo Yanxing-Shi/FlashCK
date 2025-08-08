@@ -7,7 +7,6 @@
 #include <vector>
 
 #include "core/profiling/attention/fmha_library.h"
-#include "core/profiling/attention/fmha_fwd_append_kv_problem.h"
 #include "core/profiling/attention/fmha_fwd_append_kv/fmha_fwd_append_kv_codegen.h"
 
 namespace flashck {

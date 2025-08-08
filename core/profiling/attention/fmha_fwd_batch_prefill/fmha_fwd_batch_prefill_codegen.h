@@ -5,7 +5,7 @@
 #include <vector>
 
 #include "core/profiling/attention/fmha_library.h"
-#include "core/profiling/attention/fmha_problem.h"
+#include "core/profiling/attention/fmha_fwd_batch_prefill/fmha_fwd_batch_prefill_problem.h"
 
 namespace flashck {
 
@@ -94,13 +94,7 @@ public:
      * @brief Default constructor with sensible defaults
      */
     FmhaFwdBatchPrefillCodeGen() = default;
-
-    /**
-     * @brief Generate unique identifier for padding configuration
-     * @return String encoding which dimensions have padding enabled
-     */
-    std::string GetPaddingConfigName();
-
+    
     /**
      * @brief Generate unique instance name combining all configuration parameters
      * @return Comprehensive string identifier for this kernel configuration
@@ -113,15 +107,12 @@ public:
      */
     std::string Emit();
 
-    // ====================== Problem Specification ======================
-    /// Problem specification this codegen instance targets
     FmhaFwdBatchPrefillProblem problem_; 
 
-    // ====================== Hierarchical Tiling Configuration ======================
-    /// Complete tile configuration for this FMHA operation
+    // ====================== Tiling Configuration ======================
     FmhaFwdBatchPrefillTileDesc tile_desc_;
 
-    // ====================== Padding Configuration ======================
+    // ====================== Trait Configuration ======================
     /// Enable padding for query sequence length dimension
     bool is_pad_q_seq_len_    = false;
     /// Enable padding for key-value sequence length dimension  
@@ -131,15 +122,14 @@ public:
     /// Enable padding for value head dimension
     bool is_pad_v_head_dim_   = false;
 
-    // ====================== Performance Tuning ======================
-    /// Minimum blocks per compute unit (-1 = use default occupancy)
-    int min_block_per_cu_ = -1;
-    
-    // ====================== Pipeline Implementation ======================
-    /// Selected FMHA pipeline implementation variant
+    bool is_skip_min_q_seq_len_;
+
+    // ====================== Strategy Configuration ======================
     BlockFmhaPipelineEnum pipeline_ = BlockFmhaPipelineEnum::QRKSVS;
 
-    bool is_skip_min_q_seqlen_;
+    // ====================== Launch Configuration ======================
+    int64_t max_thread_per_block_;
+    int64_t min_block_per_cu_ = -1;
 };
 
 }  // namespace flashck

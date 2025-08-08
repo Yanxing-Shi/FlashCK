@@ -58,10 +58,10 @@ static const std::unordered_map<ElementwiseKind, ElementwiseKindInfo> g_elementw
 
 
 /**
- * @enum PipelineVersionEnum
+ * @enum PipelineEnum
  * @brief Pipeline types for GEMM kernel
  */
-enum class PipelineVersionEnum {
+enum class PipelineEnum {
     Mem = 0,
     Compute_V3 = 1,
     Compute_V4 = 2,
@@ -70,7 +70,7 @@ enum class PipelineVersionEnum {
 };
 
 
-struct PipelineVersionEnumInfo
+struct PipelineEnumInfo
 {
     std::string name;
     std::string short_name;
@@ -79,24 +79,24 @@ struct PipelineVersionEnumInfo
 };
 
 // Pipeline type to tag mapping
-static const std::unordered_map<PipelineVersionEnum, PipelineVersionEnumInfo> g_pipeline_info_map{
-    {PipelineVersionEnum::Mem, {"GemmPipelineAgBgCrMem", "Mem", "ck_tile::BaseGemmPipelineAgBgCrMem", "ck_tile::GemmPipelineAgBgCrMem"}},
-    {PipelineVersionEnum::Compute_V3, {"GemmPipelineAgBgCrCompV3", "CompV3", "ck_tile::BaseGemmPipelineAgBgCrCompV3", "ck_tile::GemmPipelineAgBgCrCompV3"}},
-    {PipelineVersionEnum::Compute_V4, {"GemmPipelineAgBgCrCompV4", "CompV4", "ck_tile::BaseGemmPipelineAgBgCrCompV4", "ck_tile::GemmPipelineAgBgCrCompV4"}},
-    {PipelineVersionEnum::Compute_V5, {"GemmPipelineAgBgCrCompV5", "CompV5", "ck_tile::BaseGemmPipelineAgBgCrCompV5", "ck_tile::GemmPipelineAgBgCrCompV5"}},
-    {PipelineVersionEnum::Preshuffle, {"WeightPreshufflePipelineAGmemBGmemCRegV1", "Preshuffle", "ck_tile::BaseWeightPreshufflePipelineAGmemBGmemCRegV1", "ck_tile::WeightPreshufflePipelineAGmemBGmemCRegV1"}}
+static const std::unordered_map<PipelineEnum, PipelineEnumInfo> g_pipeline_info_map{
+    {PipelineEnum::Mem, {"GemmPipelineAgBgCrMem", "Mem", "ck_tile::BaseGemmPipelineAgBgCrMem", "ck_tile::GemmPipelineAgBgCrMem"}},
+    {PipelineEnum::Compute_V3, {"GemmPipelineAgBgCrCompV3", "CompV3", "ck_tile::BaseGemmPipelineAgBgCrCompV3", "ck_tile::GemmPipelineAgBgCrCompV3"}},
+    {PipelineEnum::Compute_V4, {"GemmPipelineAgBgCrCompV4", "CompV4", "ck_tile::BaseGemmPipelineAgBgCrCompV4", "ck_tile::GemmPipelineAgBgCrCompV4"}},
+    {PipelineEnum::Compute_V5, {"GemmPipelineAgBgCrCompV5", "CompV5", "ck_tile::BaseGemmPipelineAgBgCrCompV5", "ck_tile::GemmPipelineAgBgCrCompV5"}},
+    {PipelineEnum::Preshuffle, {"WeightPreshufflePipelineAGmemBGmemCRegV1", "Preshuffle", "ck_tile::BaseWeightPreshufflePipelineAGmemBGmemCRegV1", "ck_tile::WeightPreshufflePipelineAGmemBGmemCRegV1"}}
 };
 
 /**
- * @enum PipelineSchedulerEnum
+ * @enum SchedulerEnum
  * @brief Scheduler types for GEMM pipeline
  */
-enum class PipelineSchedulerEnum {
+enum class SchedulerEnum {
     Intrawave = 0, ///< Intra-wave scheduling
     Interwave = 1  ///< Inter-wave scheduling
 };
 
-struct PipelineSchedulerEnumInfo
+struct SchedulerEnumInfo
 {
     std::string name;
     std::string short_name;
@@ -104,9 +104,9 @@ struct PipelineSchedulerEnumInfo
 };
 
 // Scheduler type to tag mapping
-static const std::unordered_map<PipelineSchedulerEnum, PipelineSchedulerEnumInfo> g_scheduler_info_map{
-    {PipelineSchedulerEnum::Intrawave, {"Intrawave", "Intrawave", "ck_tile::GemmPipelineScheduler::Intrawave"}},
-    {PipelineSchedulerEnum::Interwave, {"Interwave", "Interwave", "ck_tile::GemmPipelineScheduler::Interwave"}}
+static const std::unordered_map<SchedulerEnum, SchedulerEnumInfo> g_scheduler_info_map{
+    {SchedulerEnum::Intrawave, {"Intrawave", "Intrawave", "ck_tile::GemmPipelineScheduler::Intrawave"}},
+    {SchedulerEnum::Interwave, {"Interwave", "Interwave", "ck_tile::GemmPipelineScheduler::Interwave"}}
 };
 
 /**
@@ -272,14 +272,14 @@ inline std::string GetElementwiseKindTag(ElementwiseKind kind) {
 /**
  * @brief Gets the name string for a pipeline enum
  */
-inline std::string GetPipelineVersionEnumName(PipelineVersionEnum p) {
+inline std::string GetPipelineEnumName(PipelineEnum p) {
     auto it = g_pipeline_info_map.find(p);
     return it != g_pipeline_info_map.end() ? it->second.name : "unknown";
 }
 /**
  * @brief Gets the short name string for a pipeline enum
  */
-inline std::string GetPipelineVersionEnumShortName(PipelineVersionEnum p) {
+inline std::string GetPipelineEnumShortName(PipelineEnum p) {
     auto it = g_pipeline_info_map.find(p);
     return it != g_pipeline_info_map.end() ? it->second.short_name : "unknown";
 }
@@ -287,7 +287,7 @@ inline std::string GetPipelineVersionEnumShortName(PipelineVersionEnum p) {
 /**
  * @brief Gets the base tag string for a pipeline enum
  */
-inline std::string GetPipelineVersionEnumBaseTag(PipelineVersionEnum p) {
+inline std::string GetPipelineEnumBaseTag(PipelineEnum p) {
     auto it = g_pipeline_info_map.find(p);
     return it != g_pipeline_info_map.end() ? it->second.base_tag : "unknown";
 }
@@ -295,62 +295,62 @@ inline std::string GetPipelineVersionEnumBaseTag(PipelineVersionEnum p) {
 /**
  * @brief Gets the main tag string for a pipeline enum
  */
-inline std::string GetPipelineVersionEnumMainTag(PipelineVersionEnum p) {
+inline std::string GetPipelineEnumMainTag(PipelineEnum p) {
     auto it = g_pipeline_info_map.find(p);
     return it != g_pipeline_info_map.end() ? it->second.main_tag : "unknown";
 }
 
 /**
- * @brief Gets the PipelineVersionEnum from a string (name or short_name)
+ * @brief Gets the PipelineEnum from a string (name or short_name)
  * @param str The string to match
- * @return The corresponding PipelineVersionEnum, or PipelineVersionEnum::Mem if not found
+ * @return The corresponding PipelineEnum, or PipelineEnum::Mem if not found
  */
-inline PipelineVersionEnum GetPipelineVersionEnumFromString(const std::string& str)
+inline PipelineEnum GetPipelineEnumFromString(const std::string& str)
 {
     for (const auto& [e, info] : g_pipeline_info_map) {
         if (info.name == str || info.short_name == str) {
             return e;
         }
     }
-    return PipelineVersionEnum::Mem;
+    return PipelineEnum::Mem;
 }
 
 
 /**
  * @brief Gets the name string for a scheduler enum
  */
-inline std::string GetPipelineSchedulerEnumName(PipelineSchedulerEnum s) {
+inline std::string GetSchedulerEnumName(SchedulerEnum s) {
     auto it = g_scheduler_info_map.find(s);
     return it != g_scheduler_info_map.end() ? it->second.name : "unknown";
 }
 /**
  * @brief Gets the short name string for a scheduler enum
  */
-inline std::string GetPipelineSchedulerEnumShortName(PipelineSchedulerEnum s) {
+inline std::string GetSchedulerEnumShortName(SchedulerEnum s) {
     auto it = g_scheduler_info_map.find(s);
     return it != g_scheduler_info_map.end() ? it->second.short_name : "unknown";
 }
 /**
  * @brief Gets the tag string for a scheduler enum
  */
-inline std::string GetPipelineSchedulerEnumTag(PipelineSchedulerEnum s) {
+inline std::string GetSchedulerEnumTag(SchedulerEnum s) {
     auto it = g_scheduler_info_map.find(s);
     return it != g_scheduler_info_map.end() ? it->second.tag : "unknown";
 }
 
 /**
- * @brief Gets the PipelineSchedulerEnum from a string (name or short_name)
+ * @brief Gets the SchedulerEnum from a string (name or short_name)
  * @param str The string to match
- * @return The corresponding PipelineSchedulerEnum, or PipelineSchedulerEnum::Intrawave if not found
+ * @return The corresponding SchedulerEnum, or SchedulerEnum::Intrawave if not found
  */
-inline PipelineSchedulerEnum GetPipelineSchedulerEnumFromString(const std::string& str)
+inline SchedulerEnum GetSchedulerEnumFromString(const std::string& str)
 {
     for (const auto& [e, info] : g_scheduler_info_map) {
         if (info.name == str || info.short_name == str) {
             return e;
         }
     }
-    return PipelineSchedulerEnum::Intrawave;
+    return SchedulerEnum::Intrawave;
 }
 
 

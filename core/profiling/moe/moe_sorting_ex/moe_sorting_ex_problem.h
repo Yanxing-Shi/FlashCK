@@ -8,12 +8,12 @@
 
 namespace flashck {
 
-class TopKSoftmaxProblem: public ProblemBase<TopKSoftmaxProblem> {
+class MoeSortingExProblem: public ProblemBase<MoeSortingExProblem> {
 public:
 
     std::string GetTypeImpl()
     {
-        return "TopKSoftmaxProblem";
+        return "MoeSortingExProblem";
     }
 
     std::string SerializeImpl()
@@ -26,18 +26,17 @@ public:
         oss << "\"intermediate_size\":" << intermediate_size_ << ",";
         oss << "\"num_experts\":" << num_experts_ << ",";
         oss << "\"topk\":" << topk_ << ",";
-        oss << "\"input_dtype\":\"" << DataTypeToString(input_dtype_) << "\",";
-        oss << "\"index_dtype\":\"" << DataTypeToString(index_dtype_) << "\"";
+        oss << "\"index_dtype\":\"" << DataTypeToString(index_dtype_) << "\",";
+        oss << "\"weight_dtype\":\"" << DataTypeToString(weight_dtype_) << "\"";
         oss << "}";
         return oss.str();
     }
 
     std::string GetNameImpl() 
     {
-        return Sprintf("{input_dtype}_{weight_dtype}_{index_dtype}",
-                       fmt::arg("input_dtype", DataTypeToString(input_dtype_)),
-                       fmt::arg("weight_dtype", DataTypeToString(weight_dtype_)),
-                       fmt::arg("index_dtype", DataTypeToString(index_dtype_)));
+        return Sprintf("{index_dtype}_{weight_dtype}",
+                       fmt::arg("index_dtype", DataTypeToString(index_dtype_)),
+                       fmt::arg("weight_dtype", DataTypeToString(weight_dtype_)));
     }
 
     
@@ -60,9 +59,8 @@ public:
     
     // ====================== Data Type Configuration ======================
 
-    DataType input_dtype_;
-    DataType weight_dtype_;
     DataType index_dtype_;
+    DataType weight_dtype_;
 
 };
 

@@ -46,9 +46,6 @@ public:
     int64_t n_warp_tile_;    ///< Elements per thread in N-dimension within warp
     int64_t k_warp_tile_;    ///< Elements per thread in K-dimension within warp
 
-    // Memory layout optimization flags
-    bool a_permute_ = false; ///< Enable tensor A layout permutation for cache efficiency
-    bool b_permute_ = false; ///< Enable tensor B layout permutation for cache efficiency
 };
 
 /**
@@ -73,31 +70,35 @@ public:
      * @return String containing full kernel implementation with all optimizations applied
      */
     std::string Emit();
-
-    // ====================== Core Operation Configuration ======================
     
     GemmProblem problem_;    ///< Complete problem specification (dimensions, types, layouts)
 
+    // Hierarchical tiling strategy
+    GemmTileDesc tile_desc_; ///< Complete tile configuration for optimal performance
+
+    // ====================== Trait Parameters ======================
     // Padding configuration for non-aligned dimensions
     bool is_pad_m_;          ///< Enable M-dimension padding for alignment
     bool is_pad_n_;          ///< Enable N-dimension padding for alignment
     bool is_pad_k_;          ///< Enable K-dimension padding for alignment
 
-    // Hierarchical tiling strategy
-    GemmTileDesc tile_desc_; ///< Complete tile configuration for optimal performance
-
-    // ====================== Pipeline Configuration ======================
-    
-    PipelineVersionEnum pipeline_version_;    ///< Pipeline version for computation strategy
-    PipelineSchedulerEnum pipeline_scheduler_; ///< Work scheduling strategy
-    EpilogueEnum pipeline_epilogue_;          ///< Post-computation operations (bias, activation)
-
-    // ====================== Advanced Partitioning Parameters ======================
-    
-    int64_t min_block_per_cu_;           ///< Minimum blocks per compute unit for occupancy control
     int64_t num_wave_groups_;            ///< Number of wave groups for advanced scheduling
+    bool is_persistent_;                  ///< Enable persistent kernel execution
+    bool is_preshuffle_;                  ///< Enable input tensor preshuffling
+    bool use_sparsity_;                   ///< Enable structured sparsity for weight tensors
+
+    // ====================== Strategy Parameters ======================
+    PipelineEnum pipeline_;    ///< Pipeline version for computation strategy
+    SchedulerEnum scheduler_; ///< Work scheduling strategy
+    EpilogueEnum epilogue_;          ///< Post-computation operations (bias, activation)
+
+    // ====================== Partitioning Parameters ======================
     int64_t tile_partitioner_group_num_; ///< Group number for tile partitioning strategies
     int64_t tile_partitioner_m01_;       ///< M-dimension partitioning parameter for load balancing
+
+    // ====================== Launch Parameters ======================
+    int64_t max_thread_per_block_;       ///< Maximum threads per block for kernel launch
+    int64_t min_block_per_cu_;           ///< Minimum blocks per compute unit for occupancy control
 };
 
 }  // namespace flashck

@@ -10,8 +10,22 @@
 #include "core/utils/common.h"
 
 #include "core/profiling/gemm/gemm_problem.h"
-#include "core/profiling/attention/fmha_problem.h"
-#include "core/profiling/norm/norm_problem.h"
+
+#include "core/profiling/moe/moe_gemm/moe_gemm_problem.h"
+#include "core/profiling/moe/moe_smooth_quant/moe_smooth_quant_problem.h"
+#include "core/profiling/moe/moe_sorting/moe_sorting_problem.h"
+#include "core/profiling/moe/moe_sorting_ex/moe_sorting_ex_problem.h"
+#include "core/profiling/moe/topk_softmax/topk_softmax_problem.h"
+
+#include "core/profiling/attention/fmha_fwd/fmha_fwd_problem.h"
+#include "core/profiling/attention/fmha_fwd_append_kv/fmha_fwd_append_kv_problem.h"
+#include "core/profiling/attention/fmha_fwd_batch_prefill/fmha_fwd_batch_prefill_problem.h"
+#include "core/profiling/attention/fmha_fwd_paged_kv_prefill/fmha_fwd_paged_kv_prefill_problem.h"
+#include "core/profiling/attention/fmha_fwd_split_kv/fmha_fwd_split_kv_problem.h"
+#include "core/profiling/attention/fmha_fwd_split_kv_combine/fmha_fwd_split_kv_combine_problem.h"
+
+#include "core/profiling/norm/layer_norm/layer_norm_problem.h"
+#include "core/profiling/norm/rms_norm/rms_norm_problem.h"
 
 // Flag declarations for tuning configuration
 FC_DECLARE_int32(FC_TUNING_MODE);                ///< Tuning strategy mode (heuristic, autotuning, hybrid)
@@ -25,6 +39,21 @@ FC_DECLARE_string(FC_TUNING_INIT_METHOD);        ///< Initialization method for 
 FC_DECLARE_int32(FC_TUNING_SEED);                ///< Random seed for tuning
 
 namespace flashck {
+
+using problem_t = std::variant<LayerNormProblem,
+                              RmsNormProblem,
+                              GemmProblem, 
+                              MoeGemmProblem,
+                              MoeSmoothQuantProblem,
+                              MoeSortingProblem,
+                              MoeSortingExProblem,
+                              TopKSoftmaxProblem,
+                              FmhaFwdProblem,
+                              FmhaFwdAppendKVProblem,
+                              FmhaFwdBatchPrefillProblem,
+                              FmhaFwdPagedKVPrefillProblem,
+                              FmhaFwdSplitKVProblem,
+                              FmhaFwdSplitKVCombineProblem>;
 
 /**
  * @enum Metric
@@ -87,8 +116,8 @@ inline std::string CodeGenKindToString(CodeGenKind kind)
             return "Gemm";
         case CodeGenKind::Norm:
             return "Norm";
-        case CodeGenKind::Embedding:
-            return "Embedding";
+        case CodeGenKind::Moe:
+            return "Moe";
         case CodeGenKind::Fmha:
             return "Fmha";
         default:
@@ -404,7 +433,7 @@ public:
     InstanceData(Environment                                         env,
                  Setting                                             setting,
                  CodeGenKind                                         code_gen_kind,
-                 std::variant<NormProblem, GemmProblem, FmhaProblem> problem
+                 problem_t problem
                 ):
         environment_(std::move(env)),
         setting_(std::move(setting)),
@@ -425,7 +454,7 @@ public:
     InstanceData(Environment                                         env,
                  Setting                                             setting,
                  CodeGenKind                                         code_gen_kind,
-                 std::variant<NormProblem, GemmProblem, FmhaProblem> problem,
+                 problem_t problem,
                  std::string                                         instance_name,
                  PerfResult                                          perf_result):
         environment_(std::move(env)),
@@ -526,7 +555,7 @@ public:
     Setting     setting_;        ///< Profiling configuration
     CodeGenKind code_gen_kind_;  ///< Type of kernel operation
 
-    std::variant<NormProblem, GemmProblem, FmhaProblem> problem_;  ///< Problem specification (extensible via variant)
+    problem_t problem_;  ///< Problem specification (extensible via variant)
     std::string                                         instance_name_;  ///< Unique kernel instance identifier
     PerfResult                                          perf_result_;    ///< Performance measurement results
 };

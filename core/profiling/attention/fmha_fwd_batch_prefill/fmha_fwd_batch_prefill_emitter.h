@@ -8,9 +8,6 @@
 #include <vector>
 
 #include "core/profiling/attention/fmha_library.h"
-#include "core/profiling/attention/fmha_fwd_batch_prefill_problem.h"
-#include "core/utils/json_config.h"
-
 #include "core/profiling/attention/fmha_fwd_batch_prefill/fmha_fwd_batch_prefill_codegen.h"
 
 namespace flashck {

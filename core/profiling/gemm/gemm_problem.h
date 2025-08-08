@@ -4,8 +4,7 @@
 
 #include "core/profiling/problem_base.h"
 #include "core/profiling/gemm/gemm_library.h"
-#include "core/utils/dtype.h"
-
+#include "core/utils/common.h"
 namespace flashck {
 
 /**
@@ -57,10 +56,8 @@ public:
             oss << "\"" << GetLayoutTypeName(ds_layout_[i]) << "\"";
         }
         oss << "], ";
-        oss << "\"a_permute\": " << (a_permute_ ? "true" : "false") << ", ";
-        oss << "\"b_permute\": " << (b_permute_ ? "true" : "false") << ", ";
         oss << "\"c_permute\": " << (c_permute_ ? "true" : "false") << ", ";
-        oss << "\"use_structured_sparsity\": " << (use_structured_sparsity_ ? "true" : "false") << ", ";
+        oss << "\"use_structured_sparsity\": " << (use_sparsity_ ? "true" : "false") << ", ";
         oss << "\"is_preshuffle\": " << (is_preshuffle_ ? "true" : "false") << ", ";
         oss << "\"batch_count\": " << batch_count_ << ", ";
         oss << "\"split_k\": " << split_k_ << ", ";
@@ -83,8 +80,21 @@ public:
     }
     
     std::string GetNameImpl(){
-        return Sprintf("{gemm_kind}_{elementwise_kind}_{a_dtype}{b_dtype}{c_dtype}{ds_dtype}"
-                        "{a_layout}{b_layout}{c_layout}{ds_layout}_"
+        return Sprintf("{gemm_kind}_{elementwise_kind}_{a_dtype}{b_dtype}{c_dtype}"
+                        "{a_layout}{b_layout}{c_layout}_{c_permute}_{is_preshuffle}_{is_persistent}_{is_structured_sparsity}",
+                        fmt::arg("gemm_kind", GetGemmKindShortName(kind_)),
+                        fmt::arg("elementwise_kind", GetElementwiseKindShortName(elementwise_kind_)),
+                        fmt::arg("a_dtype", DataTypeToString(a_dtype_)),
+                        fmt::arg("b_dtype", DataTypeToString(b_dtype_)),
+                        fmt::arg("c_dtype", DataTypeToString(c_dtype_)),
+                        fmt::arg("a_layout", GetLayoutTypeShortName(a_layout_)),
+                        fmt::arg("b_layout", GetLayoutTypeShortName(b_layout_)),
+                        fmt::arg("c_layout", GetLayoutTypeShortName(c_layout_)),
+                        fmt::arg("c_permute", c_permute_ ? "p" : ""),
+                        fmt::arg("is_preshuffle", is_preshuffle_ ? "p" : ""),
+                        fmt::arg("is_persistent", is_persistent_ ? "p" : ""),
+                        fmt::arg("is_structured_sparsity", use_sparsity_ ? "s" : "")
+                        );
     }
 
     // ====================== Problem Configuration ======================
@@ -108,10 +118,8 @@ public:
     std::vector<LayoutType> ds_layout_;  ///< Tensor ds layouts (Special for GemmMultiD)
 
     // Other configurations
-    bool a_permute_ = false;  ///< Whether to permute tensor a
-    bool b_permute_ = false;  ///< Whether to permute tensor b
     bool c_permute_ = false;  ///< Whether to permute tensor c
-    bool use_structured_sparsity_ = false;  ///< Whether to use structured sparsity
+    bool use_sparsity_ = false;  ///< Whether to use structured sparsity
     bool is_preshuffle_ = false;  ///< Whether to use preshuffle
     bool is_persistent_ = false;  ///< Whether to use persistent kernel
 

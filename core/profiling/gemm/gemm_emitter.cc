@@ -114,7 +114,7 @@ bool GemmEmitter::IsValidTile(const GemmTileDesc& tile_desc, const GemmProblem& 
     return true;
 }
 
-bool GemmEmitter::IsValidCombination(const PipelineVersionEnum& pipeline, const EpilogueEnum& epilogue, const PipelineSchedulerEnum& scheduler)
+bool GemmEmitter::IsValidCombination(const PipelineEnum& pipeline, const EpilogueEnum& epilogue, const SchedulerEnum& scheduler)
 {
     // Check if the current combination is valid (compare enums, not strings)
     return std::find(g_tile_gemm_unsupported_combinations.begin(), g_tile_gemm_unsupported_combinations.end(),
@@ -124,7 +124,7 @@ bool GemmEmitter::IsValidCombination(const PipelineVersionEnum& pipeline, const 
 bool GemmEmitter::IsValidInstance(const GemmCodeGen& instance)
 {
     return IsValidTile(instance.tile_desc_, instance.problem_) && 
-           IsValidCombination(instance.pipeline_version_, instance.pipeline_epilogue_, instance.pipeline_scheduler_);
+           IsValidCombination(instance.pipeline_, instance.epilogue_, instance.scheduler_);
 }
 
 std::vector<GemmCodeGen> GemmEmitter::HeuristicFilter(const std::vector<GemmCodeGen>& instances, 
@@ -171,8 +171,8 @@ std::vector<GemmCodeGen> GemmEmitter::HeuristicFilter(const std::vector<GemmCode
         if (is_efficient_size(tile_desc.k_block_)) score += 0.05;
         
         // 5. Pipeline efficiency bonus
-        if (instances[i].pipeline_version_ == GetPipelineVersionEnumFromString("compv3") ||
-            instances[i].pipeline_version_ == GetPipelineVersionEnumFromString("compv4")) {
+        if (instances[i].pipeline_ == GetPipelineEnumFromString("compv3") ||
+            instances[i].pipeline_ == GetPipelineEnumFromString("compv4")) {
             score += 0.1;  // Favor newer pipeline versions
         }
         
@@ -215,20 +215,21 @@ std::vector<GemmCodeGen> GemmEmitter::CreateInstanceForConfig(const GemmConfig& 
         [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.warp_tile.m.GetAllValues()) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
         [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.warp_tile.n.GetAllValues()) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
         [&]{ std::vector<int64_t> v; for (auto x : config.tile_shape.warp_tile.k.GetAllValues()) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        // PaddingConfig (convert bool to int64_t)
-        [&]{ std::vector<int64_t> v; for (auto x : config.padding.m.GetAllValues()) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.padding.n.GetAllValues()) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        [&]{ std::vector<int64_t> v; for (auto x : config.padding.k.GetAllValues()) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        // LaunchConfig
-        [&]{ std::vector<int64_t> v; for (auto x : config.launch.min_block_per_cu.GetAllValues()) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        // TraitConfig (convert bool to int64_t)
+        [&]{ std::vector<int64_t> v; for (auto x : config.trait.padding.m.GetAllValues()) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.trait.padding.n.GetAllValues()) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.trait.padding.k.GetAllValues()) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.trait.num_wave_groups.GetAllValues()) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        // StrategyConfig (enum as int64_t)
+        [&]{ std::vector<int64_t> v; for (const auto& x : config.strategy.pipeline.GetAllValues()) v.emplace_back(static_cast<int64_t>(GetPipelineEnumFromString(x))); return v; }(),
+        [&]{ std::vector<int64_t> v; for (const auto& x : config.strategy.scheduler.GetAllValues()) v.emplace_back(static_cast<int64_t>(GetSchedulerEnumFromString(x))); return v; }(),
+        [&]{ std::vector<int64_t> v; for (const auto& x : config.strategy.epilogue.GetAllValues()) v.emplace_back(static_cast<int64_t>(GetEpilogueEnumFromString(x))); return v; }(),
         // PartitionConfig
-        [&]{ std::vector<int64_t> v; for (auto x : config.partition.num_wave_groups.GetAllValues()) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
         [&]{ std::vector<int64_t> v; for (auto x : config.partition.tile_partitioner_group_num.GetAllValues()) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
         [&]{ std::vector<int64_t> v; for (auto x : config.partition.tile_partitioner_m01.GetAllValues()) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        // PipelineConfig (enum as int64_t)
-        [&]{ std::vector<int64_t> v; for (const auto& x : config.pipeline.version.GetAllValues()) v.emplace_back(static_cast<int64_t>(GetPipelineVersionEnumFromString(x))); return v; }(),
-        [&]{ std::vector<int64_t> v; for (const auto& x : config.pipeline.scheduler.GetAllValues()) v.emplace_back(static_cast<int64_t>(GetPipelineSchedulerEnumFromString(x))); return v; }(),
-        [&]{ std::vector<int64_t> v; for (const auto& x : config.pipeline.epilogue.GetAllValues()) v.emplace_back(static_cast<int64_t>(GetEpilogueEnumFromString(x))); return v; }(),
+        // LaunchConfig
+        [&]{ std::vector<int64_t> v; for (auto x : config.launch.max_thread_per_block.GetAllValues()) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.launch.min_block_per_cu.GetAllValues()) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
     };
 
     CartesianProduct(all_lists, [&](const std::vector<int64_t>& vals) {
@@ -249,32 +250,33 @@ std::vector<GemmCodeGen> GemmEmitter::CreateInstanceForConfig(const GemmConfig& 
         bool pad_m = static_cast<bool>(vals[idx++]);
         bool pad_n = static_cast<bool>(vals[idx++]);
         bool pad_k = static_cast<bool>(vals[idx++]);
-        // LaunchConfig
-        int64_t min_block_per_cu = vals[idx++];
-        // PartitionConfig
         int64_t num_wave_groups = vals[idx++];
+        // StrategyConfig
+        auto version = static_cast<PipelineEnum>(vals[idx++]);
+        auto scheduler = static_cast<SchedulerEnum>(vals[idx++]);
+        auto epilogue = static_cast<EpilogueEnum>(vals[idx++]);
+        // PartitionConfig
         int64_t tile_partitioner_group_num = vals[idx++];
         int64_t tile_partitioner_m01 = vals[idx++];
-        // PipelineConfig
-        auto version = static_cast<PipelineVersionEnum>(vals[idx++]);
-        auto scheduler = static_cast<PipelineSchedulerEnum>(vals[idx++]);
-        // EpilogueConfig
-        auto epilogue = static_cast<EpilogueEnum>(vals[idx++]);
+        // LaunchConfig
+        int64_t max_thread_per_block = vals[idx++];
+        int64_t min_block_per_cu = vals[idx++];
 
         // Construct  GemmCodeGen
         GemmCodeGen gemm;
         gemm.problem_ = gemm_problem;
         gemm.tile_desc_ = GemmTileDesc{m_block, n_block, k_block, m_warp, n_warp, k_warp, m_warp_tile, n_warp_tile, k_warp_tile};
-        gemm.pipeline_version_ = version;
-        gemm.pipeline_scheduler_ = scheduler;
-        gemm.pipeline_epilogue_ = epilogue;
+        gemm.pipeline_ = version;
+        gemm.scheduler_ = scheduler;
+        gemm.epilogue_ = epilogue;
         gemm.is_pad_m_ = pad_m;
         gemm.is_pad_n_ = pad_n;
         gemm.is_pad_k_ = pad_k;
-        gemm.min_block_per_cu_ = min_block_per_cu;
         gemm.num_wave_groups_ = num_wave_groups;
         gemm.tile_partitioner_group_num_ = tile_partitioner_group_num;
         gemm.tile_partitioner_m01_ = tile_partitioner_m01;
+        gemm.max_thread_per_block_ = max_thread_per_block;
+        gemm.min_block_per_cu_ = min_block_per_cu;
         result.push_back(gemm);
     });
     return result;
@@ -372,7 +374,7 @@ void GemmEmitter::GenerateInstances(GemmProblem& gemm_problem)
 
     // Validate and store instances
     num_instances_ = 0;
-    for (const auto& instance : final_instances) {
+    for (auto& instance : final_instances) {
         if (IsValidInstance(instance)) {
             instance_map_[instance.GetInstanceName()] = instance;
             ++num_instances_;

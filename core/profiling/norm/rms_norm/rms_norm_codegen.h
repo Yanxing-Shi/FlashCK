@@ -1,7 +1,7 @@
 #pragma once
 
 #include "core/profiling/norm/norm_library.h"
-#include "core/profiling/norm/norm_problem.h"
+#include "core/profiling/norm/rms_norm/rms_norm_problem.h"
 
 #include "core/utils/common.h"
 
@@ -61,14 +61,18 @@ public:
 
     // ====================== Operation Configuration ======================
 
-    NormProblem problem_;
+    RmsNormProblem problem_;
 
-    // Tiling strategy
+    // ====================== tile Configuration ======================
     RmsNormTileDesc tile_desc_;  ///< Tile configuration for this operation
 
+    // ====================== Trait Configuration ======================
+    bool is_pad_n_;  ///< Whether to pad the N dimension for alignment
     bool is_two_pass_;
 
-    bool is_pad_n_;
+    // ====================== Launch Configuration ======================
+    int64_t max_thread_per_block_;  ///< Maximum threads per block for kernel launch
+    int64_t min_block_per_cu_ = -1;  ///< Minimum blocks per compute unit for occupancy control
 
 };
 

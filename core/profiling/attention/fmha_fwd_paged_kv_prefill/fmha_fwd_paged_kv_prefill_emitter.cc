@@ -74,7 +74,7 @@ bool FmhaFwdPagedKVPrefillEmitter::IsValidInstance(const FmhaFwdPagedKVPrefillCo
 
 std::vector<FmhaFwdPagedKVPrefillCodeGen> FmhaFwdPagedKVPrefillEmitter::HeuristicFilter(
     const std::vector<FmhaFwdPagedKVPrefillCodeGen>& instances,
-    const FmhaFwdPagedKVPrefillProblem& fmha_fwd_paged_kv_prefill_problem) const
+    const FmhaFwdPagedKVPrefillProblem& fmha_fwd_paged_kv_prefill_problem)
 {
     if (instances.empty()) {
         return {};
@@ -199,32 +199,35 @@ std::vector<FmhaFwdPagedKVPrefillCodeGen> FmhaFwdPagedKVPrefillEmitter::CreateIn
         
         // Padding configuration (4 parameters, bool->int64_t)
         [&]{ std::vector<int64_t> v; 
-             for (auto x : config.padding.s.GetAllValues()) v.push_back(static_cast<int64_t>(x)); 
+             for (auto x : config.trait.padding.s.GetAllValues()) v.push_back(static_cast<int64_t>(x)); 
              return v; }(),
         [&]{ std::vector<int64_t> v; 
-             for (auto x : config.padding.sk.GetAllValues()) v.push_back(static_cast<int64_t>(x)); 
+             for (auto x : config.trait.padding.sk.GetAllValues()) v.push_back(static_cast<int64_t>(x)); 
              return v; }(),
         [&]{ std::vector<int64_t> v; 
-             for (auto x : config.padding.d.GetAllValues()) v.push_back(static_cast<int64_t>(x)); 
+             for (auto x : config.trait.padding.d.GetAllValues()) v.push_back(static_cast<int64_t>(x)); 
              return v; }(),
         [&]{ std::vector<int64_t> v; 
-             for (auto x : config.padding.dv.GetAllValues()) v.push_back(static_cast<int64_t>(x)); 
+             for (auto x : config.trait.padding.dv.GetAllValues()) v.push_back(static_cast<int64_t>(x)); 
              return v; }(),
         
         // Skip minimum query sequence length (1 parameters, bool->int64_t)
         [&]{ std::vector<int64_t> v; 
-             for (auto x : config.skip_min_q_seq_len.GetAllValues()) v.push_back(static_cast<int64_t>(x)); 
-             return v; }(),
-
-        // Launch configuration (1 parameter)
-        [&]{ std::vector<int64_t> v; 
-             for (auto x : config.launch.min_block_per_cu.GetAllValues()) v.push_back(static_cast<int64_t>(x)); 
+             for (auto x : config.trait.skip_min_q_seq_len.GetAllValues()) v.push_back(static_cast<int64_t>(x)); 
              return v; }(),
         
         // Pipeline configuration (1 parameter, string->enum->int64_t)
         [&]{ std::vector<int64_t> v; 
-             for (const auto& x : config.pipeline.GetAllValues()) 
-                 v.push_back(static_cast<int64_t>(StrToBlockFmhaPipelineEnum(x))); 
+             for (const auto& x : config.strategy.pipeline.GetAllValues()) 
+                 v.push_back(static_cast<int64_t>(GetBlockFmhaPipelineEnumFromString(x))); 
+             return v; }(),
+
+        // Launch configuration (2 parameter)
+        [&]{ std::vector<int64_t> v; 
+             for (auto x : config.launch.max_thread_per_block.GetAllValues()) v.push_back(static_cast<int64_t>(x)); 
+             return v; }(),
+        [&]{ std::vector<int64_t> v; 
+             for (auto x : config.launch.min_block_per_cu.GetAllValues()) v.push_back(static_cast<int64_t>(x)); 
              return v; }(),
     };
 
@@ -263,16 +266,14 @@ std::vector<FmhaFwdPagedKVPrefillCodeGen> FmhaFwdPagedKVPrefillEmitter::CreateIn
         bool is_pad_v_head_dim = static_cast<bool>(param_values[idx++]);
         
         // Skip minimum query sequence length
-        bool skip_min_q_seq_len_ = static_cast<bool>(param_values[idx++]);
+        bool is_skip_min_q_seq_len = static_cast<bool>(param_values[idx++]);
 
-        // Extract launch parameters
-        int64_t min_block_per_cu = param_values[idx++];
-
-        // Set skip min q seq len
-        instance.skip_min_q_seq_len_ = skip_min_q_seq_len_;
-        
         // Extract pipeline parameters
         BlockFmhaPipelineEnum pipeline = static_cast<BlockFmhaPipelineEnum>(param_values[idx++]);
+
+        // Extract launch parameters
+        int64_t max_thread_per_block = param_values[idx++];
+        int64_t min_block_per_cu = param_values[idx++];
 
         // Construct FmhaFwdPagedKVPrefillCodeGen instance
         FmhaFwdPagedKVPrefillCodeGen instance;
@@ -303,13 +304,16 @@ std::vector<FmhaFwdPagedKVPrefillCodeGen> FmhaFwdPagedKVPrefillEmitter::CreateIn
         instance.is_pad_kv_seq_len_ = is_pad_kv_seq_len;
         instance.is_pad_qk_head_dim_ = is_pad_qk_head_dim;
         instance.is_pad_v_head_dim_ = is_pad_v_head_dim;
-        
-        // Set launch configuration
-        instance.min_block_per_cu_ = min_block_per_cu;
-        
+
+        instance.is_skip_min_q_seq_len_ = is_skip_min_q_seq_len;
+
         // Set pipeline configuration
         instance.pipeline_ = pipeline;
-        
+
+        // Set launch configuration
+        instance.max_thread_per_block_ = max_thread_per_block;
+        instance.min_block_per_cu_ = min_block_per_cu;
+    
         result.push_back(instance);
     });
 
@@ -391,6 +395,8 @@ void FmhaFwdPagedKVPrefillEmitter::GenerateInstances(FmhaFwdPagedKVPrefillProble
             // Heuristic mode: filter + random selection
             final_instances = HeuristicFilter(valid_instances, fmha_fwd_paged_kv_prefill_problem);
             if (!final_instances.empty()) {
+                // Declare local random engine
+                std::mt19937 rng_(std::random_device{}());
                 // Randomly select one instance for fast execution
                 std::uniform_int_distribution<> dist(0, final_instances.size() - 1);
                 auto selected = final_instances[dist(rng_)];
@@ -413,11 +419,11 @@ void FmhaFwdPagedKVPrefillEmitter::GenerateInstances(FmhaFwdPagedKVPrefillProble
             
             // Remove duplicates
             std::sort(final_instances.begin(), final_instances.end(), 
-                     [](const auto& a, const auto& b) {
+                     [](auto& a, auto& b) {
                          return a.GetInstanceName() < b.GetInstanceName();
                      });
             final_instances.erase(std::unique(final_instances.begin(), final_instances.end(),
-                                            [](const auto& a, const auto& b) {
+                                            [](auto& a, auto& b) {
                                                 return a.GetInstanceName() == b.GetInstanceName();
                                             }), final_instances.end());
             
@@ -435,7 +441,7 @@ void FmhaFwdPagedKVPrefillEmitter::GenerateInstances(FmhaFwdPagedKVPrefillProble
     // Store instances in the map
     int64_t generated_count = 0;
 
-    for (const auto& instance : final_instances) {
+    for (auto& instance : final_instances) {
         try {
             std::string instance_name = instance.GetInstanceName();
             

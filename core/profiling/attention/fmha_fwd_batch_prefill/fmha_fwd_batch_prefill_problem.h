@@ -64,7 +64,7 @@ public:
                        fmt::arg("mask_type", GetAttentionMaskShortName(mask_type_)),
                        fmt::arg("bias_enum", GetBiasShortName(bias_enum_)),
                        fmt::arg("is_static_quant", is_static_quant_),
-                       fmt::arg("has_logits_soft_cap", has_logits_soft_cap_))
+                       fmt::arg("has_logits_soft_cap", has_logits_soft_cap_));
     }
 
     // ====================== Problem Configuration ======================

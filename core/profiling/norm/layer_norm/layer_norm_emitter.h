@@ -6,9 +6,7 @@
 #include <vector>
 
 #include "core/profiling/norm/norm_library.h"
-#include "core/profiling/norm/layer_norm_problem.h"
 #include "core/profiling/norm/layer_norm/layer_norm_codegen.h"
-#include "core/utils/json_config.h"
 
 namespace flashck {
 

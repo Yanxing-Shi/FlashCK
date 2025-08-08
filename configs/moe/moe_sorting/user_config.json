@@ -1,6 +1,8 @@
 {
-  "internal_load_unroll": { "values": [1] },
-  "expert_tile": { "values": [0] },
+  "trait":{
+    "load_unroll": { "values": [1] },
+    "expert_tile": { "values": [0] }
+  },
   "launch": {
     "max_thread_per_block": { "values": [1024] },
     "min_block_per_cu": { "values": [1] }

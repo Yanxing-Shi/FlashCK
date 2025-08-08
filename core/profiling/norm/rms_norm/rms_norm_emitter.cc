@@ -150,10 +150,12 @@ std::vector<RmsNormCodeGen> RmsNormEmitter::CreateInstanceForConfig(
         [&]{ std::vector<int64_t> v; 
              for (auto x : config.tile_shape.n_vector.GetAllValues()) v.push_back(static_cast<int64_t>(x)); 
              return v; }(),
-        // PaddingConfig (convert bool to int64_t)
-        [&]{ std::vector<int64_t> v; for (auto x : config.padding.n.GetAllValues()) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
-        // PipelineConfig (convert bool to int64_t)
-        [&]{ std::vector<int64_t> v; for (auto x : config.pipeline.is_two_pass.GetAllValues()) v.emplace_back(static_cast<int64_t>(x)); return v; }()
+        // TraitConfig (convert bool to int64_t)
+        [&]{ std::vector<int64_t> v; for (auto x : config.trait.padding.n.GetAllValues()) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.trait.is_two_pass.GetAllValues()) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        // LaunchConfig
+        [&]{ std::vector<int64_t> v; for (auto x : config.launch.max_thread_per_block.GetAllValues()) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
+        [&]{ std::vector<int64_t> v; for (auto x : config.launch.min_block_per_cu.GetAllValues()) v.emplace_back(static_cast<int64_t>(x)); return v; }(),
     };
 
     CartesianProduct(all_param_lists, [&](const std::vector<int64_t>& vals) {
@@ -166,11 +168,13 @@ std::vector<RmsNormCodeGen> RmsNormEmitter::CreateInstanceForConfig(
         int64_t n_thread_per_block = vals[idx++];
         int64_t n_vector = vals[idx++];
         
-        // Padding
+        // Trait
         bool is_pad_n = static_cast<bool>(vals[idx++]);
-        
-        // Pipeline
         bool is_two_pass = static_cast<bool>(vals[idx++]);
+
+        // Launch
+        int64_t max_thread_per_block = vals[idx++];
+        int64_t min_block_per_cu = vals[idx++];
 
         // Construct RmsNormCodeGen for RMS Normalization
         RmsNormCodeGen instance;
@@ -178,7 +182,9 @@ std::vector<RmsNormCodeGen> RmsNormEmitter::CreateInstanceForConfig(
         instance.tile_desc_ = RmsNormTileDesc{m_repeat, n_repeat, m_thread_per_block, 
                                              n_thread_per_block, n_vector};
         instance.is_pad_n_ = is_pad_n;
-        instance.is_two_pass_ = is_two_pass;        
+        instance.is_two_pass_ = is_two_pass;   
+        instance.max_thread_per_block_ = max_thread_per_block;
+        instance.min_block_per_cu_ = min_block_per_cu;     
         result.push_back(instance);
     });
     
@@ -277,7 +283,7 @@ void RmsNormEmitter::GenerateInstances(RmsNormProblem& rms_norm_problem)
 
     // Validate and store instances
     num_instances_ = 0;
-    for (const auto& instance : final_instances) {
+    for (auto& instance : final_instances) {
         if (IsValidInstance(instance)) {
             instance_map_[instance.GetInstanceName()] = instance;
             ++num_instances_;

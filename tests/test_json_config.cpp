@@ -10,7 +10,7 @@ int main() {
     try {
         auto single_config = LoadDefaultConfigJson<FmhaFwdBatchPrefillConfig>("configs/attention/fmha_fwd_batch_prefill/default_config.json");
         std::cout << "Single config loaded successfully!" << std::endl;
-        std::cout << "Pipeline values count: " << single_config.pipeline.GetAllValues().size() << std::endl;
+        std::cout << "Pipeline values count: " << single_config.strategy.pipeline.GetAllValues().size() << std::endl;
         std::cout << "Block tile m0 values count: " << single_config.tile_shape.block_tile.m0.GetAllValues().size() << std::endl;
     } catch (const std::exception& e) {
         std::cout << "Error loading single config: " << e.what() << std::endl;
@@ -29,15 +29,15 @@ int main() {
             std::cout << "  - Block tile m0: " << config.tile_shape.block_tile.m0.GetAllValues()[0] << std::endl;
             std::cout << "  - Block tile n0: " << config.tile_shape.block_tile.n0.GetAllValues()[0] << std::endl;
             std::cout << "  - Block tile k0: " << config.tile_shape.block_tile.k0.GetAllValues()[0] << std::endl;
-            std::cout << "  - Padding s: " << (config.padding.s.GetAllValues()[0] ? "true" : "false") << std::endl;
-            std::cout << "  - Pipeline: " << config.pipeline.GetAllValues()[0] << std::endl;
+            std::cout << "  - Padding s: " << (config.trait.padding.s.GetAllValues()[0] ? "true" : "false") << std::endl;
+            std::cout << "  - Pipeline: " << config.strategy.pipeline.GetAllValues()[0] << std::endl;
             
             // Verify each config has exactly one value for each parameter
             assert(config.tile_shape.block_tile.m0.GetAllValues().size() == 1);
             assert(config.tile_shape.block_tile.n0.GetAllValues().size() == 1);
             assert(config.tile_shape.block_tile.k0.GetAllValues().size() == 1);
-            assert(config.padding.s.GetAllValues().size() == 1);
-            assert(config.pipeline.GetAllValues().size() == 1);
+            assert(config.trait.padding.s.GetAllValues().size() == 1);
+            assert(config.strategy.pipeline.GetAllValues().size() == 1);
         }
         
         std::cout << "All backup configs validated - each has exactly one value per parameter!" << std::endl;

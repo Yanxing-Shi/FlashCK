@@ -1,7 +1,7 @@
 #pragma once
 
 #include "core/profiling/moe/moe_library.h"
-#include "core/profiling/moe/moe_problem.h"
+#include "core/profiling/moe/topk_softmax/topk_softmax_problem.h"
 
 #include "core/utils/common.h"
 
@@ -22,18 +22,18 @@ public:
     std::string Emit();
 
     // ====================== Operation Configuration ======================
-    MoeProblem problem_;
+    TopKSoftmaxProblem problem_;
 
-    int issues_per_col_;
-    int bytes_per_issue_;
-
-    int launch_type_;
-
+    // ====================== Trait Configuration ======================
+    int64_t issues_per_col_;
+    int64_t bytes_per_issue_;
+    int64_t launch_type_;
     int64_t block_size_;
-
-    int min_block_per_cu_;
-
     int64_t expert_tile_;
+
+    // ====================== Launch Configuration ======================
+    int64_t max_thread_per_block_;
+    int64_t min_block_per_cu_;
 
 };
 

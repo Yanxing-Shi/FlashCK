@@ -1,13 +1,13 @@
 #pragma once
 
 #include "core/profiling/moe/moe_library.h"
-#include "core/profiling/moe/moe_sorting/moe_sorting_problem.h"
+#include "core/profiling/moe/moe_sorting_ex/moe_sorting_ex_problem.h"
 
 #include "core/utils/common.h"
 
 namespace flashck {
 
-class MoeSortingCodeGen {
+class MoeSortingExCodeGen {
 public:
     /**
      * @brief Generate a unique instance name for this configuration
@@ -22,9 +22,14 @@ public:
     std::string Emit();
 
     // ====================== Operation Configuration ======================
-    MoeSortingProblem problem_;
+    MoeSortingExProblem problem_;
 
-    int64_t load_unroll_;
+    // ====================== Trait Configuration ======================
+    int64_t sub_token_tile_;
+    bool sub_token_one_shot_;
+    bool local_token_expert_masking_;
+    bool local_token_;
+    bool skip_expert_with_zero_token_;
     int64_t expert_tile_;
 
     // ====================== Launch Configuration ======================

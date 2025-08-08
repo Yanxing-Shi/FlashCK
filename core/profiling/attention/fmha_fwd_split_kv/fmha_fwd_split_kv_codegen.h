@@ -4,7 +4,7 @@
 #include <string>
 
 #include "core/profiling/attention/fmha_library.h"
-#include "core/profiling/attention/fmha_problem.h"
+#include "core/profiling/attention/fmha_fwd_split_kv/fmha_fwd_split_kv_problem.h"
 
 namespace flashck {
 
@@ -99,25 +99,24 @@ public:
 
     FmhaFwdSplitKVTileDesc tile_desc_;  ///< Tile configuration for this FMHA SplitKV operation
 
-    // ====================== Padding Configuration ======================
+    // ====================== Trait Configuration ======================
 
     bool is_pad_q_seq_len_    = false;  ///< Enable padding for query sequence length
     bool is_pad_kv_seq_len_   = false;  ///< Enable padding for key-value sequence length
     bool is_pad_qk_head_dim_  = false;  ///< Enable padding for query-key head dimension
     bool is_pad_v_head_dim_   = false;  ///< Enable padding for value head dimension
 
-    // ====================== Performance Configuration ======================
-
-    int min_block_per_cu_ = -1;  ///< Override occupancy if not -1 (blocks per compute unit)
-
-    // ====================== Pipeline Configuration ======================
-
-    BlockFmhaPipelineEnum pipeline_ = BlockFmhaPipelineEnum::QRKSVS;  ///< FMHA pipeline implementation variant
-
-    int64_t num_splits_;
-
     bool has_uneven_splits_;
     bool merge_groups_num_head_q_seq_len_;
+
+    // ====================== Strategy Configuration ======================
+    BlockFmhaPipelineEnum pipeline_ = BlockFmhaPipelineEnum::QRKSVS;  ///< FMHA pipeline implementation variant
+    int64_t num_splits_;
+
+
+    // ====================== Launch Configuration ======================
+    int64_t max_thread_per_block_;
+    int64_t min_block_per_cu_ = -1;  ///< Override occupancy if not -1 (blocks per compute unit)
 
 };
 

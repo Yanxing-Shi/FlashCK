@@ -6,12 +6,12 @@
 #include <vector>
 
 #include "core/profiling/moe/moe_library.h"
-#include "core/profiling/moe/moe_sorting/moe_sorting_codegen.h"
+#include "core/profiling/moe/moe_sorting_ex/moe_sorting_ex_codegen.h"
 
 namespace flashck {
 
 /**
- * @class MoeSortingEmitter
+ * @class MoeSortingExEmitter
  * @brief Manages MoE sorting code generation and optimization
  *
  * This class provides comprehensive functionality for MoE sorting operations:
@@ -28,27 +28,27 @@ namespace flashck {
  * 
  * Usage Patterns:
  * ```cpp
- * auto* emitter = MoeSortingEmitter::GetInstance();
+ * auto* emitter = MoeSortingExEmitter::GetInstance();
  * emitter->GenerateInstances(problem);  // Generates all valid instances
  * auto instances = emitter->HeuristicFilter(all_instances, problem);  // Optional filtering
  * ```
  */
-class MoeSortingEmitter {
+class MoeSortingExEmitter {
 public:
-    MoeSortingEmitter()  = default;
-    ~MoeSortingEmitter() = default;
+    MoeSortingExEmitter()  = default;
+    ~MoeSortingExEmitter() = default;
 
     // Delete copy constructor and assignment operator to maintain singleton pattern
-    MoeSortingEmitter(const MoeSortingEmitter&)            = delete;
-    MoeSortingEmitter& operator=(const MoeSortingEmitter&) = delete;
+    MoeSortingExEmitter(const MoeSortingExEmitter&)            = delete;
+    MoeSortingExEmitter& operator=(const MoeSortingExEmitter&) = delete;
 
     /**
-     * @brief Get singleton instance of MoeSortingEmitter
+     * @brief Get singleton instance of MoeSortingExEmitter
      * @return Pointer to the singleton instance
      */
-    static MoeSortingEmitter* GetInstance()
+    static MoeSortingExEmitter* GetInstance()
     {
-        static MoeSortingEmitter instance;
+        static MoeSortingExEmitter instance;
         return &instance;
     }
 
@@ -63,20 +63,20 @@ public:
      * - Thread block size limitations
      * - Expert tile size compatibility with problem dimensions
      */
-    bool IsValidInstance(const MoeSortingCodeGen& instance);
+    bool IsValidInstance(const MoeSortingExCodeGen& instance);
 
     /**
      * @brief Creates kernel instances from configuration
      * @param config Configuration with parameter ranges or single values
-     * @param moe_sorting_problem Problem specification
+     * @param moe_sorting_ex_problem Problem specification
      * @return Vector of generated kernel instances
      */
-    std::vector<MoeSortingCodeGen> CreateInstanceForConfig(const MoeSortingConfig& config, const MoeSortingProblem& moe_sorting_problem);
+    std::vector<MoeSortingExCodeGen> CreateInstanceForConfig(const MoeSortingExConfig& config, const MoeSortingExProblem& moe_sorting_ex_problem);
 
     /**
      * @brief Apply intelligent filtering to reduce search space
      * @param instances All generated instances to filter
-     * @param moe_sorting_problem Problem specification for context-aware filtering
+     * @param moe_sorting_ex_problem Problem specification for context-aware filtering
      * @return Filtered subset of instances with better performance characteristics
      * 
      * Heuristic Strategy:
@@ -85,12 +85,12 @@ public:
      * - Balances sorting throughput and memory bandwidth
      * - Prefers configurations that minimize expert imbalance
      */
-    std::vector<MoeSortingCodeGen> HeuristicFilter(const std::vector<MoeSortingCodeGen>& instances, 
-                                                  const MoeSortingProblem& moe_sorting_problem);
+    std::vector<MoeSortingExCodeGen> HeuristicFilter(const std::vector<MoeSortingExCodeGen>& instances, 
+                                                  const MoeSortingExProblem& moe_sorting_ex_problem);
 
     /**
      * @brief Main instance generation entry point supporting multiple configuration sources
-     * @param moe_sorting_problem The MoE sorting problem configuration to solve
+     * @param moe_sorting_ex_problem The MoE sorting problem configuration to solve
      * 
      * Execution Strategy (controlled by FC_TUNING_MODE):
      * - Mode 0 (Heuristic): Apply filtering → select optimal subset → random sampling for fast execution
@@ -102,7 +102,7 @@ public:
      * - Default configs: Parameter ranges for exploration and tuning
      * - User configs: Custom parameter ranges for specific use cases
      */
-    void GenerateInstances(MoeSortingProblem& moe_sorting_problem);
+    void GenerateInstances(MoeSortingExProblem& moe_sorting_ex_problem);
 
     /**
      * @brief Gets the total number of generated instances across all configurations
@@ -115,12 +115,12 @@ public:
 
     /**
      * @brief Get profiling instance map for the given MoE sorting kind
-     * @param moe_sorting_problem The MoE sorting problem configuration
+     * @param moe_sorting_ex_problem The MoE sorting problem configuration
      * @return Reference to the instance map for the specific operation kind
      */
-    std::map<std::string, MoeSortingCodeGen>& GetInstanceMap(MoeSortingProblem moe_sorting_problem)
+    std::map<std::string, MoeSortingExCodeGen>& GetInstanceMap(MoeSortingExProblem moe_sorting_ex_problem)
     {
-        GenerateInstances(moe_sorting_problem);
+        GenerateInstances(moe_sorting_ex_problem);
         return instance_map_;
     }
 
@@ -131,7 +131,7 @@ public:
 
 private:
     // Instance storage organized by MoE operation type
-    std::map<std::string, MoeSortingCodeGen> instance_map_;
+    std::map<std::string, MoeSortingExCodeGen> instance_map_;
     
     // Performance tracking
     int64_t num_instances_ = 0;

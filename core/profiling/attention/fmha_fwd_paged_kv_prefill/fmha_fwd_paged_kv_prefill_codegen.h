@@ -5,7 +5,7 @@
 #include <vector>
 
 #include "core/profiling/attention/fmha_library.h"
-#include "core/profiling/attention/fmha_problem.h"
+#include "core/profiling/attention/fmha_fwd_paged_kv_prefill/fmha_fwd_paged_kv_prefill_problem.h"
 
 namespace flashck {
 
@@ -75,12 +75,6 @@ public:
     FmhaFwdPagedKVPrefillCodeGen() = default;
 
     /**
-     * @brief Generate padding configuration name
-     * @return String identifier for padding configuration
-     */
-    std::string GetPaddingConfigName();
-
-    /**
      * @brief Generate a unique instance name for this configuration
      * @return String identifier combining operation type and parameters
      */
@@ -95,25 +89,26 @@ public:
     FmhaFwdPagedKVPrefillProblem problem_; 
 
     // ====================== Tiling Configuration ======================
+    FmhaFwdPagedKVPrefillTileDesc tile_desc_;
 
-    FmhaFwdPagedKVPrefillTileDesc tile_desc_;  ///< Tile configuration for this FMHA operation
+    // ====================== Trait Configuration ======================
+    /// Enable padding for query sequence length dimension
+    bool is_pad_q_seq_len_    = false;
+    /// Enable padding for key-value sequence length dimension  
+    bool is_pad_kv_seq_len_   = false;
+    /// Enable padding for query-key head dimension
+    bool is_pad_qk_head_dim_  = false;
+    /// Enable padding for value head dimension
+    bool is_pad_v_head_dim_   = false;
 
-    // ====================== Padding Configuration ======================
+    bool is_skip_min_q_seq_len_;
 
-    bool is_pad_q_seq_len_    = false;  ///< Enable padding for query sequence length
-    bool is_pad_kv_seq_len_   = false;  ///< Enable padding for key-value sequence length
-    bool is_pad_qk_head_dim_  = false;  ///< Enable padding for query-key head dimension
-    bool is_pad_v_head_dim_   = false;  ///< Enable padding for value head dimension
+    // ====================== Strategy Configuration ======================
+    BlockFmhaPipelineEnum pipeline_ = BlockFmhaPipelineEnum::QRKSVS;
 
-    // ====================== Performance Configuration ======================
-
-    int min_block_per_cu_ = -1;  ///< Override occupancy if not -1 (blocks per compute unit)
-    
-    // ====================== Pipeline Configuration ======================
-
-    BlockFmhaPipelineEnum pipeline_ = BlockFmhaPipelineEnum::QRKSVS;  ///< FMHA pipeline implementation variant
-
-    bool is_skip_min_q_seqlen_;
+    // ====================== Launch Configuration ======================
+    int64_t max_thread_per_block_;
+    int64_t min_block_per_cu_ = -1;
 
 };
 

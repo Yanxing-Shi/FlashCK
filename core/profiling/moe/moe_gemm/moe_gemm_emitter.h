@@ -8,8 +8,6 @@
 #include <array>
 
 #include "core/profiling/moe/moe_gemm/moe_gemm_codegen.h"
-#include "core/profiling/moe/moe_problem.h"
-#include "core/utils/json_config.h"
 
 namespace flashck {
 
@@ -17,13 +15,6 @@ namespace flashck {
 static const std::vector<std::tuple<int, int, int>> g_moe_gemm_allowed_warp_combinations = {
     {1, 4, 1}, {2, 2, 1}, {4, 1, 1},  // Stage 0: Token-to-Intermediate
     {1, 2, 1}, {2, 1, 1}, {1, 1, 1}   // Stage 1: Intermediate-to-Output (smaller due to expert routing)
-};
-
-// MoE-specific unsupported combinations: (activation, routing_method, expert_parallel_mode)
-const std::set<std::tuple<std::string, std::string, std::string>> g_moe_gemm_unsupported_combinations = {
-    {"silu", "hash_routing", "data_parallel"},        // Hash routing conflicts with SiLU
-    {"gelu", "capacity_routing", "expert_parallel"},  // Capacity routing incompatible with expert parallelism
-    {"relu", "topk_routing", "hybrid_parallel"}       // TopK routing with hybrid parallelism causes memory issues
 };
 
 // Architecture and data type specific warp tile combinations for MoE GEMM hardware optimization
@@ -50,38 +41,6 @@ static const std::map<std::string, std::map<std::string, std::vector<std::array<
     }}
 };
 
-/**
- * @class MoeGemmEmitter
- * @brief Manages MoE GEMM operation code generation and optimization
- *
- * This class provides comprehensive functionality for Mixture of Experts (MoE) GEMM operations:
- * - Supports three configuration types: backup (pre-validated), default (parameter ranges), user (custom)
- * - Implements three execution modes: heuristic (0), autotuning (1), hybrid (2)
- * - Generates optimized dual-stage MoE GEMM kernel instances with hierarchical tiling
- * - Provides intelligent filtering for expert routing and activation optimization
- * 
- * MoE Architecture Features:
- * - Dual-stage processing: Stage 0 (Token→Intermediate), Stage 1 (Intermediate→Output)
- * - Expert routing optimization with load balancing and sparse selection
- * - Multi-level tiling: Block-level → Warp-level → Thread-level optimization for both stages
- * - Activation function fusion (SwiGLU, GELU, ReLU) for memory efficiency
- * - Hardware-specific optimizations for different GPU architectures
- * - Expert parallelism strategies: Data parallel, Expert parallel, Hybrid parallel
- * 
- * Performance Optimizations:
- * - Intelligent expert load balancing to minimize workload imbalance
- * - Sparse expert selection with capacity factor optimization
- * - Memory access pattern optimization for expert weights
- * - Pipeline fusion between routing, computation, and activation stages
- * - Comprehensive validation and constraint checking for dual-stage tiling
- * 
- * Usage Example:
- * ```cpp
- * auto* emitter = MoeGemmEmitter::GetInstance();
- * emitter->GenerateInstances(moe_problem);  // Generate all valid MoE instances
- * auto instances = emitter->HeuristicFilter(all_instances, moe_problem);  // Expert routing optimization
- * ```
- */
 class MoeGemmEmitter {
 public:
     MoeGemmEmitter()  = default;
@@ -104,7 +63,7 @@ public:
     /**
      * @brief Validates dual-stage MoE GEMM tile configuration against problem constraints and hardware limitations
      * @param tile_desc Dual-stage tile descriptor containing block/warp/thread-level parameters for both stages
-     * @param moe_problem MoE problem specification including matrix dimensions, expert count, and data types
+     * @param moe_gemm_problem MoE problem specification including matrix dimensions, expert count, and data types
      * @return true if tile configuration is valid for dual-stage MoE processing, false otherwise
      * 
      * Validation includes:
@@ -115,12 +74,12 @@ public:
      * - Load balancing constraints across experts
      * - Inter-stage memory bandwidth requirements
      */
-    bool IsValidTile(const MoeGemmTileDesc& tile_desc, const MoeProblem& moe_problem) const;
+    bool IsValidTile(const MoeGemmTileDesc& tile_desc, const MoeGemmProblem& moe_gemm_problem);
 
     /**
      * @brief Apply intelligent filtering to reduce MoE search space with expert routing optimization
      * @param instances All generated MoE instances to filter
-     * @param moe_problem MoE problem specification for context-aware filtering
+     * @param moe_gemm_problem MoE problem specification for context-aware filtering
      * @return Filtered subset of instances with better performance characteristics and expert load balancing
      * 
      * MoE Heuristic Strategy:
@@ -132,7 +91,7 @@ public:
      * - Evaluates expert parallelism efficiency
      */
     std::vector<MoeGemmCodeGen> HeuristicFilter(const std::vector<MoeGemmCodeGen>& instances, 
-                                               const MoeProblem& moe_problem);
+                                               const MoeGemmProblem& moe_gemm_problem);
 
     /**
      * @brief Validates MoE-specific combination of activation, routing, and parallelism
@@ -154,18 +113,18 @@ public:
     /**
      * @brief Creates MoE kernel instances from configuration
      * @param config Configuration with parameter ranges or single values for MoE
-     * @param moe_problem MoE problem specification
+     * @param moe_gemm_problem MoE problem specification
      * @return Vector of generated MoE kernel instances
      */
     std::vector<MoeGemmCodeGen> CreateInstanceForConfig(const flashck::MoeGemmConfig& config, 
-                                                       const MoeProblem& moe_problem);
+                                                       const MoeGemmProblem& moe_gemm_problem);
 
     /**
      * @brief Generates MoE GEMM operation instances based on the problem specification
-     * @param moe_problem The MoE GEMM problem configuration
+     * @param moe_gemm_problem The MoE GEMM problem configuration
      * @return Map of generated MoE operations organized by kind and config name
      */
-    void GenerateInstances(MoeProblem& moe_problem);
+    void GenerateInstances(MoeGemmProblem& moe_gemm_problem);
 
     /**
      * @brief Gets the total number of generated MoE instances
@@ -175,12 +134,12 @@ public:
 
     /**
      * @brief Get profiling instance map for the given MoE kind
-     * @param moe_problem MoE problem specification
+     * @param moe_gemm_problem MoE problem specification
      * @return Reference to instance map for the specified MoE kind
      */
-    std::map<std::string, MoeGemmCodeGen>& GetInstanceMap(MoeProblem moe_problem)
+    std::map<std::string, MoeGemmCodeGen>& GetInstanceMap(MoeGemmProblem moe_gemm_problem)
     {
-        GenerateInstances(moe_problem);
+        GenerateInstances(moe_gemm_problem);
         return instance_map_;
     }
 
@@ -193,26 +152,18 @@ private:
     /**
      * @brief Validates expert routing efficiency for given configuration
      * @param tile_desc Tile configuration to validate
-     * @param moe_problem MoE problem with expert routing requirements
+     * @param moe_gemm_problem MoE problem with expert routing requirements
      * @return true if routing pattern is efficient
      */
-    bool IsValidExpertRouting(const MoeGemmTileDesc& tile_desc, const MoeProblem& moe_problem) const;
-
-    /**
-     * @brief Validates load balancing constraints across experts
-     * @param tile_desc Tile configuration to validate
-     * @param moe_problem MoE problem with load balancing requirements
-     * @return true if load balancing is optimal
-     */
-    bool IsValidLoadBalancing(const MoeGemmTileDesc& tile_desc, const MoeProblem& moe_problem) const;
+    bool IsValidExpertRouting(const MoeGemmTileDesc& tile_desc, const MoeGemmProblem& moe_gemm_problem);
 
     /**
      * @brief Validates inter-stage memory bandwidth requirements
      * @param tile_desc Dual-stage tile configuration
-     * @param moe_problem MoE problem specification
+     * @param moe_gemm_problem MoE problem specification
      * @return true if bandwidth requirements are satisfied
      */
-    bool IsValidInterStageBandwidth(const MoeGemmTileDesc& tile_desc, const MoeProblem& moe_problem) const;
+    bool IsValidInterStageBandwidth(const MoeGemmTileDesc& tile_desc, const MoeGemmProblem& moe_gemm_problem);
 
     std::map<std::string, MoeGemmCodeGen> instance_map_;
     int64_t num_instances_ = 0;

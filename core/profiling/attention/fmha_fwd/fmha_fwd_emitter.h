@@ -7,9 +7,7 @@
 #include <vector>
 
 #include "core/profiling/attention/fmha_library.h"
-#include "core/profiling/attention/fmha_fwd_problem.h"
 #include "core/profiling/attention/fmha_fwd/fmha_fwd_codegen.h"
-#include "core/utils/json_config.h"
 
 namespace flashck {
 

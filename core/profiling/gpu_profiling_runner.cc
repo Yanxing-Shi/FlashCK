@@ -79,15 +79,12 @@ void Postprocesser::PostProcessResults()
                     << " running items with best instance: " << best_instance_data.instance_name_;
         }
 
-        // Cache optimal instances for normalization operations
-        if (best_instance_data.code_gen_kind_ == CodeGenKind::Norm) {
-            try {
-                ProfilingEngine::GetInstance()->GetProfilingDB()->Insert(best_instance_data);
-                VLOG(1) << "Cached optimal normalization instance: " << best_instance_data.instance_name_;
-            }
-            catch (const std::exception& e) {
-                FC_THROW(Unavailable("Cache update failed for {}", e.what()));
-            }
+        try {
+            ProfilingEngine::GetInstance()->GetProfilingDB()->Insert(best_instance_data);
+            VLOG(1) << "Cached optimal normalization instance: " << best_instance_data.instance_name_;
+        }
+        catch (const std::exception& e) {
+            FC_THROW(Unavailable("Cache update failed for {}", e.what()));
         }
     }
 

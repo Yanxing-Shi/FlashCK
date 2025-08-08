@@ -35,7 +35,7 @@ bool TopKSoftmaxEmitter::IsValidInstance(const TopKSoftmaxCodeGen& instance)
 
 std::vector<TopKSoftmaxCodeGen> TopKSoftmaxEmitter::HeuristicFilter(
     const std::vector<TopKSoftmaxCodeGen>& instances,
-    const MoeProblem& moe_problem)
+    const TopKSoftmaxProblem& topk_softmax_problem)
 {
     if (instances.empty()) {
         return {};
@@ -87,7 +87,7 @@ std::vector<TopKSoftmaxCodeGen> TopKSoftmaxEmitter::HeuristicFilter(
 }
 
 std::vector<TopKSoftmaxCodeGen> TopKSoftmaxEmitter::CreateInstanceForConfig(
-    const TopKSoftmaxConfig& config, const MoeProblem& moe_problem) 
+    const TopKSoftmaxConfig& config, const TopKSoftmaxProblem& topk_softmax_problem) 
 {
     std::vector<TopKSoftmaxCodeGen> result;
 
@@ -95,17 +95,20 @@ std::vector<TopKSoftmaxCodeGen> TopKSoftmaxEmitter::CreateInstanceForConfig(
     std::vector<std::vector<int64_t>> all_param_lists = {
         // Memory access configuration
         [&]{ std::vector<int64_t> v; 
-             for (auto x : config.issues_per_col.GetAllValues()) v.push_back(static_cast<int64_t>(x)); 
+             for (auto x : config.trait.issues_per_col.GetAllValues()) v.push_back(static_cast<int64_t>(x)); 
              return v; }(),
         [&]{ std::vector<int64_t> v; 
-             for (auto x : config.bytes_per_issue.GetAllValues()) v.push_back(static_cast<int64_t>(x)); 
+             for (auto x : config.trait.launch_type.GetAllValues()) v.push_back(static_cast<int64_t>(x)); 
+             return v; }(),
+        [&]{ std::vector<int64_t> v; 
+             for (auto x : config.trait.bytes_per_issue.GetAllValues()) v.push_back(static_cast<int64_t>(x)); 
+             return v; }(),
+        [&]{ std::vector<int64_t> v; 
+             for (auto x : config.trait.block_size.GetAllValues()) v.push_back(static_cast<int64_t>(x)); 
              return v; }(),
         // Launch configuration
         [&]{ std::vector<int64_t> v; 
-             for (auto x : config.launch_type.GetAllValues()) v.push_back(static_cast<int64_t>(x)); 
-             return v; }(),
-        [&]{ std::vector<int64_t> v; 
-             for (auto x : config.block_size.GetAllValues()) v.push_back(static_cast<int64_t>(x)); 
+             for (auto x : config.launch.max_thread_per_block.GetAllValues()) v.push_back(static_cast<int64_t>(x)); 
              return v; }(),
         [&]{ std::vector<int64_t> v; 
              for (auto x : config.launch.min_block_per_cu.GetAllValues()) v.push_back(static_cast<int64_t>(x)); 
@@ -115,22 +118,24 @@ std::vector<TopKSoftmaxCodeGen> TopKSoftmaxEmitter::CreateInstanceForConfig(
     CartesianProduct(all_param_lists, [&](const std::vector<int64_t>& vals) {
         size_t idx = 0;
         
-        // Memory access configuration
-        int issues_per_col = static_cast<int>(vals[idx++]);
-        int bytes_per_issue = static_cast<int>(vals[idx++]);
+        // Trait configuration
+        int64_t issues_per_col = static_cast<int64_t>(vals[idx++]);
+        int64_t launch_type = static_cast<int64_t>(vals[idx++]);
+        int64_t bytes_per_issue = static_cast<int64_t>(vals[idx++]);
+        int64_t block_size = static_cast<int64_t>(vals[idx++]);
         
         // Launch configuration
-        int launch_type = static_cast<int>(vals[idx++]);
-        int64_t block_size = vals[idx++];
-        int min_block_per_cu = static_cast<int>(vals[idx++]);
+        int64_t max_thread_per_block = static_cast<int64_t>(vals[idx++]);
+        int64_t min_block_per_cu = static_cast<int64_t>(vals[idx++]);
 
         // Construct TopKSoftmaxCodeGen
         TopKSoftmaxCodeGen instance;
-        instance.problem_ = moe_problem;
+        instance.problem_ = topk_softmax_problem;
         instance.issues_per_col_ = issues_per_col;
-        instance.bytes_per_issue_ = bytes_per_issue;
         instance.launch_type_ = launch_type;
+        instance.bytes_per_issue_ = bytes_per_issue;
         instance.block_size_ = block_size;
+        instance.max_thread_per_block_ = max_thread_per_block;
         instance.min_block_per_cu_ = min_block_per_cu;
         
         result.push_back(instance);
@@ -139,7 +144,7 @@ std::vector<TopKSoftmaxCodeGen> TopKSoftmaxEmitter::CreateInstanceForConfig(
     return result;
 }
 
-void TopKSoftmaxEmitter::GenerateInstances(MoeProblem& moe_problem)
+void TopKSoftmaxEmitter::GenerateInstances(TopKSoftmaxProblem& topk_softmax_problem)
 {
     // Validate tuning mode
     FC_ENFORCE_EQ(FLAGS_FC_TUNING_MODE >= 0 && FLAGS_FC_TUNING_MODE <= 2, true,
@@ -149,7 +154,7 @@ void TopKSoftmaxEmitter::GenerateInstances(MoeProblem& moe_problem)
     std::vector<TopKSoftmaxCodeGen> all_instances;
 
     // Configuration loading based on enabled flags
-    auto base_json_path = std::filesystem::path(FLAGS_FC_CONFIG_JSON_PATH) / "topk_softmax";
+    auto base_json_path = std::filesystem::path(FLAGS_FC_CONFIG_JSON_PATH) / "moe" / "topk_softmax";
 
     // Load backup configurations (pre-validated single configs)
     if (FLAGS_FC_ENABLE_BACKUP_JSON) {
@@ -158,7 +163,7 @@ void TopKSoftmaxEmitter::GenerateInstances(MoeProblem& moe_problem)
             if (std::filesystem::exists(backup_path)) {
                 auto backup_configs = LoadConfigJson<std::vector<TopKSoftmaxConfig>>(backup_path);
                 for (const auto& config : backup_configs) {
-                    auto backup_instances = CreateInstanceForConfig(config, moe_problem);
+                    auto backup_instances = CreateInstanceForConfig(config, topk_softmax_problem);
                     all_instances.insert(all_instances.end(), backup_instances.begin(), backup_instances.end());
                 }
                 VLOG(2) << "Loaded " << backup_configs.size() << " TopK Softmax backup configurations";
@@ -174,7 +179,7 @@ void TopKSoftmaxEmitter::GenerateInstances(MoeProblem& moe_problem)
             std::filesystem::path default_path = base_json_path / "default_config.json";
             if (std::filesystem::exists(default_path)) {
                 auto default_config = LoadConfigJson<TopKSoftmaxConfig>(default_path);
-                auto default_instances = CreateInstanceForConfig(default_config, moe_problem);
+                auto default_instances = CreateInstanceForConfig(default_config, topk_softmax_problem);
                 all_instances.insert(all_instances.end(), default_instances.begin(), default_instances.end());
                 VLOG(2) << "Loaded TopK Softmax default configuration with " << default_instances.size() << " instances";
             }
@@ -189,7 +194,7 @@ void TopKSoftmaxEmitter::GenerateInstances(MoeProblem& moe_problem)
             std::filesystem::path user_path = base_json_path / "user_config.json";
             if (std::filesystem::exists(user_path)) {
                 auto user_config = LoadConfigJson<TopKSoftmaxConfig>(user_path);
-                auto user_instances = CreateInstanceForConfig(user_config, moe_problem);
+                auto user_instances = CreateInstanceForConfig(user_config, topk_softmax_problem);
                 all_instances.insert(all_instances.end(), user_instances.begin(), user_instances.end());
                 VLOG(2) << "Loaded TopK Softmax user configuration with " << user_instances.size() << " instances";
             }
@@ -203,7 +208,7 @@ void TopKSoftmaxEmitter::GenerateInstances(MoeProblem& moe_problem)
     
     switch (FLAGS_FC_TUNING_MODE) {
         case 0: {  // Heuristic mode: filter + random selection for fast execution
-            auto filtered_instances = HeuristicFilter(all_instances, moe_problem);
+            auto filtered_instances = HeuristicFilter(all_instances, topk_softmax_problem);
             if (!filtered_instances.empty()) {
                 // Randomly select one optimal configuration for fast execution
                 std::random_device rd;
@@ -221,7 +226,7 @@ void TopKSoftmaxEmitter::GenerateInstances(MoeProblem& moe_problem)
             break;
         }
         case 2: {  // Hybrid mode: heuristic filtering + broader search
-            auto filtered_instances = HeuristicFilter(all_instances, moe_problem);
+            auto filtered_instances = HeuristicFilter(all_instances, topk_softmax_problem);
             final_instances = filtered_instances.empty() ? all_instances : filtered_instances;
             VLOG(1) << "TopK Softmax hybrid mode: using " << final_instances.size() 
                     << " instances (filtered from " << all_instances.size() << ")";
@@ -231,7 +236,7 @@ void TopKSoftmaxEmitter::GenerateInstances(MoeProblem& moe_problem)
 
     // Validate and store instances
     num_instances_ = 0;
-    for (const auto& instance : final_instances) {
+    for (auto& instance : final_instances) {
         if (IsValidInstance(instance)) {
             instance_map_[instance.GetInstanceName()] = instance;
             ++num_instances_;

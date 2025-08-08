@@ -6,9 +6,7 @@
 #include <vector>
 
 #include "core/profiling/moe/moe_library.h"
-#include "core/profiling/moe/moe_problem.h"
 #include "core/profiling/moe/topk_softmax/topk_softmax_codegen.h"
-#include "core/utils/json_config.h"
 
 namespace flashck {
 
@@ -40,9 +38,13 @@ public:
 
     bool IsValidInstance(const TopKSoftmaxCodeGen& instance);
 
-    std::vector<TopKSoftmaxCodeGen> CreateInstanceForConfig(const flashck::TopKSoftmaxConfig& config, const MoeProblem& moe_problem);
+    std::vector<TopKSoftmaxCodeGen> HeuristicFilter(
+                const std::vector<TopKSoftmaxCodeGen>& instances,
+                const TopKSoftmaxProblem& topk_softmax_problem);
 
-    void GenerateInstances(MoeProblem& moe_problem);
+    std::vector<TopKSoftmaxCodeGen> CreateInstanceForConfig(const TopKSoftmaxConfig& config, const TopKSoftmaxProblem& topk_softmax_problem);
+
+    void GenerateInstances(TopKSoftmaxProblem& topk_softmax_problem);
 
     /**
      * @brief Gets the total number of generated instances
@@ -51,9 +53,9 @@ public:
     int64_t GetNumInstances() const;
 
     // get profiling instance map for the given norm kind
-    std::map<std::string, TopKSoftmaxCodeGen>& GetInstanceMap(MoeProblem moe_problem)
+    std::map<std::string, TopKSoftmaxCodeGen>& GetInstanceMap(TopKSoftmaxProblem topk_softmax_problem)
     {
-        GenerateInstances(moe_problem);
+        GenerateInstances(topk_softmax_problem);
         return instance_map_;
     }
 
