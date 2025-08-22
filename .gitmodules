@@ -2,3 +2,24 @@
 	path = 3rdparty/composable_kernel
 	url = https://github.com/Yanxing-Shi/composable_kernel.git
 	branch = develop
+[submodule "3rdparty/gflags"]
+	path = 3rdparty/gflags
+	url = https://github.com/gflags/gflags.git
+[submodule "3rdparty/glog"]
+	path = 3rdparty/glog
+	url = https://github.com/google/glog.git
+[submodule "3rdparty/Jinja2Cpp"]
+	path = 3rdparty/Jinja2Cpp
+	url = https://github.com/jinja2cpp/Jinja2Cpp.git
+[submodule "3rdparty/googletest"]
+	path = 3rdparty/googletest
+	url = https://github.com/google/googletest.git
+[submodule "3rdparty/json"]
+	path = 3rdparty/json
+	url = https://github.com/nlohmann/json.git
+[submodule "3rdparty/nanobind"]
+	path = 3rdparty/nanobind
+	url = https://github.com/wjakob/nanobind.git
+[submodule "3rdparty/cxxopts"]
+	path = 3rdparty/cxxopts
+	url = https://github.com/jarro2783/cxxopts.git
