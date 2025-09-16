@@ -52,17 +52,6 @@ inline std::string DataLayoutToString(DataLayout layout)
     }
 }
 
-// struct OpTypeCount {
-//     OpTypeCount()
-//     {
-//         fp16_count_ = 0;
-//         fp32_count_ = 0;
-//     }
-
-//     int fp16_count_ = 0;
-//     int fp32_count_ = 0;
-// };
-
 /**
  * @brief Unique key for kernel identification and lookup
  *

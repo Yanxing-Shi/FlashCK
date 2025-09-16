@@ -9,18 +9,18 @@ namespace flashck {
 
 bool SetFlagValue(const char* name, const char* value)
 {
-    return !gflags::SetCommandLineOption(name, value).empty();
+    return !google::SetCommandLineOption(name, value).empty();
 }
 
 bool FindFlag(const char* name)
 {
     std::string dummy;
-    return gflags::GetCommandLineOption(name, &dummy);
+    return google::GetCommandLineOption(name, &dummy);
 }
 
 bool GetFlagValue(const char* name, std::string& value)
 {
-    return gflags::GetCommandLineOption(name, &value);
+    return google::GetCommandLineOption(name, &value);
 }
 
 void PrintAllFlags(bool writable_only)

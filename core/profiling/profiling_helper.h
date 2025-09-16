@@ -9,16 +9,7 @@
 
 #include "core/utils/common.h"
 
-#include "core/profiling/gemm/gemm_problem.h"
-
-#include "core/profiling/moe/moe_gemm/moe_gemm_problem.h"
-#include "core/profiling/moe/moe_smooth_quant/moe_smooth_quant_problem.h"
-#include "core/profiling/moe/moe_sorting/moe_sorting_problem.h"
-#include "core/profiling/moe/moe_sorting_ex/moe_sorting_ex_problem.h"
-#include "core/profiling/moe/topk_softmax/topk_softmax_problem.h"
-
 #include "core/profiling/attention/fmha_fwd/fmha_fwd_problem.h"
-#include "core/profiling/attention/fmha_fwd_append_kv/fmha_fwd_append_kv_problem.h"
 #include "core/profiling/attention/fmha_fwd_batch_prefill/fmha_fwd_batch_prefill_problem.h"
 #include "core/profiling/attention/fmha_fwd_paged_kv_prefill/fmha_fwd_paged_kv_prefill_problem.h"
 #include "core/profiling/attention/fmha_fwd_split_kv/fmha_fwd_split_kv_problem.h"
@@ -44,14 +35,7 @@ namespace flashck {
 
 using problem_t = std::variant<LayerNormProblem,
                               RmsNormProblem,
-                              GemmProblem, 
-                              MoeGemmProblem,
-                              MoeSmoothQuantProblem,
-                              MoeSortingProblem,
-                              MoeSortingExProblem,
-                              TopKSoftmaxProblem,
                               FmhaFwdProblem,
-                              FmhaFwdAppendKVProblem,
                               FmhaFwdBatchPrefillProblem,
                               FmhaFwdPagedKVPrefillProblem,
                               FmhaFwdSplitKVProblem,
@@ -126,46 +110,6 @@ inline std::string CodeGenKindToString(CodeGenKind kind)
             throw std::invalid_argument("Unsupported CodeGenKind");
     }
 }
-
-/**
- * @enum InitMethod
- * @brief Data initialization methods for kernel input/output tensors
- *
- * Defines various initialization strategies for tensor data used in
- * profiling and testing. Different methods are suitable for different
- * types of kernels and validation requirements.
- */
-enum class InitMethod {
-    UniformRandomInt          = 0,  ///< Uniform random integers for discrete data
-    NormalizedRandomInt       = 1,  ///< Normalized random integers with controlled distribution
-    UniformRandomFloat        = 2,  ///< Uniform random floating-point values
-    NormalizedRandomFloat     = 3,  ///< Normalized random floats with controlled variance
-    TrigFloat                 = 4,  ///< Trigonometric patterns for numerical stability testing
-    UniformFloat8Quantization = 5,  ///< Quantized float8 values for low-precision testing
-};
-
-struct InitMethodInfo {
-    InitMethod method_;
-    std::string tag_;
-};
-
-/**
- * @brief Mapping of initialization methods to short string identifiers
- *
- * Provides concise string representations for initialization methods,
- * useful for logging, configuration, and result identification.
- */
-static const std::unordered_map<DataType, InitMethodInfo> g_init_method_short_names_map = {
-    {DataType::FLOAT8, {InitMethod::UniformFloat8Quantization, {"uf8q", "ck_tile::FillUniformFloat8Quantization"}}},
-    {DataType::FLOAT32, {InitMethod::UniformRandomFloat, {"urf", "ck_tile::FillUniformDistribution"}}},
-    {DataType::INT32, {InitMethod::UniformRandomInt, {"uri", "Uniform random integers for discrete data"}},
-    
-    {InitMethod::NormalizedRandomInt, {"nri", "Normalized random integers with controlled distribution"}},
-    {InitMethod::UniformRandomFloat, {"urf", "ck_tile::FillUniformDistribution"}},
-    {InitMethod::NormalizedRandomFloat, {"nrf", "ck_tile::FillNormalizedDistribution"}},
-    {InitMethod::TrigFloat, {"tf", "ck_tile::FillTrigDistribution"}},
-    {InitMethod::UniformFloat8Quantization, {"uf8q", "ck_tile::FillUniformFloat8Quantization"}},
-};
 
 /**
  * @class Environment

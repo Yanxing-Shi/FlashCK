@@ -11,15 +11,8 @@
 #include "core/module/kernels/attention_kernels/fmha_fwd_split_kv/fmha_fwd_split_kv_call.h"
 #include "core/module/kernels/attention_kernels/fmha_fwd_split_kv_combine/fmha_fwd_split_kv_combine_call.h"
 
-#include "core/module/kernels/gemm_kernels/gemm/gemm_call.h"
-#include "core/module/kernels/gemm_kernels/gemm_multi_d/gemm_multi_d_call.h"
-#include "core/module/kernels/gemm_kernels/flatmm/flatmm_call.h"
-#include "core/module/kernels/gemm_kernels/batch_gemm/batch_gemm_call.h"
-#include "core/module/kernels/gemm_kernels/group_gemm/group_gemm_call.h"
-
-
 #include "core/profiling/norm/norm_codegen.h"
-#include "core/profiling/gemm/gemm_codegen.h"
+
 #include "core/profiling/attention/fmha_fwd/fmha_fwd_codegen.h"
 #include "core/profiling/attention/fmha_fwd_append_kv/fmha_fwd_append_kv_codegen.h"
 #include "core/profiling/attention/fmha_fwd_split_kv/fmha_fwd_split_kv_codegen.h"
@@ -50,7 +43,7 @@ public:
     using fmha_fwd_split_kv_combine_codegen_map_t = std::map<std::string, FmhaFwdSplitKVCombineCodeGen>;
 
     /// @brief Type alias for instance map variants
-    using instance_map_t = std::variant<norm_codegen_map_t, legacy_gemm_codegen_map_t, tile_gemm_codegen_map_t, fmha_fwd_codegen_map_t, fmha_fwd_append_kv_codegen_map_t, fmha_fwd_split_kv_codegen_map_t, fmha_fwd_split_kv_combine_codegen_map_t>;
+    using instance_map_t = std::variant<norm_codegen_map_t, fmha_fwd_codegen_map_t, fmha_fwd_append_kv_codegen_map_t, fmha_fwd_split_kv_codegen_map_t, fmha_fwd_split_kv_combine_codegen_map_t>;
 
     Kernel()          = default;
     virtual ~Kernel() = default;

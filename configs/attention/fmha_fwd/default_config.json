@@ -135,17 +135,19 @@
     "pipeline": {
       "values": [
         "qr_ks_vs",
+        "qr_ks_vs_whole_k_prefetch",
+        "qs_ks_vs",
         "qr_ks_vs_async",
         "qr_ks_vs_async_trload",
         "v3",
-        "qr_nwarp_sshuffle",
+        "qr_nwarp_sshuffle"
       ]
     }
   },
   "launch": {
     "max_thread_per_block": {
       "values": [
-        1024
+        512
       ]
     },
     "min_block_per_cu": {

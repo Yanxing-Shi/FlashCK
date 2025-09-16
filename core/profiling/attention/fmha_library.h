@@ -256,7 +256,6 @@ enum class BlockFmhaPipelineEnum : int {
     QR_NWARP_SSHUFFLE = 3,  ///< N-warp shuffle QR pipeline
     QSKSVS            = 4,  ///< QS-KS-VS pipeline
     V3                = 5,  ///< V3 pipeline
-    
     COUNT                   ///< Used for validation
 };
 

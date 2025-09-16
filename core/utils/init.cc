@@ -47,7 +47,7 @@ void InitGflags(int argc, char** argv, bool remove_flags)
     std::call_once(g_gflags_init_flag, [argc, argv, remove_flags]() mutable {
         try {
             // Parse command-line flags
-            gflags::ParseCommandLineFlags(&argc, &argv, remove_flags);
+            google::ParseCommandLineFlags(&argc, &argv, remove_flags);
         }
         catch (const std::exception& e) {
             // Handle flag parsing errors gracefully
