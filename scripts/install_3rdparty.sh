@@ -33,8 +33,7 @@ if [ ! -f /usr/local/lib/libjinja2cpp.so ]; then
   cd 3rdparty/Jinja2Cpp
   mkdir -p build && cd build
   cmake -DJINJA2CPP_BUILD_SHARED=TRUE ..
-  make -j$(nproc)
-  sudo make install
+  cmake --build . --config Release --target install
   cd ../../..
 else
   echo "Jinja2Cpp already installed, skipping."

@@ -1,5 +1,7 @@
 #include "core/module/kernels/norm_kernels/rms_norm_kernel.h"
 
+FC_DECLARE_int32(FC_TUNING_SEED);                ///< Random seed for tuning
+
 namespace flashck {
 
 /// @brief Generate tuning code for RMSNorm kernel
@@ -9,12 +11,13 @@ RMSNormKernel::CodeGenForTuning(const std::string&    model_name,
                                 const instance_map_t& instance_map,
                                 const std::string&    folder_name)
 {
-    // Static template configuration for RMSNorm tuning
-    static const std::vector<std::string> templates = {g_rms_norm_dtype_config_utils_tpl,
+    std::string tensor_decl = TemplateLoadAndRender(g_rms_norm_tensor_decl_tpl, {{"seed", seed}});
+
+    const std::vector<std::string> templates = {g_rms_norm_dtype_config_utils_tpl,
                                                        g_rms_norm_dtype_decl_tpl,
                                                        g_rms_norm_func_signature_tpl,
                                                        g_rms_norm_make_args_tpl,
-                                                       g_rms_norm_tensor_decl_tpl,
+                                                       tensor_decl,
                                                        g_rms_norm_func_call_tpl};
 
     return CommonCodeGenForTuning(model_name, kind_name, instance_map, templates, folder_name);
@@ -42,7 +45,7 @@ void RMSNormKernel::KernelLauncher(const std::string& kernel_func_name, const Ke
     const auto& kernel_args = std::get<RmsNormKernelArgs>(args);
 
     // Load kernel function symbol dynamically
-    decltype(&RMSNorm) kernel_func = nullptr;
+    decltype(&RmsNormKernel) kernel_func = nullptr;
     LOAD_SYMBOL(kernel_func, kernel_func_name);
 
     // Execute kernel with all RMSNorm arguments (no bias compared to LayerNorm)

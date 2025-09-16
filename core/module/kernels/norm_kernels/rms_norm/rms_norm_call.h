@@ -53,7 +53,7 @@ struct RmsNormKernelArgs {
  * @param yr_stride Output residual tensor row stride
  * @param stream HIP stream for kernel execution
  */
-void RMSNorm(void* /*x_ptr*/,
+void RmsNormKernel(void* /*x_ptr*/,
              void* /*x_residual_ptr*/,
              void* /*smooth_scale_ptr*/,
              void* /*gamma_ptr*/,

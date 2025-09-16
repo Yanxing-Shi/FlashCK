@@ -102,7 +102,7 @@ std::vector<std::string> Compiler::GetCompilerOptions()
     // Base compiler options for GPU kernel compilation
     std::vector<std::string> opts = {
         "-" + ToString(FLAGS_FC_COMPILER_OPT_LEVEL),  // Optimization level (O0, O1, O2, O3)
-        "-std=c++17",                                 // C++17 standard
+        "-std=c++20",                                 // C++20 standard
         "-fno-gpu-rdc",                               // Disable GPU relocatable device code
         "-fPIC",                                      // Position independent code
         "-fvisibility=hidden",                        // Hidden symbol visibility by default

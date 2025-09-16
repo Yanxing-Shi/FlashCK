@@ -1,17 +1,39 @@
 {
   "tile_shape": {
     "block_tile": {
-      "n1": { "values": [32] }
+      "n1": {
+        "values": [
+          32
+        ]
+      }
     }
   },
   "trait": {
     "padding": {
-      "s": { "values": [true, false] },
-      "dv": { "values": [true, false] }
+      "s": {
+        "values": [
+          true,
+          false
+        ]
+      },
+      "dv": {
+        "values": [
+          true,
+          false
+        ]
+      }
     }
   },
   "launch": {
-    "max_thread_per_block": { "values": [1024] },
-    "min_block_per_cu": { "values": [1] }
+    "max_thread_per_block": {
+      "values": [
+        1024
+      ]
+    },
+    "min_block_per_cu": {
+      "values": [
+        1
+      ]
+    }
   }
 }

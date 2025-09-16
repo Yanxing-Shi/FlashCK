@@ -66,6 +66,26 @@ RUN git clone https://github.com/nlohmann/json.git -b v3.12.0 && \
     make install && \
     cd /tmp && rm -rf json
 
+# nanobind
+WORKDIR /tmp
+RUN git clone --recursive https://github.com/wjakob/nanobind.git -b v2.8.0 && \
+    cd nanobind && \
+    mkdir build && cd build && \
+    cmake -DNB_TEST_SHARED_BUILD=ON -DCMAKE_INSTALL_PREFIX=/usr/local .. && \
+    make -j$(nproc) && \
+    make install && \
+    cd /tmp && rm -rf nanobind
+
+# cxxopts
+WORKDIR /tmp
+RUN git clone https://github.com/jarro2783/cxxopts.git -b v3.3.1 && \
+    cd cxxopts && \
+    mkdir build && cd build && \
+    cmake -DCMAKE_INSTALL_PREFIX=/usr/local .. && \
+    make -j$(nproc) && \
+    make install && \
+    cd /tmp && rm -rf cxxopts
+
 CMD ["/bin/bash"]
 
 

@@ -252,9 +252,12 @@ static const std::unordered_map<RopeEnum, RopeInfo> g_rope_enum_map = {
 enum class BlockFmhaPipelineEnum : int {
     QRKSVS            = 0,  ///< QR-KS-VS pipeline
     QRKSVS_ASYNC      = 1,  ///< Asynchronous QR-KS-VS pipeline
-    QR_NWARP_SSHUFFLE = 2,  ///< N-warp shuffle QR pipeline
-    QSKSVS            = 3,  ///< QS-KS-VS pipeline
-    COUNT                   // Used for validation
+    QRKSVS_ASYNC_TRLOAD = 2,  ///< Asynchronous QR-KS-VS pipeline with tr load
+    QR_NWARP_SSHUFFLE = 3,  ///< N-warp shuffle QR pipeline
+    QSKSVS            = 4,  ///< QS-KS-VS pipeline
+    V3                = 5,  ///< V3 pipeline
+    
+    COUNT                   ///< Used for validation
 };
 
 /**
@@ -273,6 +276,7 @@ struct PipelineInfo {
 static const std::unordered_map<BlockFmhaPipelineEnum, PipelineInfo> g_block_fmha_fwd_pipeline_map = {
     {BlockFmhaPipelineEnum::QRKSVS, {"qr_ks_vs", "ck_tile::BlockFmhaPipelineQRKSVS", "QR"}},
     {BlockFmhaPipelineEnum::QRKSVS_ASYNC, {"qr_ks_vs_async", "ck_tile::BlockFmhaPipelineQRKSVSAsync", "QRA"}},
+    {BlockFmhaPipelineEnum::QRKSVS_ASYNC_TRLOAD, {"qr_ks_vs_async_trload", "ck_tile::BlockFmhaPipelineQRKSVSAsyncTrLoad", "QRA"}},
 };
 
 /**

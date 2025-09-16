@@ -11,8 +11,6 @@ FC_DECLARE_int32(FC_TUNING_ROTATING_COUNT);      ///< Rotation count for measure
 
 namespace flashck {
 
-namespace tile{
-
 std::vector<std::tuple<std::filesystem::path, std::filesystem::path>>
 FmhaCommonKernel::GenFmhaCommonKernelProfiler(const std::string&    model_name,
                                               const std::string&    kind_name,
@@ -189,7 +187,5 @@ FmhaCommonKernel::CommonCodeGenForRunning(const std::string&                    
 
     return TEMPLATE_CHECK(g_tile_gemm_kernel_func_tpl, kernel_func_value_map);
 }
-
-} // namespace tile
 
 }  // namespace flashck

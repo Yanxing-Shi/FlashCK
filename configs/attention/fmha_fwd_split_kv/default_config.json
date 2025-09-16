@@ -1,56 +1,164 @@
 {
   "tile_shape": {
     "block_tile": {
-      "m0": { "values": [128] },
-      "n0": { "values": [64] },
-      "k0": { "values": [16] },
-      "n1": { "values": [32] },
-      "k1": { "values": [32] },
-      "k0_max": { "values": [32] }
+      "m0": {
+        "values": [
+          128
+        ]
+      },
+      "n0": {
+        "values": [
+          64
+        ]
+      },
+      "k0": {
+        "values": [
+          16
+        ]
+      },
+      "n1": {
+        "values": [
+          32
+        ]
+      },
+      "k1": {
+        "values": [
+          32
+        ]
+      },
+      "k0_max": {
+        "values": [
+          32
+        ]
+      }
     },
     "block_warps": {
-      "m0": { "values": [2] },
-      "n0": { "values": [1] },
-      "k0": { "values": [1] },
-      "m1": { "values": [2] },
-      "n1": { "values": [1] },
-      "k1": { "values": [1] }
+      "m0": {
+        "values": [
+          2
+        ]
+      },
+      "n0": {
+        "values": [
+          1
+        ]
+      },
+      "k0": {
+        "values": [
+          1
+        ]
+      },
+      "m1": {
+        "values": [
+          2
+        ]
+      },
+      "n1": {
+        "values": [
+          1
+        ]
+      },
+      "k1": {
+        "values": [
+          1
+        ]
+      }
     },
     "warp_tile": {
-      "m0": { "values": [16] },
-      "n0": { "values": [16] },
-      "k0": { "values": [16] },
-      "m1": { "values": [16] },
-      "n1": { "values": [16] },
-      "k1": { "values": [16] }
+      "m0": {
+        "values": [
+          16
+        ]
+      },
+      "n0": {
+        "values": [
+          16
+        ]
+      },
+      "k0": {
+        "values": [
+          16
+        ]
+      },
+      "m1": {
+        "values": [
+          16
+        ]
+      },
+      "n1": {
+        "values": [
+          16
+        ]
+      },
+      "k1": {
+        "values": [
+          16
+        ]
+      }
     }
   },
-  "trait":{
+  "trait": {
     "padding": {
-      "s": { "values": [true, false] },
-      "sk": { "values": [true, false] },
-      "d": { "values": [true, false] },
-      "dv": { "values": [true, false] }
+      "s": {
+        "values": [
+          true,
+          false
+        ]
+      },
+      "sk": {
+        "values": [
+          true,
+          false
+        ]
+      },
+      "d": {
+        "values": [
+          true,
+          false
+        ]
+      },
+      "dv": {
+        "values": [
+          true,
+          false
+        ]
+      }
     },
     "has_uneven_splits": {
-      "values": [true, false]
+      "values": [
+        true,
+        false
+      ]
     },
     "merge_groups_num_head_q_seq_len": {
-      "values": [true, false]
+      "values": [
+        true,
+        false
+      ]
     }
   },
   "strategy": {
     "pipeline": {
-      "values": ["QRKSVS"]
+      "values": [
+        "QRKSVS"
+      ]
     },
-    "num_splits":{
-      "max": 64,
+    "num_splits": {
+      "max": 8,
       "min": 1,
-      "step":1
+      "step": 1
     }
   },
   "launch": {
-    "max_thread_per_block": { "values": [1024] },
-    "min_block_per_cu": { "values": [1] }
+    "max_thread_per_block": {
+      "values": [
+        1024
+      ]
+    },
+    "min_block_per_cu": {
+      "values": [
+        1
+      ]
+    }
   }
 }

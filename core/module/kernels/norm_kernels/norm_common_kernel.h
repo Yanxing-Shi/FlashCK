@@ -26,7 +26,7 @@ public:
     CommonCodeGenForTuning(const std::string&    model_name,
                            const std::string&    kind_name,
                            const instance_map_t& instance_map,
-                           const NormTuningTpl&      tuning_tpl,
+                           const TuningTpl&      tuning_tpl,
                            const std::string&    folder_name = "kernel_profile");
 
     /// @brief Generate runtime code for normalization kernels
@@ -41,7 +41,7 @@ public:
                                         const std::string&                        model_name,
                                         const std::map<std::string, RunningItem>& running_infos,
                                         const instance_map_t&                     instance_map,
-                                        const NormRunningTpl&                         running_tpl,
+                                        const RunningTpl&                         running_tpl,
                                         const std::string&                        folder_name = "kernel_profile");
 };
 }  // namespace flashck

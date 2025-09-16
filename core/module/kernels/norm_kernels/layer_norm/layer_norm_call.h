@@ -55,7 +55,7 @@ struct LayerNormKernelArgs {
  * @param yr_stride Output residual tensor row stride
  * @param stream HIP stream for kernel execution
  */
-void LayerNorm(void* /*x_ptr*/,
+void LayerNormKernel(void* /*x_ptr*/,
                void* /*x_residual_ptr*/,
                void* /*smooth_scale_ptr*/,
                void* /*x_bias_ptr*/,

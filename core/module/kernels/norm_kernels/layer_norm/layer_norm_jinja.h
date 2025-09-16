@@ -210,15 +210,15 @@ static const std::string g_layer_norm_tensor_decl_tpl = R"(
     ck_tile::HostTensor<SmoothScaleDataType> sm_scale_host_dev({n});
 {% endif %}
 
-    ck_tile::FillUniformDistribution<XDataType>{-.5f, .5f}(x_host);
+    ck_tile::FillUniformDistribution<XDataType>{-.5f, .5f, {{seed}}}(x_host);
 {% if fused_add == "pre_add" or fused_add == "pre_add_store" %}
-    ck_tile::FillUniformDistribution<XResidualDataType>{-.5f, .5f}(x_residual_host);
+    ck_tile::FillUniformDistribution<XResidualDataType>{-.5f, .5f, {{seed}}}(x_residual_host);
 {% endif %}
 {% if fused_quant == "smooth_dynamic_quant" %}
-    ck_tile::FillUniformDistribution<SmoothScaleDataType>{-1.f, 1.f}(sm_scale_host_dev);
+    ck_tile::FillUniformDistribution<SmoothScaleDataType>{-1.f, 1.f, {{seed}}}(sm_scale_host_dev);
 {% endif %}
-    ck_tile::FillUniformDistribution<GammaDataType>{-.5f, .5f}(gamma_host);
-    ck_tile::FillUniformDistribution<BetaDataType>{-.5f, .5f}(beta_host);
+    ck_tile::FillUniformDistribution<GammaDataType>{-.5f, .5f, {{seed}}}(gamma_host);
+    ck_tile::FillUniformDistribution<BetaDataType>{-.5f, .5f, {{seed}}}(beta_host);
 
     ck_tile::DeviceMem x_buf(x_host.get_element_space_size_in_bytes());
 {% if is_add_bias  == "add_bias" %}

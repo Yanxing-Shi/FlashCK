@@ -29,12 +29,14 @@
 
 // Flag declarations for tuning configuration
 FC_DECLARE_int32(FC_TUNING_MODE);                ///< Tuning strategy mode (heuristic, autotuning, hybrid)
+
 FC_DECLARE_int32(FC_TUNING_NUM_COLD_ITERATION);  ///< Number of cold iterations for warmup
 FC_DECLARE_int32(FC_TUNING_NUM_REPEATS);         ///< Number of repeated measurements
 FC_DECLARE_bool(FC_TUNING_GPU_TIMER);            ///< Use GPU-based timing vs CPU timing
 FC_DECLARE_bool(FC_TUNING_LOG);                  ///< Enable detailed logging during tuning
 FC_DECLARE_bool(FC_TUNING_FLUSH_CACHE);          ///< Flush caches between measurements
 FC_DECLARE_int32(FC_TUNING_ROTATING_COUNT);      ///< Rotation count for measurement stability
+
 FC_DECLARE_string(FC_TUNING_INIT_METHOD);        ///< Initialization method for tuning
 FC_DECLARE_int32(FC_TUNING_SEED);                ///< Random seed for tuning
 
@@ -142,52 +144,28 @@ enum class InitMethod {
     UniformFloat8Quantization = 5,  ///< Quantized float8 values for low-precision testing
 };
 
+struct InitMethodInfo {
+    InitMethod method_;
+    std::string tag_;
+};
+
 /**
  * @brief Mapping of initialization methods to short string identifiers
  *
  * Provides concise string representations for initialization methods,
  * useful for logging, configuration, and result identification.
  */
-static const std::unordered_map<InitMethod, std::string> g_init_method_short_names_map = {
-    {InitMethod::UniformRandomInt, "uri"},
-    {InitMethod::NormalizedRandomInt, "nri"},
-    {InitMethod::UniformRandomFloat, "urf"},
-    {InitMethod::NormalizedRandomFloat, "nrf"},
-    {InitMethod::TrigFloat, "tf"},
-    {InitMethod::UniformFloat8Quantization, "uf8q"},
+static const std::unordered_map<DataType, InitMethodInfo> g_init_method_short_names_map = {
+    {DataType::FLOAT8, {InitMethod::UniformFloat8Quantization, {"uf8q", "ck_tile::FillUniformFloat8Quantization"}}},
+    {DataType::FLOAT32, {InitMethod::UniformRandomFloat, {"urf", "ck_tile::FillUniformDistribution"}}},
+    {DataType::INT32, {InitMethod::UniformRandomInt, {"uri", "Uniform random integers for discrete data"}},
+    
+    {InitMethod::NormalizedRandomInt, {"nri", "Normalized random integers with controlled distribution"}},
+    {InitMethod::UniformRandomFloat, {"urf", "ck_tile::FillUniformDistribution"}},
+    {InitMethod::NormalizedRandomFloat, {"nrf", "ck_tile::FillNormalizedDistribution"}},
+    {InitMethod::TrigFloat, {"tf", "ck_tile::FillTrigDistribution"}},
+    {InitMethod::UniformFloat8Quantization, {"uf8q", "ck_tile::FillUniformFloat8Quantization"}},
 };
-
-/**
- * @brief Convert short string to InitMethod enum value
- * @param short_name Short string identifier (e.g., "uri", "nri", ...)
- * @return Corresponding InitMethod enum value
- * @throws std::invalid_argument if the string is not recognized
- */
-inline InitMethod InitMethodFromString(const std::string& short_name)
-{
-    for (const auto& kv : g_init_method_short_names_map) {
-        if (kv.second == short_name) {
-            return kv.first;
-        }
-    }
-    throw std::invalid_argument("Unknown InitMethod short name: " + short_name);
-}
-
-/**
- * @brief Get short name for initialization method
- * @param method Initialization method enum value
- * @return Short string identifier, or "unknown" if not found
- *
- * Provides concise identifiers for initialization methods used in
- * configuration and logging contexts.
- */
-inline std::string GetInitMethodShortName(InitMethod method)
-{
-    auto it = g_init_method_short_names_map.find(method);
-    return (it != g_init_method_short_names_map.end()) ? it->second : "unknown";
-}
-
-
 
 /**
  * @class Environment
@@ -245,7 +223,6 @@ public:
         log_(FLAGS_FC_TUNING_LOG),
         flush_cache_(FLAGS_FC_TUNING_FLUSH_CACHE),
         rotating_count_(FLAGS_FC_TUNING_ROTATING_COUNT),
-        init_method_(InitMethodFromString(FLAGS_FC_TUNING_INIT_METHOD)),
         seed_(FLAGS_FC_TUNING_SEED)
     {
     }
@@ -269,7 +246,6 @@ public:
             << "   \"log\": " << (log_ ? "true" : "false") << ",\n"
             << "   \"flush_cache\": " << (flush_cache_ ? "true" : "false") << ",\n"
             << "   \"rotating_count\": " << rotating_count_ << ",\n"
-            << "   \"init_method\": " << GetInitMethodShortName(init_method_) << ",\n"
             << "   \"seed\": " << seed_ << "\n"
             << "}";
         return oss.str();
@@ -294,7 +270,6 @@ public:
     bool verify_ = false;  ///< Enable result verification (TODO: implementation needed)
 
     // Init
-    InitMethod init_method_;
     int seed_;
 };
 

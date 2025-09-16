@@ -1,5 +1,7 @@
 #include "core/module/kernels/norm_kernels/layer_norm_kernel.h"
 
+FC_DECLARE_int32(FC_TUNING_SEED);                ///< Random seed for tuning
+
 namespace flashck {
 
 std::vector<std::tuple<std::filesystem::path, std::filesystem::path>>
@@ -8,12 +10,13 @@ LayerNormKernel::CodeGenForTuning(const std::string&    model_name,
                                   const instance_map_t& instance_map,
                                   const std::string&    folder_name)
 {
-    // Static template configuration for LayerNorm tuning
-    static const std::vector<std::string> templates = {g_layer_norm_dtype_config_utils_tpl,
+    std::string tensor_decl = TemplateLoadAndRender(g_layer_norm_tensor_decl_tpl, {{"seed", seed}});
+
+    const std::vector<std::string> templates = {g_layer_norm_dtype_config_utils_tpl,
                                                        g_layer_norm_dtype_decl_tpl,
                                                        g_layer_norm_func_signature_tpl,
                                                        g_layer_norm_make_args_tpl,
-                                                       g_layer_norm_tensor_decl_tpl,
+                                                       tensor_decl,
                                                        g_layer_norm_func_call_tpl};
 
     return CommonCodeGenForTuning(model_name, kind_name, instance_map, templates, folder_name);
@@ -40,7 +43,7 @@ void LayerNormKernel::KernelLauncher(const std::string& kernel_func_name, const 
     const auto& kernel_args = std::get<LayerNormKernelArgs>(args);
 
     // Load kernel function symbol dynamically
-    decltype(&LayerNorm) kernel_func = nullptr;
+    decltype(&LayerNormKernel) kernel_func = nullptr;
     LOAD_SYMBOL(kernel_func, kernel_func_name);
 
     // Execute kernel with all LayerNorm arguments

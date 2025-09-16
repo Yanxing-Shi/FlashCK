@@ -2,6 +2,7 @@
 
 /// @brief Global configuration flags for tuning parameters
 FC_DECLARE_string(FC_HOME_PATH);                 ///< Base path for storing generated files
+
 FC_DECLARE_int32(FC_TUNING_NUM_COLD_ITERATION);  ///< Number of cold iterations for warmup
 FC_DECLARE_int32(FC_TUNING_NUM_REPEATS);         ///< Number of repeated measurements
 FC_DECLARE_bool(FC_TUNING_GPU_TIMER);            ///< Use GPU-based timing vs CPU timing

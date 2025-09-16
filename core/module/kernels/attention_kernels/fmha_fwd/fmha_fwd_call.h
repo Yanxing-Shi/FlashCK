@@ -33,7 +33,7 @@ struct FmhaFwdKernelArgs {
 
 };
 
-void FmhaFwd(void* /*q_buf_ptr*/,
+void FmhaFwdKernel(void* /*q_buf_ptr*/,
              void* /*k_buf_ptr*/,
              void* /*v_buf_ptr*/,
              void* /*bias_buf_ptr*/,

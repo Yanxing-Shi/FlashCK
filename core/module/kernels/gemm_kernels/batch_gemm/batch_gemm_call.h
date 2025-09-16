@@ -23,7 +23,7 @@ struct BatchGemmKernelArgs {
     int64_t b_batch_stride_;
     int64_t c_batch_stride_;
 
-    hipStream_t            stream_;
+    hipStream_t stream_;
 
 };
 
