@@ -15,9 +15,6 @@
 #include "core/profiling/attention/fmha_fwd_split_kv/fmha_fwd_split_kv_problem.h"
 #include "core/profiling/attention/fmha_fwd_split_kv_combine/fmha_fwd_split_kv_combine_problem.h"
 
-#include "core/profiling/norm/layer_norm/layer_norm_problem.h"
-#include "core/profiling/norm/rms_norm/rms_norm_problem.h"
-
 // Flag declarations for tuning configuration
 FC_DECLARE_int32(FC_TUNING_MODE);                ///< Tuning strategy mode (heuristic, autotuning, hybrid)
 
@@ -33,9 +30,7 @@ FC_DECLARE_int32(FC_TUNING_SEED);                ///< Random seed for tuning
 
 namespace flashck {
 
-using problem_t = std::variant<LayerNormProblem,
-                              RmsNormProblem,
-                              FmhaFwdProblem,
+using problem_t = std::variant<FmhaFwdProblem,
                               FmhaFwdBatchPrefillProblem,
                               FmhaFwdPagedKVPrefillProblem,
                               FmhaFwdSplitKVProblem,
