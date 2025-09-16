@@ -37,7 +37,6 @@ public:
         std::ostringstream oss;
         oss << "{";
         oss << "\"dtype\": \"" << DataTypeToString(dtype_) << "\",";
-        oss << "\"mode\": \"" << GetFmhaModeName(mode_) << "\",";
         oss << "\"is_static_quant\": " << (is_static_quant_ ? "true" : "false") << ",";
         oss << "\"batch_size\": " << batch_size_ << ",";
         oss << "\"q_seq_len\": " << q_seq_len_ << ",";
@@ -53,9 +52,8 @@ public:
     }
 
     std::string GetNameImpl(){
-        return Sprintf("{dtype}_{mode}_{is_static_quant}",
+        return Sprintf("{dtype}_{is_static_quant}",
                        fmt::arg("dtype", DataTypeToString(dtype_)),
-                       fmt::arg("mode", GetFmhaModeShortName(mode_)),
                        fmt::arg("is_static_quant", is_static_quant_));
     }
 
@@ -63,9 +61,6 @@ public:
 
     // Data type specification
     DataType dtype_;  ///< Primary data type for Q, K, V tensors
-
-    // Operation mode and type
-    FmhaMode mode_;  ///< Batch or Group mode for attention computation
 
     // Quantization configuration
     bool is_static_quant_;  ///< Whether to use static quantization

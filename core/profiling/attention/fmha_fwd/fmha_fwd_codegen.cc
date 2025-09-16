@@ -123,7 +123,7 @@ using {{name}}  =
         {"name", GetInstanceName()},
         {"idx", idx++},
         {"shape", tile_desc_.Emit()},
-        {"mode", problem_.mode_ == FmhaMode::Batch ? false : true},
+        {"mode", false},
         {"has_logits_soft_cap", problem_.has_logits_soft_cap_},
         {"is_pad_q_seq_len", is_pad_q_seq_len_},
         {"is_pad_kv_seq_len", is_pad_kv_seq_len_},

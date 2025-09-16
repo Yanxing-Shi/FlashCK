@@ -228,49 +228,5 @@ static const std::string g_fmha_fwd_splitkv_combine_tensor_decl_tpl = R"(
 )";
 
 const static std::string g_fmha_fwd_splitkv_combine_tensor_generate_tpl = R"(
-{% if init_method == "uri" %}
-{% if num_splits > 1 %}
-    ck_tile::FillUniformDistributionIntegerValue<LSEDataType>{-3.f, 3.f, {{seed}}}(lse_acc_host);
-{% endif %}
-    ck_tile::FillUniformDistributionIntegerValue<OaccDataType>{-3.f, 3.f, {{seed}}}(o_acc_host);
-
-{% elif init_method == "nri" %}
-{% if num_splits > 1 %}
-    ck_tile::FillNormalDistributionIntegerValue<LSEDataType>{-3.f, 3.f, {{seed}}}(lse_acc_host);
-{% endif %}
-    ck_tile::FillUniformDistributionIntegerValue<OaccDataType>{-3.f, 3.f, {{seed}}}(o_acc_host);
-
-{% elif init_method == "uf" %}
-{% if num_splits > 1 %}
-    ck_tile::FillUniformDistribution<LSEDataType>{0.f, 1.f, {{seed}}}(lse_acc_host);
-{% endif %}
-    ck_tile::FillUniformDistribution<OaccDataType>{0.f, 1.f, {{seed}}}(o_acc_host);
-
-{% elif init_method == "nf" %}
-{% if num_splits > 1 %}
-    ck_tile::FillNormalDistribution<LSEDataType>{0.f, 3.f, {{seed}}}(lse_acc_host);
-{% endif %}
-    ck_tile::FillNormalDistribution<OaccDataType>{0.f, 1.f, {{seed}}}(o_acc_host);
-
-{% elif init_method == "tf" %}
-{% if num_splits > 1 %}
-    ck_tile::FillTrigValue<LSEDataType>{}(lse_acc_host);
-{% endif %}
-    ck_tile::FillTrigValue<OaccDataType>{}(o_acc_host);
-
-{% elif init_method == "uf8q" %}
-{% if num_splits > 1 %}
-    ck_tile::FillUniformDistribution<LSEDataType>{-dtype_max, dtype_max, {{seed}}}(lse_acc_host);
-{% endif %}
-    ck_tile::FillUniformDistribution<OaccDataType>{-dtype_max, dtype_max, {{seed}}}(o_acc_host);
-
-{% endif %}
-
-
-{% if num_splits > 1 %}
-    ck_tile::DeviceMem lse_acc_buf(lse_acc_host.get_element_space_size_in_bytes());
-{% endif %}
-    ck_tile::DeviceMem o_acc_buf(o_acc_host.get_element_space_size_in_bytes());
-    ck_tile::DeviceMem o_buf(o_host.get_element_space_size_in_bytes());
 
 )";

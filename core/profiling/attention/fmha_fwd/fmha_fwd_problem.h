@@ -37,7 +37,6 @@ public:
         std::ostringstream oss;
         oss << "{";
         oss << "\"dtype\": \"" << DataTypeToString(dtype_) << "\",";
-        oss << "\"mode\": \"" << GetFmhaModeName(mode_) << "\",";
         oss << "\"mask_type\": \"" << GetAttentionMaskName(mask_type_) << "\",";
         oss << "\"window_size\": [" << window_size_[0] << ", " << window_size_[1] << "],";
         oss << "\"bias_enum\": \"" << GetBiasName(bias_enum_) << "\",";
@@ -57,9 +56,8 @@ public:
     }
 
     std::string GetNameImpl(){
-        return Sprintf("{dtype}_{mode}_{mask_type}_{bias_enum}_{is_static_quant}_{has_logits_soft_cap}",
+        return Sprintf("{dtype}_{mask_type}_{bias_enum}_{is_static_quant}_{has_logits_soft_cap}",
                        fmt::arg("dtype", DataTypeToString(dtype_)),
-                       fmt::arg("mode", GetFmhaModeShortName(mode_)),
                        fmt::arg("mask_type", GetAttentionMaskShortName(mask_type_)),
                        fmt::arg("bias_enum", GetBiasShortName(bias_enum_)),
                        fmt::arg("is_static_quant", is_static_quant_),
@@ -70,9 +68,6 @@ public:
 
     // Data type specification
     DataType dtype_;  ///< Primary data type for Q, K, V tensors
-
-    // Operation mode and type
-    FmhaMode mode_;  ///< Batch or Group mode for attention computation
 
     // Attention configuration
     GenericAttentionMaskEnum mask_type_;    ///< Type of attention mask applied

@@ -125,7 +125,7 @@ using {{name}}  =
         {"name", GetInstanceName()},
         {"idx", idx++},
         {"shape", tile_desc_.Emit()},
-        {"mode", problem_.mode_ == FmhaMode::Batch ? false : true},
+        {"mode", false},
         {"mask",
          problem_.mask_type_ == GenericAttentionMaskEnum::NO_MASK || (problem_.window_size_[0] == -1 && problem_.window_size_[1] == -1) ? false :
                                                                                                                true},

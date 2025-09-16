@@ -4,7 +4,6 @@
 
 namespace flashck{
 struct FmhaFwdSplitKVCombineKernelArgs {
-    
     void* lse_acc_ptr_;
     void* out_acc_ptr_;
     void* out_ptr_;

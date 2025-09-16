@@ -72,7 +72,7 @@ using {{name}} =
                                    {"idx", idx++},
                                    {"hdim", problem_.qk_head_dim_},
                                    {"n1_block", tile_desc_.n1_block_},
-                                   {"mode", problem_.mode_ == FmhaMode::Batch ? "false" : "true"},
+                                   {"mode", false},
                                    {"is_pad_q_seq_len", is_pad_q_seq_len_},
                                    {"is_pad_v_head_dim", is_pad_v_head_dim_},
                                    {"log_max_splits", get_log_max_splits_func(problem_.num_splits_)},

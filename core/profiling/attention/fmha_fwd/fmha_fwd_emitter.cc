@@ -54,15 +54,14 @@ bool FmhaFwdEmitter::IsValidTile(const FmhaFwdTileDesc& tile_desc, const FmhaFwd
     }
 
     // Validate against problem dimensions for Batch mode
-    if (fmha_fwd_problem.mode_ == FmhaMode::Batch) {
-        if (tile_desc.m0_block_ > fmha_fwd_problem.q_seq_len_ || 
-            tile_desc.n0_block_ > fmha_fwd_problem.kv_seq_len_ ||
-            tile_desc.n1_block_ > fmha_fwd_problem.v_head_dim_ || 
-            tile_desc.k0_max_block_ > fmha_fwd_problem.qk_head_dim_) {
-            VLOG(3) << "Invalid FMHA tile: dimensions exceed problem dimensions";
-            return false;
-        }
+    if (tile_desc.m0_block_ > fmha_fwd_problem.q_seq_len_ || 
+        tile_desc.n0_block_ > fmha_fwd_problem.kv_seq_len_ ||
+        tile_desc.n1_block_ > fmha_fwd_problem.v_head_dim_ || 
+        tile_desc.k0_max_block_ > fmha_fwd_problem.qk_head_dim_) {
+        VLOG(3) << "Invalid FMHA tile: dimensions exceed problem dimensions";
+        return false;
     }
+    
 
     return true;
 }

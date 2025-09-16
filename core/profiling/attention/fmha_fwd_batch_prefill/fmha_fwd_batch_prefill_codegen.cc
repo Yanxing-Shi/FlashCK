@@ -145,7 +145,7 @@ std::string FmhaFwdBatchPrefillCodeGen::Emit()
         {"name", GetInstanceName()},
         {"idx", idx++},
         {"shape", tile_desc_.Emit()},
-        {"mode", problem_.mode_ == FmhaMode::Batch ? false : true},
+        {"mode", false},
         {"is_pad_q_seq_len", is_pad_q_seq_len_},
         {"is_pad_kv_seq_len", is_pad_kv_seq_len_},
         {"is_pad_qk_head_dim", is_pad_qk_head_dim_},

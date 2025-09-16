@@ -11,33 +11,6 @@
 namespace flashck {
 
 /**
- * @enum FmhaMode
- * @brief Defines the modes of FMHA operations
- */
-enum class FmhaMode : int {
-    Batch = 0,  ///< Batch mode attention
-    Group = 1,  ///< Group mode attention
-    COUNT       // Used for iteration and validation
-};
-
-/**
- * @struct FmhaModeInfo
- * @brief Information about FMHA operation modes
- */
-struct FmhaModeInfo {
-    std::string name;        ///< Human-readable name
-    std::string short_name;  ///< Abbreviated name for config strings
-};
-
-/**
- * @brief Mapping from FMHA modes to their information
- */
-static const std::unordered_map<FmhaMode, FmhaModeInfo> g_fmha_mode_map = {
-    {FmhaMode::Batch, {"batch", "B"}},
-    {FmhaMode::Group, {"group", "G"}},
-};
-
-/**
  * @enum FmhaKind
  * @brief Defines the types of FMHA operations supported
  */
@@ -292,28 +265,6 @@ static const std::unordered_map<BlockFmhaPipelineEnum, PipelineInfo> g_block_fmh
 // ====================== Utility Functions ======================
 
 /**
- * @brief Gets the name string for an FMHA mode
- * @param mode The FMHA mode to query
- * @return The name string, or "unknown" if not found
- */
-inline std::string GetFmhaModeName(FmhaMode mode)
-{
-    auto it = g_fmha_mode_map.find(mode);
-    return it != g_fmha_mode_map.end() ? it->second.name : "unknown";
-}
-
-/**
- * @brief Gets the short name for an FMHA mode
- * @param mode The FMHA mode to query
- * @return The short name string, or "unknown" if not found
- */
-inline std::string GetFmhaModeShortName(FmhaMode mode)
-{
-    auto it = g_fmha_mode_map.find(mode);
-    return it != g_fmha_mode_map.end() ? it->second.short_name : "unknown";
-}
-
-/**
  * @brief Gets the name string for an FMHA kind
  * @param kind The FMHA kind to query
  * @return The name string, or "unknown" if not found
@@ -522,16 +473,6 @@ inline BlockFmhaPipelineEnum GetBlockFmhaPipelineEnumFromString(const std::strin
         }
     }
     return out_enum;
-}
-
-/**
- * @brief Validates if an FMHA mode is valid
- * @param mode The FMHA mode to validate
- * @return true if valid, false otherwise
- */
-inline bool IsValidFmhaMode(FmhaMode mode)
-{
-    return static_cast<int>(mode) >= 0 && static_cast<int>(mode) < static_cast<int>(FmhaMode::COUNT);
 }
 
 /**

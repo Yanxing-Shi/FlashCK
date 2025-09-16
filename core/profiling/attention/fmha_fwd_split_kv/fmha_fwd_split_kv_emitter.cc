@@ -54,15 +54,14 @@ bool FmhaFwdSplitKVEmitter::IsValidTile(const FmhaFwdSplitKVTileDesc& tile_desc,
     }
 
     // Validate against problem dimensions for Batch mode with split-KV considerations
-    if (fmha_fwd_split_kv_problem.mode_ == FmhaMode::Batch) {
-        if (tile_desc.m0_block_ > fmha_fwd_split_kv_problem.q_seq_len_ || 
-            tile_desc.n0_block_ > fmha_fwd_split_kv_problem.kv_seq_len_ ||
-            tile_desc.n1_block_ > fmha_fwd_split_kv_problem.v_head_dim_ || 
-            tile_desc.k0_max_block_ > fmha_fwd_split_kv_problem.qk_head_dim_) {
-            VLOG(3) << "Invalid FMHA split-KV tile: dimensions exceed problem dimensions";
-            return false;
-        }
+    if (tile_desc.m0_block_ > fmha_fwd_split_kv_problem.q_seq_len_ || 
+        tile_desc.n0_block_ > fmha_fwd_split_kv_problem.kv_seq_len_ ||
+        tile_desc.n1_block_ > fmha_fwd_split_kv_problem.v_head_dim_ || 
+        tile_desc.k0_max_block_ > fmha_fwd_split_kv_problem.qk_head_dim_) {
+        VLOG(3) << "Invalid FMHA split-KV tile: dimensions exceed problem dimensions";
+        return false;
     }
+    
 
     return true;
 }

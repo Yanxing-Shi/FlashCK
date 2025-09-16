@@ -33,8 +33,8 @@ FmhaFwdSplitKVCombineKernel::GenKernelProfiler(const std::string&               
     std::string       tensor_decl =
         TEMPLATE_CHECK(g_fmha_fwd_splitkv_combine_tensor_decl_tpl, tensor_decl_value_map);
 
-    jinja2::ValuesMap tensor_generate_value_map{{"init_method", "uf"}, {"num_splits", num_splits}, {"seed", 12456}};
-    std::string       tenosr_generate =
+    jinja2::ValuesMap tensor_generate_value_map{{"num_splits", num_splits}, {"seed", 12456}};
+    std::string       tensor_generate =
         TEMPLATE_CHECK(g_fmha_fwd_splitkv_combine_tensor_generate_tpl, tensor_generate_value_map);
 
     return CommonCodeGenForTuning(model_name,
