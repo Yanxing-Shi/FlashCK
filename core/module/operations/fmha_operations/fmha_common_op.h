@@ -82,7 +82,7 @@ public:
 
 private:
     // Configuration
-    NormKind       op_kind_     = NormKind::LayerNorm;       ///< Operation type
+    FmhaKind       op_kind_     = FmhaKind::Fwd;       ///< Operation type
     NormBiasEnum   is_add_bias_ = NormBiasEnum::NO_BIAS;     ///< Bias addition flag
     FusedAddEnum   fused_add_   = FusedAddEnum::NO_ADD;      ///< Residual addition flag
     FusedQuantEnum fused_quant_ = FusedQuantEnum::NO_SWEEP;  ///< Quantization flag

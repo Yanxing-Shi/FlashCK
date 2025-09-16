@@ -6,22 +6,14 @@ static const std::string g_fmha_exec_cond_tpl = R"(
     if ({{cond}}) {
         {{program}}
     } else {
-        std::cerr << "wrong! "<< "{{cond}}" << " does not support this Gemm instance." << std::endl;
+        std::cerr << "wrong! "<< "{{cond}}" << " does not support this fmha instance." << std::endl;
         return;
     }
 )";
 
 static const std::string g_fmha_macro_decl = R"(
 // Symbol visibility macros
-#ifdef __GNUC__
 #define FC_EXPORT __attribute__((__visibility__("default")))
-#else
-#ifdef _WIN32
-#define FC_EXPORT __declspec(dllexport)
-#else
-#define FC_EXPORT
-#endif
-#endif
 )";
 
 static const std::string g_fmha_dtype_decl_tpl = R"(

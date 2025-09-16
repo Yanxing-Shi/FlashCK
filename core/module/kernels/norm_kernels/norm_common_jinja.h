@@ -16,15 +16,7 @@ static const std::string g_norm_running_cond_tpl = R"(
 /// @brief Macro declarations for symbol visibility
 static const std::string g_norm_macro_decl = R"(
 // Symbol visibility macros
-#ifdef __GNUC__
 #define FC_EXPORT __attribute__((__visibility__("default")))
-#else
-#ifdef _WIN32
-#define FC_EXPORT __declspec(dllexport)
-#else
-#define FC_EXPORT
-#endif
-#endif
 )";
 
 /// @brief Template for creating argument parser
